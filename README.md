@@ -57,6 +57,19 @@ Sebelum memulai, pastikan Anda memiliki:
 2. Konfigurasi email templates jika diperlukan
 3. Setup email provider untuk production (SMTP)
 
+#### 1.4 Buat Akun Super Admin
+1. Jalankan script pembuatan super admin:
+   ```bash
+   node create-super-admin.js
+   ```
+2. Masukkan email dan password untuk akun admin
+3. Script akan otomatis membuat akun dengan role super_admin
+
+**Akun Super Admin Default:**
+- Email: `kakaramaroom@gmail.com`
+- Password: `KR@98Apartemen`
+- Role: super_admin (akses penuh ke semua fitur)
+
 ### 2. Setup Environment Variables
 
 #### 2.1 Untuk Development Local
@@ -124,6 +137,8 @@ VITE_SUPABASE_URL=https://hhyvvdumtmvlnzklsbed.supabase.co
 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_KSDv-uZ4vGOuLSN_Fmm0Mg_CuL6Goyv
 ```
 
+> **⚠️ Catatan**: Jika Vercel menanyakan untuk pull environment variables, pilih **"No"** dan set manual di dashboard.
+
 #### 4.4 Deploy
 1. Klik **"Deploy"**
 2. Tunggu proses build selesai (2-3 menit)
@@ -155,12 +170,26 @@ VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_KSDv-uZ4vGOuLSN_Fmm0Mg_CuL6
 ### Storage Buckets
 - `tagihan_proofs` - Menyimpan bukti pembayaran tagihan
 
+### Sistem User Roles
+- `super_admin` - Akses penuh ke semua fitur dan data
+- `admin` - Akses terbatas untuk management
+- `user` - Akses basic untuk input data
+
 ## 🔧 Troubleshooting
 
 ### Error: "Failed to run sql query"
 - Pastikan script SQL dijalankan di **SQL Editor** Supabase
 - Cek tidak ada syntax error di script
 - Pastikan project Supabase aktif
+
+### Error: "Could not find the table 'public.user_roles'"
+- Pastikan schema database terbaru sudah dijalankan
+- Jalankan ulang script `create-super-admin.js` setelah schema update
+
+### Error: "references Secret 'supabase-url', which does not exist"
+- Hapus bagian `"env"` dari `vercel.json` jika ada
+- Set environment variables langsung di Vercel dashboard
+- Jangan pilih "pull environment variables" saat deploy
 
 ### Error: "Environment variable not found"
 - Pastikan `.env` file ada di root directory

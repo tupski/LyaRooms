@@ -218,6 +218,38 @@ CREATE POLICY "Enable update for authenticated users" ON storage.objects
 CREATE POLICY "Enable delete for authenticated users" ON storage.objects
     FOR DELETE USING (bucket_id = 'tagihan_proofs' AND auth.role() = 'authenticated');
 
+-- Create admin users table
+CREATE TABLE IF NOT EXISTS public.user_roles (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(user_id)
+);
+
+-- Enable RLS for user_roles
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+-- Policies for user_roles
+CREATE POLICY "Users can view their own role" ON public.user_roles
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all roles" ON public.user_roles
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid() AND ur.role = 'super_admin'
+        )
+    );
+
+CREATE POLICY "Admins can manage roles" ON public.user_roles
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid() AND ur.role = 'super_admin'
+        )
+    );
+
 -- Insert sample data (optional - remove if not needed)
 INSERT INTO public.lokasi_apartemen (name) VALUES
     ('Apartemen A'),
