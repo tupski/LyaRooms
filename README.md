@@ -1,53 +1,228 @@
-# Aplikasi Manajemen Apartemen
+# 🏢 Aplikasi Manajemen Apartemen
 
-Aplikasi web untuk mengelola transaksi penyewaan apartemen, tagihan, dan request karyawan.
+Aplikasi web modern untuk mengelola transaksi penyewaan apartemen, tagihan bulanan, pengeluaran, dan request karyawan dengan integrasi Supabase dan deployment ke Vercel.
 
-## 🚀 Deployment ke Vercel
+## ✨ Fitur Utama
 
-### 1. Persiapan Supabase
+- ✅ **Manajemen Transaksi** - Input dan tracking transaksi penyewaan apartemen
+- ✅ **Sistem Tagihan** - Tagihan bulanan, fee marketing, dan upload bukti pembayaran
+- ✅ **Tracking Pengeluaran** - Monitoring pengeluaran dengan kategori dan tanggal
+- ✅ **Manajemen Kamar** - Status ketersediaan kamar per apartemen
+- ✅ **Request System** - Sistem permintaan karyawan (cuti, kasbon, dll.)
+- ✅ **Dashboard Analytics** - Laporan omset, ranking marketing, dan statistik
+- ✅ **Authentication** - Sistem login berbasis Supabase Auth
+- ✅ **File Upload** - Upload KTP dan bukti pembayaran ke Supabase Storage
 
-1. Buat akun di [Supabase](https://supabase.com)
-2. Buat project baru
-3. Jalankan script SQL di `supabase-schema.sql` di SQL Editor Supabase
-4. Pergi ke Settings > API untuk mendapatkan:
-   - Project URL
-   - Anon Key
+## 🛠️ Tech Stack
 
-### 2. Setup Vercel
+- **Frontend**: React 18 + Vite
+- **UI Framework**: Tailwind CSS + Radix UI Components
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Charts**: Recharts
+- **Deployment**: Vercel
+- **State Management**: React Context
 
-1. Fork/clone repository ini
-2. Buat akun di [Vercel](https://vercel.com)
-3. Connect repository ke Vercel
-4. Set environment variables di Vercel:
+## 📋 Prerequisites
+
+Sebelum memulai, pastikan Anda memiliki:
+
+- ✅ Node.js 18+ terinstall
+- ✅ Akun [Supabase](https://supabase.com)
+- ✅ Akun [Vercel](https://vercel.com) (untuk deployment)
+- ✅ Git terinstall
+
+## 🚀 Panduan Deployment Lengkap
+
+### 1. Setup Supabase Database
+
+#### 1.1 Buat Project Supabase
+1. Kunjungi [supabase.com](https://supabase.com) dan buat akun
+2. Klik **"New Project"**
+3. Isi detail project:
+   - **Name**: `apartment-management`
+   - **Database Password**: Buat password yang kuat
+   - **Region**: Pilih region terdekat (Asia Southeast - Singapore)
+4. Tunggu project selesai dibuat (2-3 menit)
+
+#### 1.2 Setup Database Schema
+1. Buka **SQL Editor** di Supabase Dashboard
+2. Copy dan paste seluruh isi file `supabase-schema.sql`
+3. Klik **"Run"** untuk menjalankan script
+4. Pastikan tidak ada error (semua tabel berhasil dibuat)
+
+#### 1.3 Konfigurasi Authentication (Opsional)
+1. Pergi ke **Authentication > Settings**
+2. Konfigurasi email templates jika diperlukan
+3. Setup email provider untuk production (SMTP)
+
+### 2. Setup Environment Variables
+
+#### 2.1 Untuk Development Local
+1. Copy file template environment:
+   ```bash
+   cp .env.example .env
    ```
-   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+2. Edit file `.env` dan isi dengan data Supabase:
+   ```env
+   VITE_SUPABASE_URL=https://hhyvvdumtmvlnzklsbed.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_KSDv-uZ4vGOuLSN_Fmm0Mg_CuL6Goyv
    ```
 
-### 3. Deploy
+#### 2.2 Mendapatkan Supabase Keys
+1. Buka **Settings > API** di Supabase Dashboard
+2. Copy **Project URL** untuk `VITE_SUPABASE_URL`
+3. Copy **anon/public key** untuk `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
 
-Vercel akan otomatis mendeteksi konfigurasi dari `vercel.json` dan melakukan build.
+### 3. Setup Development Environment
+
+#### 3.1 Clone dan Install Dependencies
+```bash
+# Clone repository
+git clone <your-repo-url>
+cd apartment-management
+
+# Install dependencies
+npm install
+```
+
+#### 3.2 Jalankan Development Server
+```bash
+npm run dev
+```
+
+Aplikasi akan berjalan di `http://localhost:3000`
+
+#### 3.3 Build untuk Production
+```bash
+npm run build
+```
+
+### 4. Deployment ke Vercel
+
+#### 4.1 Persiapan Repository
+1. Push kode ke Git repository (GitHub/GitLab)
+2. Pastikan file `.env` tidak di-commit (sudah ada di `.gitignore`)
+
+#### 4.2 Deploy via Vercel Dashboard
+1. Kunjungi [vercel.com](https://vercel.com) dan login
+2. Klik **"New Project"**
+3. Import repository dari Git
+4. Konfigurasi build settings:
+   - **Framework Preset**: `Vite`
+   - **Root Directory**: `./` (root)
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+
+#### 4.3 Setup Environment Variables di Vercel
+Di **Project Settings > Environment Variables**, tambahkan:
+
+```
+VITE_SUPABASE_URL=https://hhyvvdumtmvlnzklsbed.supabase.co
+VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_KSDv-uZ4vGOuLSN_Fmm0Mg_CuL6Goyv
+```
+
+#### 4.4 Deploy
+1. Klik **"Deploy"**
+2. Tunggu proses build selesai (2-3 menit)
+3. Aplikasi akan live di URL Vercel yang diberikan
+
+### 5. Post-Deployment Checklist
+
+- ✅ **Test Authentication**: Coba login/signup
+- ✅ **Test Database**: Tambah data transaksi/tagihan
+- ✅ **Test File Upload**: Upload KTP/bukti pembayaran
+- ✅ **Test Real-time**: Cek update data secara real-time
+- ✅ **Mobile Responsive**: Test di berbagai device
 
 ## 📁 Struktur Database
 
-### Tabel Utama:
-- `transactions` - Data transaksi penyewaan
-- `pengeluaran` - Data pengeluaran
-- `tagihan_bulanan` - Tagihan bulanan apartemen
-- `tagihan_fee_lunas` - Pembayaran fee marketing
-- `lokasi_apartemen` - Daftar lokasi apartemen
-- `nomor_kamar` - Daftar nomor kamar
-- `karyawan_list` - Daftar karyawan
-- `requests` - Request dari karyawan
+### Tabel Utama
 
-### Storage:
-- `tagihan_proofs` - Bucket untuk menyimpan bukti pembayaran
+| Tabel | Deskripsi |
+|-------|-----------|
+| `lokasi_apartemen` | Daftar lokasi apartemen |
+| `nomor_kamar` | Daftar kamar dengan status ketersediaan |
+| `karyawan_list` | Daftar karyawan |
+| `transactions` | Data transaksi penyewaan lengkap |
+| `pengeluaran` | Tracking pengeluaran dengan kategori |
+| `tagihan_bulanan` | Tagihan bulanan apartemen |
+| `tagihan_fee_lunas` | Pembayaran fee marketing |
+| `requests` | Sistem request karyawan |
 
-## 🔧 Development Setup
+### Storage Buckets
+- `tagihan_proofs` - Menyimpan bukti pembayaran tagihan
 
-1. Clone repository
-2. Copy `.env.example` ke `.env`
-3. Isi environment variables dengan data Supabase
+## 🔧 Troubleshooting
+
+### Error: "Failed to run sql query"
+- Pastikan script SQL dijalankan di **SQL Editor** Supabase
+- Cek tidak ada syntax error di script
+- Pastikan project Supabase aktif
+
+### Error: "Environment variable not found"
+- Pastikan `.env` file ada di root directory
+- Restart development server setelah menambah env variables
+- Di Vercel, pastikan env variables sudah di-set di dashboard
+
+### Error: "Build failed"
+```bash
+# Clear cache dan install ulang
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+### Database Connection Issues
+- Cek URL dan key Supabase sudah benar
+- Pastikan project Supabase tidak paused
+- Verify Row Level Security policies
+
+### File Upload Issues
+- Pastikan bucket `tagihan_proofs` sudah dibuat
+- Cek storage policies sudah benar
+- Verify file size tidak melebihi limit Supabase
+
+## 📊 Scripts Available
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+```
+
+## 🔒 Security Notes
+
+- ✅ **Environment Variables**: Jangan commit `.env` ke Git
+- ✅ **Supabase Keys**: Gunakan anon key, bukan service_role key
+- ✅ **Row Level Security**: Semua tabel sudah dilengkapi RLS policies
+- ✅ **Authentication**: Semua operasi database memerlukan auth
+
+## 🤝 Contributing
+
+1. Fork repository
+2. Buat feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push ke branch (`git push origin feature/AmazingFeature`)
+5. Buat Pull Request
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## 📞 Support
+
+Jika ada pertanyaan atau masalah:
+- Buat issue di repository ini
+- Cek dokumentasi Supabase untuk database issues
+- Review Vercel logs untuk deployment issues
+
+---
+
+**Happy Coding! 🚀**
 4. Install dependencies: `npm install`
 5. Run development server: `npm run dev`
 

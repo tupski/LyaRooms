@@ -1,9 +1,6 @@
 -- Supabase Schema untuk Aplikasi Manajemen Apartemen
 -- Jalankan script ini di Supabase SQL Editor
 
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
-
 -- Create tables
 CREATE TABLE IF NOT EXISTS public.lokasi_apartemen (
     id SERIAL PRIMARY KEY,
