@@ -1,0 +1,213 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, PlusCircle, ChevronDown, Check, X, History } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+
+const HalamanRequest = () => {
+    const { user } = useAuth();
+    const [requests, setRequests] = useState([]);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [newRequest, setNewRequest] = useState({
+        employee_name: '',
+        apartment_location: '',
+        request_type: '',
+        description: '',
+        amount: '',
+        desired_date: '',
+    });
+    const [lokasiOptions, setLokasiOptions] = useState([]);
+    const [karyawanOptions, setKaryawanOptions] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+
+    const requestTypes = [
+        'Request Perlengkapan Unit',
+        'Kebutuhan Unit',
+        'Request Kasbon',
+        'Request Cuti',
+    ];
+
+    const fetchOptions = async () => {
+        const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name');
+        if (lokasiData) setLokasiOptions(lokasiData.map(l => l.name));
+        const { data: karyawanData } = await supabase.from('karyawan_list').select('name');
+        if (karyawanData) setKaryawanOptions(karyawanData.map(k => k.name));
+    };
+
+    const loadRequests = useCallback(async () => {
+        const { data, error } = await supabase.from('requests').select('*').order('created_at', { ascending: false });
+        if (error) {
+            console.error("Error fetching requests:", error);
+        } else {
+            setRequests(data);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchOptions();
+        loadRequests();
+        const channel = supabase.channel('public:requests')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, loadRequests)
+          .subscribe();
+        return () => supabase.removeChannel(channel);
+    }, [loadRequests]);
+
+    const handleInputChange = (field, value) => {
+        setNewRequest(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSubmitRequest = async () => {
+        const { employee_name, apartment_location, request_type, description, desired_date, amount } = newRequest;
+        if (!employee_name || !apartment_location || !request_type || !desired_date) {
+            toast({ title: "Data tidak lengkap!", description: "Pastikan semua kolom yang wajib diisi telah terisi.", variant: "destructive" });
+            return;
+        }
+
+        const { error } = await supabase.from('requests').insert({
+            employee_name,
+            apartment_location,
+            request_type,
+            description,
+            desired_date,
+            amount: request_type === 'Request Kasbon' ? amount || null : null,
+            status: 'Pending',
+            user_id: user.id,
+        });
+
+        if (error) {
+            toast({ title: "Gagal mengirim request", description: error.message, variant: "destructive" });
+        } else {
+            toast({ title: "✅ Request berhasil dikirim!" });
+            setIsFormOpen(false);
+            setNewRequest({ employee_name: '', apartment_location: '', request_type: '', description: '', amount: '', desired_date: '' });
+            loadRequests();
+        }
+    };
+
+    const handleUpdateRequestStatus = async (id, status) => {
+        const { error } = await supabase.from('requests').update({ status }).eq('id', id);
+        
+        if (error) {
+            toast({ title: "Gagal update status", description: error.message, variant: "destructive" });
+        } else {
+            toast({ title: `Request ${status === 'Approved' ? 'disetujui' : 'ditolak'}!`, className: status === 'Approved' ? 'bg-green-500 text-white' : 'bg-red-500 text-white' });
+            loadRequests();
+        }
+    };
+
+    const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
+    const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const pendingRequests = requests.filter(r => r.status === 'Pending');
+    const handledRequests = requests.filter(r => r.status !== 'Pending');
+
+    const getStatusColor = (status) => {
+        if (status === 'Approved') return 'bg-green-100 text-green-800';
+        if (status === 'Rejected') return 'bg-red-100 text-red-800';
+        return 'bg-yellow-100 text-yellow-800';
+    };
+
+    return (
+        <div className="min-h-screen p-4 pt-6 pb-28">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto space-y-5">
+                <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-full shadow-lg">
+                        <Send className="w-6 h-6" />
+                        <h1 className="text-xl font-bold">Halaman Request</h1>
+                    </div>
+                </div>
+
+                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                    <DialogTrigger asChild>
+                        <Button className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-6 text-base rounded-2xl shadow-lg">
+                            <PlusCircle className="mr-2 h-5 w-5" /> Buat Request Baru
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-white">
+                        <DialogHeader><DialogTitle>Form Request Karyawan</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                            <select value={newRequest.request_type} onChange={(e) => handleInputChange('request_type', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
+                                <option value="">Pilih Jenis Request</option>
+                                {requestTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                            </select>
+                            <select value={newRequest.employee_name} onChange={(e) => handleInputChange('employee_name', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
+                                <option value="">Pilih Karyawan</option>
+                                {karyawanOptions.map((k, i) => <option key={i} value={k}>{k}</option>)}
+                            </select>
+                             <select value={newRequest.apartment_location} onChange={(e) => handleInputChange('apartment_location', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
+                                <option value="">Pilih Lokasi</option>
+                                {lokasiOptions.map((lok, i) => <option key={i} value={lok}>{lok}</option>)}
+                            </select>
+                            <AnimatePresence>
+                                {newRequest.request_type === 'Request Kasbon' && (
+                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                                        <input type="number" placeholder="Nominal Kasbon (Rp)" value={newRequest.amount} onChange={(e) => handleInputChange('amount', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                            <textarea placeholder="Deskripsi Request..." value={newRequest.description} onChange={(e) => handleInputChange('description', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900 h-24" />
+                            <div className="relative">
+                                <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Tanggal yang diinginkan</label>
+                                <input type="date" value={newRequest.desired_date} onChange={(e) => handleInputChange('desired_date', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={handleSubmitRequest} className="w-full bg-cyan-500 hover:bg-cyan-600">Kirim Request</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                <div className="glassmorphic-card p-5 space-y-4">
+                    <h2 className="font-bold text-lg text-gray-800">Request Aktif</h2>
+                    {pendingRequests.length === 0 ? (<p className="text-center text-gray-500 py-8">Tidak ada request aktif. 👍</p>) : (
+                        pendingRequests.map(req => (
+                            <motion.div key={req.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/50 p-4 rounded-2xl shadow-sm border border-gray-200">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="font-bold text-gray-800 text-md">{req.request_type}</h3>
+                                    <div className={`text-xs font-bold px-2 py-1 rounded-full ${getStatusColor(req.status)} inline-block`}>{req.status}</div>
+                                </div>
+                                <p className="text-sm text-gray-600 font-semibold">{req.employee_name} - {req.apartment_location}</p>
+                                {req.request_type === 'Request Kasbon' && <p className="text-lg font-bold text-blue-600">{formatRupiah(req.amount)}</p>}
+                                <p className="text-sm text-gray-700 mt-2 border-t border-gray-200 pt-2">{req.description || "Tidak ada deskripsi."}</p>
+                                <p className="text-xs text-gray-500 mt-1">Tanggal: {formatDate(req.desired_date)}</p>
+                                <div className="flex gap-2 mt-3">
+                                    <Button size="sm" className="flex-1 bg-green-500 hover:bg-green-600" onClick={() => handleUpdateRequestStatus(req.id, 'Approved')}><Check className="w-4 h-4 mr-1"/> ACC</Button>
+                                    <Button size="sm" className="flex-1 bg-red-500 hover:bg-red-600" onClick={() => handleUpdateRequestStatus(req.id, 'Rejected')}><X className="w-4 h-4 mr-1"/> Reject</Button>
+                                </div>
+                            </motion.div>
+                        ))
+                    )}
+                </div>
+
+                <div className="glassmorphic-card p-5 space-y-4">
+                    <button onClick={() => setShowHistory(!showHistory)} className="w-full flex justify-between items-center p-1">
+                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><History className="w-5 h-5"/>Riwayat Request</h2>
+                        <ChevronDown className={`w-5 h-5 transition-transform text-gray-800 ${showHistory ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                        {showHistory && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-4 space-y-3 overflow-hidden">
+                                {handledRequests.length > 0 ? handledRequests.map(req => (
+                                    <motion.div key={req.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/50 p-4 rounded-2xl opacity-80 border">
+                                        <div className="flex justify-between items-start">
+                                            <h3 className="font-semibold text-gray-700 text-sm">{req.request_type}</h3>
+                                            <div className={`text-xs font-bold px-2 py-1 rounded-full ${getStatusColor(req.status)}`}>{req.status}</div>
+                                        </div>
+                                        <p className="text-xs text-gray-500">{req.employee_name} - {req.apartment_location}</p>
+                                        {req.request_type === 'Request Kasbon' && <p className="font-bold text-blue-500">{formatRupiah(req.amount)}</p>}
+                                        <p className="text-xs text-gray-500 mt-1">Tgl Request: {formatDate(req.desired_date)}</p>
+                                    </motion.div>
+                                )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat.</p>}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
+export default HalamanRequest;
