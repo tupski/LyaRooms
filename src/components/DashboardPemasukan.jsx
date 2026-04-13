@@ -139,10 +139,19 @@ import React, { useState, useEffect, useCallback } from 'react';
       const formatRupiah = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
       const formatDateTime = (iso) => new Date(iso).toLocaleString('id-ID');
       const getCurrentDate = () => new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      
+      // Convert integer rental_duration to readable format
+      const formatRentalDuration = (hours) => {
+        if (!hours) return '1 JAM';
+        const durationMap = {
+          3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM'
+        };
+        return durationMap[hours] || `${hours} JAM`;
+      };
     
       const handleShare = async (transaksi) => {
         const total = (transaksi.cash_amount || 0) + (transaksi.transfer_amount || 0);
-        const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${transaksi.rental_duration} (${transaksi.shift})\n*Total Bayar:* ${formatRupiah(total)}\n  - Tunai: ${formatRupiah(transaksi.cash_amount || 0)}\n  - Transfer: ${formatRupiah(transaksi.transfer_amount || 0)} ${transaksi.transfer_to ? `(ke ${transaksi.transfer_to})` : ''}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
+        const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${formatRentalDuration(transaksi.rental_duration)} (${transaksi.shift})\n*Total Bayar:* ${formatRupiah(total)}\n  - Tunai: ${formatRupiah(transaksi.cash_amount || 0)}\n  - Transfer: ${formatRupiah(transaksi.transfer_amount || 0)} ${transaksi.transfer_to ? `(ke ${transaksi.transfer_to})` : ''}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
         
         try {
             await navigator.clipboard.writeText(message);
@@ -163,7 +172,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             'Nama Marketing': t.marketing_name,
             'Lokasi': t.apartment_location,
             'Kamar': t.room_number,
-            'Lama Sewa': t.rental_duration,
+            'Lama Sewa': formatRentalDuration(t.rental_duration),
             'Shift': t.shift,
             'Tunai': t.cash_amount,
             'Transfer': t.transfer_amount,
@@ -269,7 +278,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                         </div>
                         <div className="text-xs text-gray-700 space-y-1 mb-3 border-t border-b py-2">
                           <p>Lokasi: {transaksi.apartment_location} - Kamar {transaksi.room_number}</p>
-                          <p>Sewa: {transaksi.rental_duration} ({transaksi.shift})</p>
+                          <p>Sewa: {formatRentalDuration(transaksi.rental_duration)} ({transaksi.shift})</p>
                           <p>Waktu: {formatDateTime(transaksi.created_at)}</p>
                           {transaksi.marketing_name && <p>Marketing: {transaksi.marketing_name}</p>}
                           {transaksi.marketing_fee > 0 && <p>Fee: {formatRupiah(transaksi.marketing_fee)}</p>}

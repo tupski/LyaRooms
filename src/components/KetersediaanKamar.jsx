@@ -23,31 +23,19 @@ const KetersediaanKamar = () => {
     
     const getSewaDurationAndEndTime = (transaction) => {
         const startTime = new Date(transaction.created_at);
-        const lamaSewa = transaction.rental_duration || "";
-    
-        if (lamaSewa.toLowerCase().includes('custom')) {
-            const hours = parseInt(lamaSewa.split(' ')[0], 10);
-            if (!isNaN(hours)) {
-                const endTime = new Date(startTime.getTime() + hours * 60 * 60 * 1000);
-                return { endTime };
-            }
-        }
-    
-        if (lamaSewa === 'PROMO MALAM' || lamaSewa === 'Fullday' || lamaSewa === '24 JAM') {
+        const rentalHours = transaction.rental_duration || 1;
+        
+        // For 24+ hours or special cases, treat as full day
+        if (rentalHours >= 24) {
             const endTime = new Date(startTime);
             endTime.setDate(startTime.getDate() + 1);
             endTime.setHours(12, 0, 0, 0); // Checkout jam 12 siang keesokan harinya
             return { endTime };
         }
         
-        if (lamaSewa.includes('JAM')) {
-            const hours = parseInt(lamaSewa.split(' ')[0], 10);
-            if (isNaN(hours)) return { endTime: startTime }; // fallback
-            const endTime = new Date(startTime.getTime() + hours * 60 * 60 * 1000);
-            return { endTime };
-        }
-        
-        return { endTime: startTime }; // Default fallback
+        // For regular hours, add the rental duration
+        const endTime = new Date(startTime.getTime() + rentalHours * 60 * 60 * 1000);
+        return { endTime };
     };
 
     const roomStatus = allRooms.map(room => {

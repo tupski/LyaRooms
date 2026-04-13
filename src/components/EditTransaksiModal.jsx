@@ -64,8 +64,18 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
   const deformatRupiah = (value) => value ? String(value).replace(/[^0-9]/g, '') : '0';
 
   useEffect(() => {
+    // Convert integer rental_duration back to string format for display
+    const convertDurationToString = (hours) => {
+      if (!hours) return '3 JAM';
+      const durationMap = {
+        3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM'
+      };
+      return durationMap[hours] || `${hours} Jam Custom`;
+    };
+    
     setFormData({
       ...transaksi,
+      rental_duration: convertDurationToString(transaksi.rental_duration),
       cash_amount: formatRupiah(transaksi.cash_amount),
       transfer_amount: formatRupiah(transaksi.transfer_amount),
       marketing_fee: formatRupiah(transaksi.marketing_fee),
@@ -74,8 +84,23 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Extract hours from rental duration (e.g., "3 JAM" → 3)
+    const extractHours = (dur) => {
+      if (!dur) return 1;
+      if (dur.includes('Jam Custom')) {
+        const match = dur.match(/\d+/);
+        return match ? Number(match[0]) : 1;
+      }
+      const match = dur.match(/\d+/);
+      return match ? Number(match[0]) : 1;
+    };
+    
+    const rentalHours = extractHours(formData.rental_duration);
+    
     onSave({
       ...formData,
+      rental_duration: rentalHours,
       cash_amount: deformatRupiah(formData.cash_amount),
       transfer_amount: deformatRupiah(formData.transfer_amount),
       marketing_fee: deformatRupiah(formData.marketing_fee),
