@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { AlertTriangle, Image as ImageIcon, Save, Upload, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
@@ -108,6 +109,27 @@ const KaryawanTransaksi = () => {
   const marketingOptions = useMemo(() => refs.marketing.map((item) => ({ value: item.name, label: item.name })), [refs.marketing]);
 
   const handleChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleToggleChoice = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: prev[field] === value ? '' : value }));
+  };
+
+  const handleCreateMarketing = async (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return;
+    const exists = refs.marketing.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      handleChange('namaMarketing', trimmed);
+      return;
+    }
+    const { error } = await supabase.from('marketing_list').insert({ name: trimmed });
+    if (error) {
+      toast({ title: 'Gagal menambah marketing', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setRefs((prev) => ({ ...prev, marketing: [...prev.marketing, { name: trimmed }] }));
+    handleChange('namaMarketing', trimmed);
+    toast({ title: 'Marketing baru ditambahkan', description: trimmed });
+  };
 
   const loadTransactions = useCallback(async () => {
     if (!user?.id) return;
@@ -258,17 +280,40 @@ const KaryawanTransaksi = () => {
             <input value={formData.namaCustomer} onChange={(e) => handleChange('namaCustomer', e.target.value)} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Nama customer" />
             <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={lokasiOptions} value={lokasiOptions.find((o) => o.value === formData.lokasiApartemen) || null} onChange={(opt) => { handleChange('lokasiApartemen', opt?.value || ''); handleChange('nomorKamar', ''); }} placeholder="Lokasi apartemen" isClearable />
             <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={kamarOptions} value={kamarOptions.find((o) => o.value === formData.nomorKamar) || null} onChange={(opt) => handleChange('nomorKamar', opt?.value || '')} placeholder="Nomor kamar" isDisabled={!formData.lokasiApartemen} isClearable />
-            <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={marketingOptions} value={marketingOptions.find((o) => o.value === formData.namaMarketing) || null} onChange={(opt) => handleChange('namaMarketing', opt?.value || '')} placeholder="Nama marketing" isClearable />
+            <CreatableSelect
+              styles={selectStyles}
+              menuPortalTarget={selectPortalTarget}
+              options={marketingOptions}
+              value={marketingOptions.find((o) => o.value === formData.namaMarketing) || null}
+              onChange={(opt) => handleChange('namaMarketing', opt?.value || '')}
+              onCreateOption={handleCreateMarketing}
+              placeholder="Nama marketing"
+              isClearable
+              formatCreateLabel={(inputValue) => `Tambah marketing: ${inputValue}`}
+            />
           </div>
 
+          <label className="block text-sm font-medium text-slate-700">Durasi Sewa</label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {DURATION_OPTIONS.map((item) => (
-              <button key={item} type="button" onClick={() => handleChange('lamaSewa', item)} className={`rounded-xl px-3 py-2 text-xs font-semibold ${formData.lamaSewa === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</button>
+              <button key={item} type="button" onClick={() => handleToggleChoice('lamaSewa', item)} className={`rounded-xl px-3 py-2 text-xs font-semibold ${formData.lamaSewa === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</button>
             ))}
           </div>
+          {formData.lamaSewa === 'Custom' && (
+            <input
+              type="number"
+              min={1}
+              max={168}
+              value={formData.customSewaJam}
+              onChange={(e) => handleChange('customSewaJam', e.target.value)}
+              className="h-11 rounded-xl border border-slate-300 px-3 text-sm"
+              placeholder="Durasi custom (jam)"
+            />
+          )}
+          <label className="block text-sm font-medium text-slate-700">Shift</label>
           <div className="grid grid-cols-3 gap-2">
             {SHIFT_OPTIONS.map((item) => (
-              <button key={item} type="button" onClick={() => handleChange('shift', item)} className={`rounded-xl px-3 py-2 text-sm font-semibold ${formData.shift === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</button>
+              <button key={item} type="button" onClick={() => handleToggleChoice('shift', item)} className={`rounded-xl px-3 py-2 text-sm font-semibold ${formData.shift === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</button>
             ))}
           </div>
 
@@ -276,7 +321,7 @@ const KaryawanTransaksi = () => {
             <input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Tunai (Rp)" />
             <input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Transfer (Rp)" />
             <div className="grid grid-cols-2 gap-2">
-              {TRANSFER_TARGET_OPTIONS.map((item) => <button key={item} type="button" onClick={() => handleChange('transferKe', item)} className={`h-11 rounded-xl border text-sm ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300'}`}>{item}</button>)}
+              {TRANSFER_TARGET_OPTIONS.map((item) => <button key={item} type="button" onClick={() => handleToggleChoice('transferKe', item)} className={`h-11 rounded-xl border text-sm ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300'}`}>{item}</button>)}
             </div>
             <input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Fee marketing (Rp)" />
           </div>
