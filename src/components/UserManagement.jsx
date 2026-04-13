@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/customSupabaseClient';
 import {
   Users,
-  UserPlus,
   Edit,
-  Trash2,
   Shield,
   ShieldCheck,
   Search,
@@ -34,15 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import {
   Select,
   SelectContent,
@@ -59,9 +49,7 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -80,34 +68,14 @@ const UserManagement = () => {
     try {
       setLoading(true);
 
-      // Ambil semua pengguna dari auth.users (khusus admin)
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-
-      if (authError) throw authError;
-
-      // Ambil profil pengguna beserta peran
+      // Ambil profil pengguna beserta peran (aman untuk frontend tanpa endpoint admin)
       const { data: profiles, error: profileError } = await supabase
         .from('user_profiles')
         .select('*');
 
       if (profileError) throw profileError;
 
-      // Gabungkan data auth users dengan profil
-      const combinedUsers = authUsers.users.map(authUser => {
-        const profile = profiles.find(p => p.id === authUser.id);
-        return {
-          ...authUser,
-          profile: profile || {},
-          role: profile?.role || 'karyawan',
-          full_name: profile?.full_name || authUser.user_metadata?.full_name || '',
-          phone: profile?.phone || authUser.user_metadata?.phone || '',
-          created_at: authUser.created_at,
-          last_sign_in_at: authUser.last_sign_in_at,
-          email_confirmed_at: authUser.email_confirmed_at
-        };
-      });
-
-      setUsers(combinedUsers);
+      setUsers(profiles || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Gagal memuat data karyawan');
@@ -116,59 +84,8 @@ const UserManagement = () => {
     }
   };
 
-  const handleCreateUser = async () => {
-    try {
-      // Buat pengguna auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: formData.full_name,
-          phone: formData.phone
-        }
-      });
-
-      if (authError) throw authError;
-
-      // Buat profil pengguna
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: authData.user.id,
-          email: formData.email,
-          full_name: formData.full_name,
-          phone: formData.phone,
-          role: formData.role
-        });
-
-      if (profileError) throw profileError;
-
-      toast.success('Karyawan berhasil ditambahkan');
-      setIsCreateDialogOpen(false);
-      resetForm();
-      fetchUsers();
-    } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error('Gagal menambahkan karyawan: ' + error.message);
-    }
-  };
-
   const handleUpdateUser = async () => {
     try {
-      // Perbarui metadata pengguna
-      const { error: authError } = await supabase.auth.admin.updateUserById(
-        selectedUser.id,
-        {
-          user_metadata: {
-            full_name: formData.full_name,
-            phone: formData.phone
-          }
-        }
-      );
-
-      if (authError) throw authError;
-
       // Perbarui profil pengguna
       const { error: profileError } = await supabase
         .from('user_profiles')
@@ -192,31 +109,6 @@ const UserManagement = () => {
     }
   };
 
-  const handleDeleteUser = async () => {
-    try {
-      // Hapus profil pengguna terlebih dahulu
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', selectedUser.id);
-
-      if (profileError) throw profileError;
-
-      // Hapus pengguna auth
-      const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
-
-      if (authError) throw authError;
-
-      toast.success('Karyawan berhasil dihapus');
-      setIsDeleteDialogOpen(false);
-      setSelectedUser(null);
-      fetchUsers();
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error('Gagal menghapus karyawan: ' + error.message);
-    }
-  };
-
   const resetForm = () => {
     setFormData({
       email: '',
@@ -237,11 +129,6 @@ const UserManagement = () => {
       role: user.role || 'karyawan'
     });
     setIsEditDialogOpen(true);
-  };
-
-  const openDeleteDialog = (user) => {
-    setSelectedUser(user);
-    setIsDeleteDialogOpen(true);
   };
 
   const filteredUsers = users.filter(user => {
@@ -289,83 +176,11 @@ const UserManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Manajemen Karyawan</h1>
-          <p className="text-gray-600">Kelola karyawan sistem dan izin mereka</p>
+          <p className="text-gray-600">Kelola profil karyawan dan peran akses</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Tambah Karyawan
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Tambah Karyawan Baru</DialogTitle>
-              <DialogDescription>
-                Tambahkan karyawan baru ke sistem dengan peran dan izin yang sesuai.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="password" className="text-right">Kata Sandi</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="full_name" className="text-right">Nama Lengkap</Label>
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">Telepon</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">Peran</Label>
-                <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value})}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="karyawan">Karyawan</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Batal
-              </Button>
-              <Button onClick={handleCreateUser}>Buat Karyawan</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Pembuatan/hapus akun dilakukan dari panel Auth Supabase.
+        </div>
       </div>
 
       {/* Filters */}
@@ -459,9 +274,7 @@ const UserManagement = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.email_confirmed_at ? 'default' : 'secondary'}>
-                      {user.email_confirmed_at ? 'Terverifikasi' : 'Belum verifikasi'}
-                    </Badge>
+                    <Badge variant="default">Aktif</Badge>
                   </TableCell>
                   <TableCell>
                     {user.last_sign_in_at ? (
@@ -470,7 +283,7 @@ const UserManagement = () => {
                         {new Date(user.last_sign_in_at).toLocaleDateString()}
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-sm">Belum pernah</span>
+                      <span className="text-gray-400 text-sm">Belum ada data</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -486,14 +299,6 @@ const UserManagement = () => {
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Karyawan
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => openDeleteDialog(user)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Hapus Karyawan
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -565,47 +370,6 @@ const UserManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hapus Karyawan</DialogTitle>
-            <DialogDescription>
-              Yakin ingin menghapus karyawan ini? Tindakan ini tidak dapat dibatalkan.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedUser && (
-            <div className="py-4">
-              <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0">
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-600">
-                      {selectedUser.full_name?.charAt(0)?.toUpperCase() || selectedUser.email?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <div className="font-medium text-gray-900">
-                    {selectedUser.full_name || 'Tanpa nama'}
-                  </div>
-                  <div className="text-gray-500 text-sm">{selectedUser.email}</div>
-                  <Badge variant="outline" className={getRoleBadgeColor(selectedUser.role)}>
-                    {selectedUser.role}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Batal
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteUser}>
-              Hapus Karyawan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

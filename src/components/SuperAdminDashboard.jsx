@@ -44,39 +44,38 @@ const SuperAdminDashboard = () => {
     try {
       setLoading(true);
 
-      // Get user statistics
+      // Ambil statistik karyawan
       const { data: users, error: usersError } = await supabase
         .from('user_profiles')
         .select('*');
 
       if (usersError) throw usersError;
 
-      // Get auth users for active status
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-      if (authError) throw authError;
+      // Hitung akun aktif dari user_profiles agar tidak perlu endpoint admin
+      const activeUsersCount = users.filter((u) => !!u.last_sign_in_at).length;
 
-      // Get menu visibility stats
+      // Ambil statistik visibilitas menu
       const { data: menuVisibility, error: menuError } = await supabase
         .from('role_menu_visibility')
         .select('*');
 
       if (menuError) throw menuError;
 
-      // Get system settings
+      // Ambil pengaturan sistem
       const { data: systemSettings, error: settingsError } = await supabase
         .from('system_settings')
         .select('*');
 
       if (settingsError) throw settingsError;
 
-      // Get recent activity (mock data for now)
+      // Aktivitas terbaru (sementara masih data contoh)
       const recentActivity = [
-        { id: 1, action: 'User created', user: 'admin', timestamp: new Date().toISOString(), type: 'user' },
-        { id: 2, action: 'Menu visibility updated', user: 'super_admin', timestamp: new Date().toISOString(), type: 'menu' },
-        { id: 3, action: 'System settings changed', user: 'super_admin', timestamp: new Date().toISOString(), type: 'settings' }
+        { id: 1, action: 'Karyawan ditambahkan', user: 'admin', timestamp: new Date().toISOString(), type: 'user' },
+        { id: 2, action: 'Visibilitas menu diperbarui', user: 'super_admin', timestamp: new Date().toISOString(), type: 'menu' },
+        { id: 3, action: 'Pengaturan sistem diubah', user: 'super_admin', timestamp: new Date().toISOString(), type: 'settings' }
       ];
 
-      // Calculate menu visibility stats by role
+      // Hitung statistik visibilitas menu per peran
       const menuStats = {};
       menuVisibility.forEach(item => {
         if (!menuStats[item.role]) {
@@ -89,7 +88,7 @@ const SuperAdminDashboard = () => {
         }
       });
 
-      // Convert system settings to object
+      // Ubah pengaturan sistem ke object
       const settingsObj = {};
       systemSettings.forEach(setting => {
         settingsObj[setting.key] = setting.value;
@@ -97,7 +96,7 @@ const SuperAdminDashboard = () => {
 
       setStats({
         totalUsers: users.length,
-        activeUsers: authUsers.users.filter(u => u.email_confirmed_at).length,
+        activeUsers: activeUsersCount,
         systemHealth: 95, // Mock health score
         recentActivity,
         menuVisibilityStats: menuStats,
@@ -106,16 +105,16 @@ const SuperAdminDashboard = () => {
 
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      toast.error('Failed to load dashboard statistics');
+      toast.error('Gagal memuat statistik dasbor');
     } finally {
       setLoading(false);
     }
   };
 
   const getHealthStatus = (health) => {
-    if (health >= 90) return { status: 'Excellent', color: 'text-green-600', bg: 'bg-green-100' };
-    if (health >= 70) return { status: 'Good', color: 'text-yellow-600', bg: 'bg-yellow-100' };
-    return { status: 'Needs Attention', color: 'text-red-600', bg: 'bg-red-100' };
+    if (health >= 90) return { status: 'Sangat Baik', color: 'text-green-600', bg: 'bg-green-100' };
+    if (health >= 70) return { status: 'Baik', color: 'text-yellow-600', bg: 'bg-yellow-100' };
+    return { status: 'Perlu Perhatian', color: 'text-red-600', bg: 'bg-red-100' };
   };
 
   const healthInfo = getHealthStatus(stats.systemHealth);
@@ -133,12 +132,12 @@ const SuperAdminDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Super Admin Dashboard</h1>
-          <p className="text-gray-600">Comprehensive system management and oversight</p>
+          <h1 className="text-2xl font-bold text-gray-900">Dasbor Super Admin</h1>
+          <p className="text-gray-600">Pusat kendali sistem, menu, dan akses pengguna</p>
         </div>
         <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
           <Shield className="h-4 w-4 mr-1" />
-          Super Admin Access
+          Akses Super Admin
         </Badge>
       </div>
 
@@ -146,20 +145,20 @@ const SuperAdminDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Karyawan</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeUsers} active users
+              {stats.activeUsers} akun aktif
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Health</CardTitle>
+            <CardTitle className="text-sm font-medium">Kesehatan Sistem</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -174,7 +173,7 @@ const SuperAdminDashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Menu Configurations</CardTitle>
+            <CardTitle className="text-sm font-medium">Konfigurasi Menu</CardTitle>
             <Menu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -182,14 +181,14 @@ const SuperAdminDashboard = () => {
               {Object.keys(stats.menuVisibilityStats).length}
             </div>
             <p className="text-xs text-muted-foreground">
-              Active role configurations
+              Konfigurasi peran aktif
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Settings</CardTitle>
+            <CardTitle className="text-sm font-medium">Pengaturan Sistem</CardTitle>
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -197,69 +196,69 @@ const SuperAdminDashboard = () => {
               {Object.keys(stats.systemSettings).length}
             </div>
             <p className="text-xs text-muted-foreground">
-              Configurable parameters
+              Parameter terkonfigurasi
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
+      {/* Tab utama super admin */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />
-            <span>Overview</span>
+            <span>Ringkasan</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center space-x-2">
             <Users className="h-4 w-4" />
-            <span>User Management</span>
+            <span>Karyawan</span>
           </TabsTrigger>
           <TabsTrigger value="menu" className="flex items-center space-x-2">
             <Menu className="h-4 w-4" />
-            <span>Menu Controls</span>
+            <span>Kontrol Menu</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center space-x-2">
             <Settings className="h-4 w-4" />
-            <span>Global Settings</span>
+            <span>Pengaturan</span>
           </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Tab ringkasan */}
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-6">
-            {/* System Health Details */}
+            {/* Detail kesehatan sistem */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Activity className="h-5 w-5 mr-2" />
-                  System Health Overview
+                  Ringkasan Kesehatan Sistem
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Database Performance</span>
+                    <span>Performa Database</span>
                     <span>98%</span>
                   </div>
                   <Progress value={98} className="h-2" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>API Response Time</span>
+                    <span>Respons API</span>
                     <span>95%</span>
                   </div>
                   <Progress value={95} className="h-2" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>User Authentication</span>
+                    <span>Autentikasi Pengguna</span>
                     <span>100%</span>
                   </div>
                   <Progress value={100} className="h-2" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Menu System</span>
+                    <span>Sistem Menu</span>
                     <span>97%</span>
                   </div>
                   <Progress value={97} className="h-2" />
@@ -267,12 +266,12 @@ const SuperAdminDashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Menu Visibility Stats */}
+            {/* Statistik visibilitas menu */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Menu className="h-5 w-5 mr-2" />
-                  Menu Visibility by Role
+                  Visibilitas Menu per Peran
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -286,11 +285,11 @@ const SuperAdminDashboard = () => {
                       <div className="flex items-center space-x-4 text-sm">
                         <div className="flex items-center space-x-1 text-green-600">
                           <CheckCircle className="h-3 w-3" />
-                          <span>{stats.visible} visible</span>
+                          <span>{stats.visible} tampil</span>
                         </div>
                         <div className="flex items-center space-x-1 text-red-600">
                           <AlertTriangle className="h-3 w-3" />
-                          <span>{stats.hidden} hidden</span>
+                          <span>{stats.hidden} disembunyikan</span>
                         </div>
                       </div>
                     </div>
@@ -299,12 +298,12 @@ const SuperAdminDashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
+            {/* Aktivitas terbaru */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Activity className="h-5 w-5 mr-2" />
-                  Recent Activity
+                  Aktivitas Terbaru
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -326,7 +325,7 @@ const SuperAdminDashboard = () => {
                           {activity.action}
                         </p>
                         <p className="text-sm text-gray-500">
-                          by {activity.user} • {new Date(activity.timestamp).toLocaleString()}
+                          oleh {activity.user} • {new Date(activity.timestamp).toLocaleString('id-ID')}
                         </p>
                       </div>
                     </div>
@@ -335,10 +334,10 @@ const SuperAdminDashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Quick Actions */}
+            {/* Aksi cepat */}
             <Card>
               <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
+                <CardTitle>Aksi Cepat</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -348,7 +347,7 @@ const SuperAdminDashboard = () => {
                     onClick={() => setActiveTab('users')}
                   >
                     <Users className="h-6 w-6" />
-                    <span className="text-sm">Manage Users</span>
+                    <span className="text-sm">Kelola Karyawan</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -356,7 +355,7 @@ const SuperAdminDashboard = () => {
                     onClick={() => setActiveTab('menu')}
                   >
                     <Menu className="h-6 w-6" />
-                    <span className="text-sm">Menu Controls</span>
+                    <span className="text-sm">Kontrol Menu</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -364,7 +363,7 @@ const SuperAdminDashboard = () => {
                     onClick={() => setActiveTab('settings')}
                   >
                     <Settings className="h-6 w-6" />
-                    <span className="text-sm">System Settings</span>
+                    <span className="text-sm">Pengaturan Sistem</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -372,7 +371,7 @@ const SuperAdminDashboard = () => {
                     onClick={fetchDashboardStats}
                   >
                     <TrendingUp className="h-6 w-6" />
-                    <span className="text-sm">Refresh Stats</span>
+                    <span className="text-sm">Muat Ulang Statistik</span>
                   </Button>
                 </div>
               </CardContent>
@@ -380,17 +379,17 @@ const SuperAdminDashboard = () => {
           </div>
         </TabsContent>
 
-        {/* User Management Tab */}
+        {/* Tab manajemen karyawan */}
         <TabsContent value="users">
           <UserManagement />
         </TabsContent>
 
-        {/* Menu Controls Tab */}
+        {/* Tab kontrol menu */}
         <TabsContent value="menu">
           <MenuControls />
         </TabsContent>
 
-        {/* Global Settings Tab */}
+        {/* Tab pengaturan global */}
         <TabsContent value="settings">
           <GlobalSettings />
         </TabsContent>

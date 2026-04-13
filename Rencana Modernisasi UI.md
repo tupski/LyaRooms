@@ -35,7 +35,7 @@
 - [x] Buat SuperAdminDashboard.jsx - **SELESAI** ✨
 
 ### Fase 5: Formulir & Komponen yang Ditingkatkan 🔄
-- [ ] Update FormTransaksi.jsx dengan dropdown cascading
+- [x] Update FormTransaksi.jsx dengan dropdown cascading - **SELESAI** ✨
 - [ ] Buat FormWizard.jsx (multi-step)
 - [ ] Tambahkan helper validasi formulir
 - [ ] Terjemahkan semua teks ke Bahasa Indonesia
@@ -57,5 +57,8 @@
 - [x] Perbaikan menu bawah (ikon + teks terlihat jelas di mobile) - **SELESAI** ✨
 - [x] Mobile-first styling untuk bottom navigation - **SELESAI** ✨
 - [x] Role `karyawan` hanya melihat menu: Input, Kamar, Permintaan - **SELESAI** ✨
+- [x] Perbaikan Form Input Transaksi agar lebih aman dari error validasi - **SELESAI** ✨
+- [x] Tambah menu `SuperAdminDashboard` khusus role super admin - **SELESAI** ✨
+- [x] Rapikan menu/label super admin agar lebih terkategori dan konsisten - **SELESAI** ✨
 
 **Fokus Saat Ini:** Fase 5 (terjemahan penuh) + Fase 7 (integrasi MainLayout & routing)

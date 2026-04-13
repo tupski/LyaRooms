@@ -35,8 +35,6 @@ import {
 import { toast } from 'sonner';
 import {
   MENU_ITEMS,
-  MENU_CATEGORIES,
-  getMenuItemsByRole,
   getCategoryDisplayName,
   getCategoryColorScheme
 } from '../lib/MenuConfig';
@@ -44,18 +42,27 @@ import {
 const MenuControls = () => {
   const [menuVisibility, setMenuVisibility] = useState({});
   const [userRoles, setUserRoles] = useState([]);
-  const [selectedRole, setSelectedRole] = useState('user');
+  const [selectedRole, setSelectedRole] = useState('karyawan');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const fallbackRoles = ['karyawan', 'admin', 'super_admin'];
 
   useEffect(() => {
     fetchMenuVisibility();
     fetchUserRoles();
   }, []);
 
+  useEffect(() => {
+    if (!userRoles.length) return;
+    if (!userRoles.includes(selectedRole)) {
+      setSelectedRole(userRoles[0]);
+    }
+  }, [userRoles, selectedRole]);
+
   const fetchUserRoles = async () => {
     try {
-      // Get distinct roles from user_profiles
+      // Ambil role unik dari user_profiles
       const { data, error } = await supabase
         .from('user_profiles')
         .select('role')
@@ -63,11 +70,13 @@ const MenuControls = () => {
 
       if (error) throw error;
 
-      const uniqueRoles = [...new Set(data.map(item => item.role))];
-      setUserRoles(uniqueRoles);
+      const profileRoles = [...new Set((data || []).map(item => item.role).filter(Boolean))];
+      const mergedRoles = [...new Set([...fallbackRoles, ...profileRoles])];
+      setUserRoles(mergedRoles);
     } catch (error) {
       console.error('Error fetching user roles:', error);
-      toast.error('Failed to load user roles');
+      setUserRoles(fallbackRoles);
+      toast.error('Gagal memuat daftar peran, menggunakan peran default');
     }
   };
 
@@ -81,7 +90,7 @@ const MenuControls = () => {
 
       if (error) throw error;
 
-      // Convert to object format for easier management
+      // Ubah ke format object agar mudah dikelola
       const visibilityMap = {};
       data.forEach(item => {
         if (!visibilityMap[item.role]) {
@@ -93,7 +102,7 @@ const MenuControls = () => {
       setMenuVisibility(visibilityMap);
     } catch (error) {
       console.error('Error fetching menu visibility:', error);
-      toast.error('Failed to load menu visibility settings');
+      toast.error('Gagal memuat pengaturan visibilitas menu');
     } finally {
       setLoading(false);
     }
@@ -114,7 +123,7 @@ const MenuControls = () => {
 
       if (error) throw error;
 
-      // Update local state
+      // Perbarui state lokal
       setMenuVisibility(prev => ({
         ...prev,
         [role]: {
@@ -123,10 +132,10 @@ const MenuControls = () => {
         }
       }));
 
-      toast.success(`Menu visibility updated for ${role}`);
+      toast.success(`Visibilitas menu diperbarui untuk ${role}`);
     } catch (error) {
       console.error('Error updating menu visibility:', error);
-      toast.error('Failed to update menu visibility');
+      toast.error('Gagal memperbarui visibilitas menu');
     }
   };
 
@@ -135,16 +144,16 @@ const MenuControls = () => {
   };
 
   const getVisibilityForRole = (role, menuItemId) => {
-    return menuVisibility[role]?.[menuItemId] ?? true; // Default to visible
+    return menuVisibility[role]?.[menuItemId] ?? true; // Default: tampil
   };
 
   const saveAllChanges = async () => {
     try {
       setSaving(true);
-      // All changes are saved immediately, so this is just for user feedback
-      toast.success('All menu visibility settings have been saved');
+      // Semua perubahan tersimpan otomatis, ini untuk umpan balik pengguna
+      toast.success('Semua pengaturan visibilitas menu sudah tersimpan');
     } catch (error) {
-      toast.error('Failed to save changes');
+      toast.error('Gagal menyimpan perubahan');
     } finally {
       setSaving(false);
     }
@@ -154,7 +163,7 @@ const MenuControls = () => {
     try {
       setSaving(true);
 
-      // Reset all menu visibility to default (based on MenuConfig roles)
+      // Reset visibilitas menu ke default berdasarkan role di MenuConfig
       const defaultVisibility = {};
 
       MENU_ITEMS.forEach(item => {
@@ -166,7 +175,7 @@ const MenuControls = () => {
         });
       });
 
-      // Update database
+      // Perbarui ke database
       const updates = [];
       Object.keys(defaultVisibility).forEach(role => {
         Object.keys(defaultVisibility[role]).forEach(menuItemId => {
@@ -188,10 +197,10 @@ const MenuControls = () => {
       if (error) throw error;
 
       setMenuVisibility(defaultVisibility);
-      toast.success('Menu visibility reset to defaults');
+      toast.success('Visibilitas menu direset ke default');
     } catch (error) {
       console.error('Error resetting to defaults:', error);
-      toast.error('Failed to reset menu visibility');
+      toast.error('Gagal reset visibilitas menu');
     } finally {
       setSaving(false);
     }
@@ -227,32 +236,32 @@ const MenuControls = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Menu Controls</h1>
-          <p className="text-gray-600">Manage menu visibility and access permissions by role</p>
+          <h1 className="text-2xl font-bold text-gray-900">Kontrol Menu</h1>
+          <p className="text-gray-600">Kelola visibilitas dan izin akses menu per peran</p>
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" onClick={resetToDefaults} disabled={saving}>
             <RefreshCw className={`h-4 w-4 mr-2 ${saving ? 'animate-spin' : ''}`} />
-            Reset to Defaults
+            Reset Default
           </Button>
           <Button onClick={saveAllChanges} disabled={saving}>
             <Save className="h-4 w-4 mr-2" />
-            Save Changes
+            Simpan Perubahan
           </Button>
         </div>
       </div>
 
-      {/* Role Selector */}
+      {/* Pemilih peran */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Shield className="h-5 w-5 mr-2" />
-            Select Role to Configure
+            Pilih Peran yang Akan Diatur
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-4">
-            <Label htmlFor="role-select">Role:</Label>
+            <Label htmlFor="role-select">Peran:</Label>
             <Select value={selectedRole} onValueChange={setSelectedRole}>
               <SelectTrigger className="w-48">
                 <SelectValue />
@@ -271,18 +280,18 @@ const MenuControls = () => {
             <div className="flex items-center space-x-4 text-sm text-gray-600">
               <div className="flex items-center space-x-1">
                 <Eye className="h-4 w-4" />
-                <span>Visible: {getRoleStats(selectedRole).visibleItems}</span>
+                <span>Tampil: {getRoleStats(selectedRole).visibleItems}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <EyeOff className="h-4 w-4" />
-                <span>Hidden: {getRoleStats(selectedRole).totalItems - getRoleStats(selectedRole).visibleItems}</span>
+                <span>Disembunyikan: {getRoleStats(selectedRole).totalItems - getRoleStats(selectedRole).visibleItems}</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Menu Categories */}
+      {/* Kategori menu */}
       <div className="grid gap-6">
         {Object.entries(groupedMenuItems).map(([category, items]) => {
           const colorScheme = getCategoryColorScheme(category);
@@ -300,7 +309,7 @@ const MenuControls = () => {
                     </div>
                     <span>{getCategoryDisplayName(category)}</span>
                     <Badge variant="outline" className={colorScheme.border}>
-                      {visibleCount}/{items.length} visible
+                      {visibleCount}/{items.length} tampil
                     </Badge>
                   </div>
                 </CardTitle>
@@ -331,12 +340,12 @@ const MenuControls = () => {
                               {hasAccessByDefault ? (
                                 <Badge variant="default" className="text-xs bg-green-100 text-green-800">
                                   <CheckCircle className="h-3 w-3 mr-1" />
-                                  Default Access
+                                    Akses Default
                                 </Badge>
                               ) : (
                                 <Badge variant="destructive" className="text-xs">
                                   <XCircle className="h-3 w-3 mr-1" />
-                                  No Default Access
+                                    Tanpa Akses Default
                                 </Badge>
                               )}
                             </div>
@@ -353,12 +362,12 @@ const MenuControls = () => {
                                 {isVisible ? (
                                   <span className="text-green-600 flex items-center">
                                     <Eye className="h-4 w-4 mr-1" />
-                                    Visible
+                                    Tampil
                                   </span>
                                 ) : (
                                   <span className="text-red-600 flex items-center">
                                     <EyeOff className="h-4 w-4 mr-1" />
-                                    Hidden
+                                    Sembunyikan
                                   </span>
                                 )}
                               </Label>
@@ -366,7 +375,7 @@ const MenuControls = () => {
                           ) : (
                             <div className="flex items-center space-x-2 text-gray-400">
                               <AlertTriangle className="h-4 w-4" />
-                              <span className="text-sm">No Access</span>
+                              <span className="text-sm">Tidak Ada Akses</span>
                             </div>
                           )}
                         </div>
@@ -380,20 +389,20 @@ const MenuControls = () => {
         })}
       </div>
 
-      {/* Summary Table */}
+      {/* Tabel ringkasan */}
       <Card>
         <CardHeader>
-          <CardTitle>Role Permissions Summary</CardTitle>
+          <CardTitle>Ringkasan Izin Peran</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Role</TableHead>
-                <TableHead>Total Menu Items</TableHead>
-                <TableHead>Visible Items</TableHead>
-                <TableHead>Hidden Items</TableHead>
-                <TableHead>Visibility %</TableHead>
+                <TableHead>Peran</TableHead>
+                <TableHead>Total Item Menu</TableHead>
+                <TableHead>Item Tampil</TableHead>
+                <TableHead>Item Tersembunyi</TableHead>
+                <TableHead>Persentase Tampil</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

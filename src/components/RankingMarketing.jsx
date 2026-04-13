@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Award, TrendingUp, Users } from 'lucide-react';
+import { Trophy, Medal, Award, TrendingUp, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
+
+const ITEMS_PER_PAGE = 10;
 
 const RankingMarketing = () => {
   const [rankings, setRankings] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadRankings = async () => {
     const { data, error } = await supabase.from('transactions').select('marketing_name, cash_amount, transfer_amount');
@@ -26,6 +29,7 @@ const RankingMarketing = () => {
 
     const rankingArray = Object.values(marketingStats).sort((a, b) => b.jumlahTransaksi - a.jumlahTransaksi);
     setRankings(rankingArray);
+    setCurrentPage(1);
   };
   
   useEffect(() => {
@@ -49,6 +53,9 @@ const RankingMarketing = () => {
     if (rank === 2) return 'from-orange-400 via-amber-600 to-orange-700';
     return 'from-blue-400 via-purple-400 to-pink-400';
   };
+
+  const totalPages = Math.max(1, Math.ceil(rankings.length / ITEMS_PER_PAGE));
+  const paginatedRankings = rankings.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-pink-100 p-4 pt-6 pb-28">
@@ -81,16 +88,18 @@ const RankingMarketing = () => {
 
         {rankings.length > 0 ? (
           <div className="space-y-4">
-            {rankings.map((marketing, index) => (
+            {paginatedRankings.map((marketing, index) => {
+              const absoluteIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+              return (
               <motion.div
                 key={marketing.nama}
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0, transition: { delay: 0.2 + index * 0.1 } }}
-                className={`bg-gradient-to-r ${getCardGradient(index)} rounded-3xl shadow-2xl p-5 text-white`}
+                className={`bg-gradient-to-r ${getCardGradient(absoluteIndex)} rounded-3xl shadow-2xl p-5 text-white`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2 rounded-xl">{getMedalIcon(index)}</div>
+                    <div className="bg-white/20 p-2 rounded-xl">{getMedalIcon(absoluteIndex)}</div>
                     <h3 className="font-extrabold text-lg">{marketing.nama}</h3>
                   </div>
                 </div>
@@ -106,10 +115,30 @@ const RankingMarketing = () => {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-center text-gray-500 pt-10">Belum ada data transaksi.</p>
+        )}
+        {rankings.length > ITEMS_PER_PAGE && (
+          <div className="flex items-center justify-between rounded-2xl bg-white/80 p-3">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage <= 1}
+              className="inline-flex items-center rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" /> Sebelumnya
+            </button>
+            <p className="text-xs font-semibold text-gray-700">Halaman {currentPage} / {totalPages}</p>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage >= totalPages}
+              className="inline-flex items-center rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            >
+              Berikutnya <ChevronRight className="ml-1 h-4 w-4" />
+            </button>
+          </div>
         )}
       </motion.div>
     </div>

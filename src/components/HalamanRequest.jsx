@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, PlusCircle, ChevronDown, Check, X, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 const HalamanRequest = () => {
-    const { user } = useAuth();
+    const { user, userRole } = useAuth();
     const [requests, setRequests] = useState([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [newRequest, setNewRequest] = useState({
@@ -54,6 +54,13 @@ const HalamanRequest = () => {
           .subscribe();
         return () => supabase.removeChannel(channel);
     }, [loadRequests]);
+
+    useEffect(() => {
+        if (userRole === 'karyawan') {
+            const name = user?.user_metadata?.full_name || user?.email || '';
+            if (name) setNewRequest((prev) => ({ ...prev, employee_name: name }));
+        }
+    }, [user, userRole]);
 
     const handleInputChange = (field, value) => {
         setNewRequest(prev => ({ ...prev, [field]: value }));
@@ -101,8 +108,15 @@ const HalamanRequest = () => {
     const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    const pendingRequests = requests.filter(r => r.status === 'Pending');
-    const handledRequests = requests.filter(r => r.status !== 'Pending');
+    const filteredRequests = useMemo(() => {
+        if (userRole === 'karyawan') {
+            return requests.filter((r) => r.user_id === user?.id);
+        }
+        return requests;
+    }, [requests, userRole, user]);
+
+    const pendingRequests = filteredRequests.filter((r) => r.status === 'Pending');
+    const handledRequests = filteredRequests.filter((r) => r.status !== 'Pending');
 
     const getStatusColor = (status) => {
         if (status === 'Approved') return 'bg-green-100 text-green-800';
@@ -136,10 +150,14 @@ const HalamanRequest = () => {
                                 <option value="">Pilih Jenis Request</option>
                                 {requestTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                             </select>
-                            <select value={newRequest.employee_name} onChange={(e) => handleInputChange('employee_name', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
-                                <option value="">Pilih Karyawan</option>
-                                {karyawanOptions.map((k, i) => <option key={i} value={k}>{k}</option>)}
-                            </select>
+                            {userRole === 'karyawan' ? (
+                                <input value={newRequest.employee_name} disabled className="w-full px-3 py-2.5 rounded-xl border-2 bg-slate-100 text-gray-900" />
+                            ) : (
+                                <select value={newRequest.employee_name} onChange={(e) => handleInputChange('employee_name', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
+                                    <option value="">Pilih Karyawan</option>
+                                    {karyawanOptions.map((k, i) => <option key={i} value={k}>{k}</option>)}
+                                </select>
+                            )}
                              <select value={newRequest.apartment_location} onChange={(e) => handleInputChange('apartment_location', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
                                 <option value="">Pilih Lokasi</option>
                                 {lokasiOptions.map((lok, i) => <option key={i} value={lok}>{lok}</option>)}

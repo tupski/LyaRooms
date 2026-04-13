@@ -140,15 +140,43 @@ CREATE POLICY "Enable read access for authenticated users" ON public.lokasi_apar
 
 DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.lokasi_apartemen;
 CREATE POLICY "Enable insert for authenticated users" ON public.lokasi_apartemen
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    );
 
 DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.lokasi_apartemen;
 CREATE POLICY "Enable update for authenticated users" ON public.lokasi_apartemen
-    FOR UPDATE USING (auth.role() = 'authenticated');
+    FOR UPDATE USING (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    ) WITH CHECK (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    );
 
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.lokasi_apartemen;
 CREATE POLICY "Enable delete for authenticated users" ON public.lokasi_apartemen
-    FOR DELETE USING (auth.role() = 'authenticated');
+    FOR DELETE USING (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    );
 
 -- Similar policies for other tables
 DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.nomor_kamar;
@@ -157,15 +185,43 @@ CREATE POLICY "Enable read access for authenticated users" ON public.nomor_kamar
 
 DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.nomor_kamar;
 CREATE POLICY "Enable insert for authenticated users" ON public.nomor_kamar
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    );
 
 DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.nomor_kamar;
 CREATE POLICY "Enable update for authenticated users" ON public.nomor_kamar
-    FOR UPDATE USING (auth.role() = 'authenticated');
+    FOR UPDATE USING (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    ) WITH CHECK (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    );
 
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.nomor_kamar;
 CREATE POLICY "Enable delete for authenticated users" ON public.nomor_kamar
-    FOR DELETE USING (auth.role() = 'authenticated');
+    FOR DELETE USING (
+        auth.role() = 'authenticated'
+        AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.role IN ('admin', 'super_admin')
+        )
+    );
 
 DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.karyawan_list;
 CREATE POLICY "Enable read access for authenticated users" ON public.karyawan_list
@@ -363,3 +419,170 @@ INSERT INTO public.marketing_list (name) VALUES
     ('Marketing B'),
     ('Marketing C')
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================
+-- Tambahan skema untuk modul Super Admin (idempotent)
+-- ============================================================
+
+-- Standarisasi role default agar konsisten dengan aplikasi
+ALTER TABLE public.user_roles
+    ALTER COLUMN role SET DEFAULT 'karyawan';
+
+UPDATE public.user_roles
+SET role = 'karyawan'
+WHERE role = 'user';
+
+-- Tabel profil karyawan/pengguna aplikasi
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(255),
+    phone VARCHAR(50),
+    role VARCHAR(50) NOT NULL DEFAULT 'karyawan',
+    last_sign_in_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Pengaturan sistem global key-value
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    id BIGSERIAL PRIMARY KEY,
+    key VARCHAR(255) UNIQUE NOT NULL,
+    value JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Visibilitas menu per peran
+CREATE TABLE IF NOT EXISTS public.role_menu_visibility (
+    id BIGSERIAL PRIMARY KEY,
+    role VARCHAR(50) NOT NULL,
+    menu_item_id VARCHAR(100) NOT NULL,
+    is_visible BOOLEAN NOT NULL DEFAULT true,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(role, menu_item_id)
+);
+
+-- Konfigurasi menu tambahan (opsional untuk runtime override)
+CREATE TABLE IF NOT EXISTS public.menu_configuration (
+    id BIGSERIAL PRIMARY KEY,
+    menu_item_id VARCHAR(100) UNIQUE NOT NULL,
+    label VARCHAR(255),
+    category VARCHAR(100),
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Izin granular per pengguna
+CREATE TABLE IF NOT EXISTS public.user_permissions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    permission_key VARCHAR(255) NOT NULL,
+    is_allowed BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(user_id, permission_key)
+);
+
+-- Audit trail akses menu
+CREATE TABLE IF NOT EXISTS public.menu_access_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    role VARCHAR(50),
+    menu_item_id VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL DEFAULT 'visit',
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Fungsi helper: cek apakah user login adalah super_admin
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+      AND ur.role = 'super_admin'
+  );
+$$;
+
+-- Enable RLS untuk tabel tambahan
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_menu_visibility ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_configuration ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_access_logs ENABLE ROW LEVEL SECURITY;
+
+-- Hapus policy lama jika ada
+DROP POLICY IF EXISTS "profiles_select_self_or_superadmin" ON public.user_profiles;
+DROP POLICY IF EXISTS "profiles_insert_self_or_superadmin" ON public.user_profiles;
+DROP POLICY IF EXISTS "profiles_update_self_or_superadmin" ON public.user_profiles;
+DROP POLICY IF EXISTS "profiles_delete_superadmin_only" ON public.user_profiles;
+
+DROP POLICY IF EXISTS "system_settings_read_authenticated" ON public.system_settings;
+DROP POLICY IF EXISTS "system_settings_write_superadmin" ON public.system_settings;
+
+DROP POLICY IF EXISTS "role_menu_visibility_read_authenticated" ON public.role_menu_visibility;
+DROP POLICY IF EXISTS "role_menu_visibility_write_superadmin" ON public.role_menu_visibility;
+
+DROP POLICY IF EXISTS "menu_configuration_read_authenticated" ON public.menu_configuration;
+DROP POLICY IF EXISTS "menu_configuration_write_superadmin" ON public.menu_configuration;
+
+DROP POLICY IF EXISTS "user_permissions_read_self_or_superadmin" ON public.user_permissions;
+DROP POLICY IF EXISTS "user_permissions_write_superadmin" ON public.user_permissions;
+
+DROP POLICY IF EXISTS "menu_access_logs_read_superadmin" ON public.menu_access_logs;
+DROP POLICY IF EXISTS "menu_access_logs_insert_authenticated" ON public.menu_access_logs;
+
+-- user_profiles
+CREATE POLICY "profiles_select_self_or_superadmin" ON public.user_profiles
+    FOR SELECT USING (auth.uid() = id OR public.is_super_admin());
+
+CREATE POLICY "profiles_insert_self_or_superadmin" ON public.user_profiles
+    FOR INSERT WITH CHECK (auth.uid() = id OR public.is_super_admin());
+
+CREATE POLICY "profiles_update_self_or_superadmin" ON public.user_profiles
+    FOR UPDATE USING (auth.uid() = id OR public.is_super_admin());
+
+CREATE POLICY "profiles_delete_superadmin_only" ON public.user_profiles
+    FOR DELETE USING (public.is_super_admin());
+
+-- system_settings
+CREATE POLICY "system_settings_read_authenticated" ON public.system_settings
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "system_settings_write_superadmin" ON public.system_settings
+    FOR ALL USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
+
+-- role_menu_visibility
+CREATE POLICY "role_menu_visibility_read_authenticated" ON public.role_menu_visibility
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "role_menu_visibility_write_superadmin" ON public.role_menu_visibility
+    FOR ALL USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
+
+-- menu_configuration
+CREATE POLICY "menu_configuration_read_authenticated" ON public.menu_configuration
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "menu_configuration_write_superadmin" ON public.menu_configuration
+    FOR ALL USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
+
+-- user_permissions
+CREATE POLICY "user_permissions_read_self_or_superadmin" ON public.user_permissions
+    FOR SELECT USING (auth.uid() = user_id OR public.is_super_admin());
+
+CREATE POLICY "user_permissions_write_superadmin" ON public.user_permissions
+    FOR ALL USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
+
+-- menu_access_logs
+CREATE POLICY "menu_access_logs_read_superadmin" ON public.menu_access_logs
+    FOR SELECT USING (public.is_super_admin());
+
+CREATE POLICY "menu_access_logs_insert_authenticated" ON public.menu_access_logs
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');

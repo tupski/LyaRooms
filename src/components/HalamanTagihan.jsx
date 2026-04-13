@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     import { Button } from '@/components/ui/button';
     import { toast } from '@/components/ui/use-toast';
     import { supabase } from '@/lib/customSupabaseClient';
+    import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
     import {
@@ -217,14 +218,12 @@ import React, { useState, useEffect, useCallback } from 'react';
         
         let proof_url = null;
         if (buktiBayarFile) {
-          const fileName = `tagihan_proofs/${Date.now()}_${buktiBayarFile.name}`;
-          const { data: uploadData, error: uploadError } = await supabase.storage.from('tagihan_proofs').upload(fileName, buktiBayarFile);
-          if (uploadError) {
+          try {
+            proof_url = await uploadToVercelBlob(buktiBayarFile, 'tagihan-proofs');
+          } catch (uploadError) {
             toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
             return;
           }
-          const { data: { publicUrl } } = supabase.storage.from('tagihan_proofs').getPublicUrl(fileName);
-          proof_url = publicUrl;
         }
         
         const { error: updateError } = await supabase.from('tagihan_bulanan').update({
@@ -420,14 +419,12 @@ import React, { useState, useEffect, useCallback } from 'react';
             
             let proof_url = null;
             if (uploadFile) {
-                const fileName = `fee_proofs/${Date.now()}_${uploadFile.name}`;
-                const { error: uploadError } = await supabase.storage.from('tagihan_proofs').upload(fileName, uploadFile);
-                if (uploadError) {
+                try {
+                    proof_url = await uploadToVercelBlob(uploadFile, 'fee-proofs');
+                } catch (uploadError) {
                     toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
                     return;
                 }
-                const { data: { publicUrl } } = supabase.storage.from('tagihan_proofs').getPublicUrl(fileName);
-                proof_url = publicUrl;
             }
     
             const { error: insertError } = await supabase.from('tagihan_fee_lunas').insert({

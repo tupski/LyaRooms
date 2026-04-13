@@ -77,7 +77,7 @@ const Auth = () => {
 
                 <div className="mt-6 text-center">
                     <p className="text-gray-400 text-xs">
-                        Belum punya akun? Hubungi administrator untuk membuat akun.
+                        Belum punya akun? Hubungi Om Tupas untuk membuat akun.
                     </p>
                 </div>
             </motion.div>
