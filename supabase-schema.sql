@@ -431,29 +431,6 @@ DROP POLICY IF EXISTS "transfer_proofs_delete_authenticated" ON storage.objects;
 CREATE POLICY "transfer_proofs_delete_authenticated" ON storage.objects
     FOR DELETE USING (bucket_id = 'transfer_proofs' AND auth.role() = 'authenticated');
 
--- Insert sample data (optional - remove if not needed)
-INSERT INTO public.lokasi_apartemen (name) VALUES
-    ('Apartemen A'),
-    ('Apartemen B'),
-    ('Apartemen C')
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO public.karyawan_list (name) VALUES
-    ('John Doe'),
-    ('Jane Smith'),
-    ('Bob Johnson')
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO public.marketing_list (name) VALUES
-    ('Marketing A'),
-    ('Marketing B'),
-    ('Marketing C')
-ON CONFLICT (name) DO NOTHING;
-
--- ============================================================
--- Tambahan skema untuk modul Super Admin (idempotent)
--- ============================================================
-
 -- Standarisasi role default agar konsisten dengan aplikasi
 ALTER TABLE public.user_roles
     ALTER COLUMN role SET DEFAULT 'karyawan';
