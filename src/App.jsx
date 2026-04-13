@@ -26,7 +26,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('form');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') return 'form';
+    return localStorage.getItem('kr_active_tab') || 'form';
+  });
   const [refreshKey, setRefreshKey] = useState(0);
   const { session, loading, signOut, userRole, isSuperAdmin } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
@@ -42,7 +45,7 @@ function App() {
 
   const handleTabClick = (tabId) => {
     setShowMoreMenus(false);
-    if (tabId === 'finance' && !isTagihanUnlocked) {
+    if (tabId === 'finance' && userRole === 'admin' && !isTagihanUnlocked) {
       setShowPinModal(true);
       return;
     }
@@ -104,6 +107,12 @@ function App() {
       setActiveTab('form');
     }
   }, [activeTab, visibleTabIds]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kr_active_tab', activeTab);
+    }
+  }, [activeTab]);
 
   const renderContent = () => {
     const key = `${activeTab}-${refreshKey}`;

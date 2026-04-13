@@ -329,11 +329,41 @@ CREATE POLICY "Enable insert for authenticated users" ON public.requests
 
 DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.requests;
 CREATE POLICY "Enable update for authenticated users" ON public.requests
-    FOR UPDATE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+    FOR UPDATE USING (
+        auth.role() = 'authenticated'
+        AND (
+            auth.uid() = user_id
+            OR EXISTS (
+                SELECT 1 FROM public.user_roles ur
+                WHERE ur.user_id = auth.uid()
+                AND ur.role IN ('admin', 'super_admin')
+            )
+        )
+    ) WITH CHECK (
+        auth.role() = 'authenticated'
+        AND (
+            auth.uid() = user_id
+            OR EXISTS (
+                SELECT 1 FROM public.user_roles ur
+                WHERE ur.user_id = auth.uid()
+                AND ur.role IN ('admin', 'super_admin')
+            )
+        )
+    );
 
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.requests;
 CREATE POLICY "Enable delete for authenticated users" ON public.requests
-    FOR DELETE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+    FOR DELETE USING (
+        auth.role() = 'authenticated'
+        AND (
+            auth.uid() = user_id
+            OR EXISTS (
+                SELECT 1 FROM public.user_roles ur
+                WHERE ur.user_id = auth.uid()
+                AND ur.role IN ('admin', 'super_admin')
+            )
+        )
+    );
 
 -- Policies for user_roles table
 DROP POLICY IF EXISTS "Enable read user roles for authenticated users" ON public.user_roles;

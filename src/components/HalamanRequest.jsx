@@ -98,10 +98,16 @@ const HalamanRequest = () => {
 
     const handleUpdateRequestStatus = async (id, status) => {
         if (!isAdminUser) return;
-        const { error } = await supabase.from('requests').update({ status }).eq('id', id);
+        const { data, error } = await supabase
+            .from('requests')
+            .update({ status })
+            .eq('id', id)
+            .select('id, status');
         
         if (error) {
             toast({ title: "Gagal update status", description: error.message, variant: "destructive" });
+        } else if (!data || data.length === 0) {
+            toast({ title: "Request tidak berubah", description: "Kemungkinan dibatasi RLS. Jalankan update policy SQL terbaru.", variant: "destructive" });
         } else {
             toast({ title: `Request ${status === 'Approved' ? 'disetujui' : 'ditolak'}!`, className: status === 'Approved' ? 'bg-green-500 text-white' : 'bg-red-500 text-white' });
             loadRequests();

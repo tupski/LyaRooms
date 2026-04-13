@@ -44,6 +44,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [refs, setRefs] = useState({ lokasi: [], kamar: [], marketing: [] });
+  const [occupiedMap, setOccupiedMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -67,8 +68,19 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
 
   const lokasiOptions = useMemo(() => refs.lokasi.map((item) => ({ value: item.name, label: item.name })), [refs.lokasi]);
   const kamarOptions = useMemo(
-    () => refs.kamar.filter((item) => item.lokasi === formData.lokasiApartemen).map((item) => ({ value: item.name, label: item.name })),
-    [refs.kamar, formData.lokasiApartemen]
+    () =>
+      refs.kamar
+        .filter((item) => item.lokasi === formData.lokasiApartemen)
+        .map((item) => {
+          const key = `${item.lokasi}__${item.name}`;
+          const occupied = Boolean(occupiedMap[key]);
+          return {
+            value: item.name,
+            label: occupied ? `${item.name} (Terisi)` : item.name,
+            isDisabled: occupied,
+          };
+        }),
+    [refs.kamar, formData.lokasiApartemen, occupiedMap]
   );
   const marketingOptions = useMemo(() => refs.marketing.map((item) => ({ value: item.name, label: item.name })), [refs.marketing]);
 
@@ -92,12 +104,25 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
   }, [user]);
 
   const loadReferences = useCallback(async () => {
-    const [{ data: lokasi }, { data: kamar }, { data: marketing }] = await Promise.all([
+    const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: roomTransactions }] = await Promise.all([
       supabase.from('lokasi_apartemen').select('name').order('name'),
       supabase.from('nomor_kamar').select('name, lokasi').order('name'),
       supabase.from('marketing_list').select('name').order('name'),
+      supabase.from('transactions').select('apartment_location, room_number, created_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
     ]);
     setRefs({ lokasi: lokasi || [], kamar: kamar || [], marketing: marketing || [] });
+    const activeMap = {};
+    const txList = roomTransactions || [];
+    txList.forEach((tx) => {
+      if (tx.checkout_at) return;
+      const key = `${tx.apartment_location}__${tx.room_number}`;
+      if (activeMap[key]) return;
+      const startedAt = new Date(tx.created_at);
+      const rentalHours = Number(tx.rental_duration) || 1;
+      const endAt = new Date(startedAt.getTime() + rentalHours * 60 * 60 * 1000);
+      if (new Date() < endAt) activeMap[key] = true;
+    });
+    setOccupiedMap(activeMap);
   }, []);
 
   useEffect(() => {

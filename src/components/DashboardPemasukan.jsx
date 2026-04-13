@@ -10,10 +10,12 @@ import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns
 import * as XLSX from 'xlsx';
 import PinInput from '@/components/PinInput';
 import { resolveStorageUrl } from '@/lib/storageUrl';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const ITEMS_PER_PAGE = 6;
 
 const DashboardPemasukan = () => {
+  const { userRole } = useAuth();
   const [filterType, setFilterType] = useState('harian');
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -28,6 +30,13 @@ const DashboardPemasukan = () => {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingEdit, setPendingEdit] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKeyword(searchKeyword), 300);
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
 
   const formatRupiah = (angka) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
@@ -73,6 +82,12 @@ const DashboardPemasukan = () => {
 
     if (lokasi !== 'semua') query = query.eq('apartment_location', lokasi);
     if (shift !== 'semua') query = query.eq('shift', shift);
+    const keyword = debouncedKeyword.trim();
+    if (keyword) {
+      query = query.or(
+        `customer_name.ilike.%${keyword}%,marketing_name.ilike.%${keyword}%,input_by.ilike.%${keyword}%,apartment_location.ilike.%${keyword}%,room_number.ilike.%${keyword}%`
+      );
+    }
 
     const { data: filteredData, error } = await query;
     if (error) {
@@ -93,7 +108,7 @@ const DashboardPemasukan = () => {
     }));
     setTransaksiList(list);
     setCurrentPage(1);
-  }, [filterType, startDate, endDate, startTime, endTime, lokasi, shift]);
+  }, [filterType, startDate, endDate, startTime, endTime, lokasi, shift, debouncedKeyword]);
 
   const loadInitialData = useCallback(async () => {
     const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name').order('name');
@@ -128,6 +143,10 @@ const DashboardPemasukan = () => {
   }, [loadTransaksi]);
 
   const handleEditClick = (transaksi) => {
+    if (userRole === 'super_admin') {
+      setEditingTransaksi(transaksi);
+      return;
+    }
     setPendingEdit(transaksi);
     setShowPinModal(true);
   };
@@ -278,6 +297,13 @@ const DashboardPemasukan = () => {
                 ))}
               </select>
             </div>
+            <input
+              type="text"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              className="w-full rounded-xl border-2 px-3 py-2.5 text-sm text-gray-900"
+              placeholder="Cari customer, marketing, input oleh, lokasi atau kamar..."
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

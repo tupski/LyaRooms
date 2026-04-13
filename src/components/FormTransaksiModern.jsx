@@ -63,6 +63,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
   const transferInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refs, setRefs] = useState({ lokasi: [], kamar: [], marketing: [], karyawan: [] });
+  const [occupiedMap, setOccupiedMap] = useState({});
   const [formData, setFormData] = useState({
     namaCustomer: '',
     lokasiApartemen: '',
@@ -88,11 +89,12 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
 
   useEffect(() => {
     const fetchRefs = async () => {
-      const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: karyawan }] = await Promise.all([
+      const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: karyawan }, { data: roomTransactions }] = await Promise.all([
         supabase.from('lokasi_apartemen').select('name').order('name'),
         supabase.from('nomor_kamar').select('name, lokasi').order('name'),
         supabase.from('marketing_list').select('name').order('name'),
         supabase.from('karyawan_list').select('name').order('name'),
+        supabase.from('transactions').select('apartment_location, room_number, created_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
       ]);
       setRefs({
         lokasi: lokasi || [],
@@ -100,12 +102,36 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
         marketing: marketing || [],
         karyawan: karyawan || [],
       });
+      const activeMap = {};
+      const txList = roomTransactions || [];
+      txList.forEach((tx) => {
+        if (tx.checkout_at) return;
+        const key = `${tx.apartment_location}__${tx.room_number}`;
+        if (activeMap[key]) return;
+        const startedAt = new Date(tx.created_at);
+        const rentalHours = Number(tx.rental_duration) || 1;
+        const endAt = new Date(startedAt.getTime() + rentalHours * 60 * 60 * 1000);
+        if (new Date() < endAt) {
+          activeMap[key] = true;
+        }
+      });
+      setOccupiedMap(activeMap);
     };
     fetchRefs();
   }, []);
 
   const lokasiOptions = useMemo(() => refs.lokasi.map((x) => ({ value: x.name, label: x.name })), [refs.lokasi]);
-  const kamarOptions = useMemo(() => refs.kamar.filter((x) => x.lokasi === formData.lokasiApartemen).map((x) => ({ value: x.name, label: x.name })), [refs.kamar, formData.lokasiApartemen]);
+  const kamarOptions = useMemo(
+    () =>
+      refs.kamar
+        .filter((x) => x.lokasi === formData.lokasiApartemen)
+        .map((x) => {
+          const key = `${x.lokasi}__${x.name}`;
+          const occupied = Boolean(occupiedMap[key]);
+          return { value: x.name, label: occupied ? `${x.name} (Terisi)` : x.name, isDisabled: occupied };
+        }),
+    [refs.kamar, formData.lokasiApartemen, occupiedMap]
+  );
   const marketingOptions = useMemo(() => refs.marketing.map((x) => ({ value: x.name, label: x.name })), [refs.marketing]);
   const karyawanOptions = useMemo(() => refs.karyawan.map((x) => ({ value: x.name, label: x.name })), [refs.karyawan]);
 
@@ -181,8 +207,8 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
     const transferAmount = parseCurrency(formData.transfer);
     const feeAmount = parseCurrency(formData.feeMarketing);
 
-    if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.namaMarketing || !formData.lamaSewa || !formData.input_by) {
-      toast({ title: 'Data wajib belum lengkap', description: 'Isi customer, lokasi, kamar, marketing, input oleh, dan durasi sewa.', variant: 'destructive' });
+    if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.lamaSewa) {
+      toast({ title: 'Data wajib belum lengkap', description: 'Isi customer, lokasi, kamar, dan durasi sewa.', variant: 'destructive' });
       setIsSubmitting(false);
       return;
     }
@@ -210,7 +236,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
       const payload = {
         user_id: user.id,
         customer_name: formData.namaCustomer.trim(),
-        marketing_name: formData.namaMarketing,
+        marketing_name: formData.namaMarketing || formData.input_by || user?.email || 'sistem',
         rental_duration: getRentalHours(formData.lamaSewa, formData.customSewaJam),
         shift: formData.shift || null,
         input_by: formData.input_by || user?.email || 'sistem',
@@ -360,7 +386,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Nama Marketing *</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Nama Marketing</label>
                   <CreatableSelect
                     styles={selectStyles}
                     menuPortalTarget={selectPortalTarget}
@@ -372,10 +398,26 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                     isClearable
                     formatCreateLabel={(inputValue) => `Tambah marketing: ${inputValue}`}
                   />
+                  {canManageReferences && formData.namaMarketing && (
+                    <div className="mt-2 flex gap-3">
+                      <button type="button" className="text-sm text-slate-600 hover:text-slate-900" onClick={() => handleChange('namaMarketing', '')}>Kosongkan pilihan</button>
+                      <button type="button" className="text-sm text-red-600 hover:text-red-800" onClick={async () => {
+                        if (!window.confirm(`Hapus nama marketing ${formData.namaMarketing}?`)) return;
+                        const { error } = await supabase.from('marketing_list').delete().eq('name', formData.namaMarketing);
+                        if (error) {
+                          toast({ title: 'Gagal menghapus marketing', description: error.message, variant: 'destructive' });
+                          return;
+                        }
+                        setRefs((prev) => ({ ...prev, marketing: prev.marketing.filter((item) => item.name !== formData.namaMarketing) }));
+                        handleChange('namaMarketing', '');
+                        toast({ title: 'Nama marketing dihapus' });
+                      }}>Hapus dari daftar</button>
+                    </div>
+                  )}
                 </div>
                 {(userRole === 'admin' || userRole === 'super_admin') && (
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">Input Oleh *</label>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Input Oleh</label>
                     <Select
                       styles={selectStyles}
                       menuPortalTarget={selectPortalTarget}
@@ -385,6 +427,11 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                       onChange={(opt) => handleChange('input_by', opt?.value || '')}
                       isClearable
                     />
+                    {formData.input_by && (
+                      <button type="button" className="mt-2 text-sm text-slate-600 hover:text-slate-900" onClick={() => handleChange('input_by', '')}>
+                        Kosongkan pilihan input oleh
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
