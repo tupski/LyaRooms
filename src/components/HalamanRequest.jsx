@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, PlusCircle, ChevronDown, Check, X, History } from 'lucide-react';
+import { Send, PlusCircle, ChevronDown, Check, X, History, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -28,7 +28,9 @@ const HalamanRequest = () => {
         'Kebutuhan Unit',
         'Request Kasbon',
         'Request Cuti',
+        'Lainnya...',
     ];
+    const isAdminUser = userRole === 'admin' || userRole === 'super_admin';
 
     const fetchOptions = async () => {
         const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name');
@@ -95,6 +97,7 @@ const HalamanRequest = () => {
     };
 
     const handleUpdateRequestStatus = async (id, status) => {
+        if (!isAdminUser) return;
         const { error } = await supabase.from('requests').update({ status }).eq('id', id);
         
         if (error) {
@@ -103,6 +106,11 @@ const HalamanRequest = () => {
             toast({ title: `Request ${status === 'Approved' ? 'disetujui' : 'ditolak'}!`, className: status === 'Approved' ? 'bg-green-500 text-white' : 'bg-red-500 text-white' });
             loadRequests();
         }
+    };
+
+    const handleSendRequestToAdmin = (req) => {
+        const text = `Halo Admin, saya ingin follow-up request.\n\nJenis: ${req.request_type}\nLokasi: ${req.apartment_location}\nTanggal: ${formatDate(req.desired_date)}\nStatus: ${req.status}\nDeskripsi: ${req.description || '-'}`;
+        window.open(`https://wa.me/6289613413636?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
@@ -169,7 +177,7 @@ const HalamanRequest = () => {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                            <textarea placeholder="Deskripsi Request..." value={newRequest.description} onChange={(e) => handleInputChange('description', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900 h-24" />
+                            <textarea placeholder="Jelaskan detail permintaan Anda..." value={newRequest.description} onChange={(e) => handleInputChange('description', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900 h-24" />
                             <div className="relative">
                                 <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Tanggal yang diinginkan</label>
                                 <input type="date" value={newRequest.desired_date} onChange={(e) => handleInputChange('desired_date', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
@@ -194,10 +202,24 @@ const HalamanRequest = () => {
                                 {req.request_type === 'Request Kasbon' && <p className="text-lg font-bold text-blue-600">{formatRupiah(req.amount)}</p>}
                                 <p className="text-sm text-gray-700 mt-2 border-t border-gray-200 pt-2">{req.description || "Tidak ada deskripsi."}</p>
                                 <p className="text-xs text-gray-500 mt-1">Tanggal: {formatDate(req.desired_date)}</p>
-                                <div className="flex gap-2 mt-3">
-                                    <Button size="sm" className="flex-1 bg-green-500 hover:bg-green-600" onClick={() => handleUpdateRequestStatus(req.id, 'Approved')}><Check className="w-4 h-4 mr-1"/> ACC</Button>
-                                    <Button size="sm" className="flex-1 bg-red-500 hover:bg-red-600" onClick={() => handleUpdateRequestStatus(req.id, 'Rejected')}><X className="w-4 h-4 mr-1"/> Reject</Button>
-                                </div>
+                                {isAdminUser ? (
+                                    <div className="flex gap-2 mt-3">
+                                        <Button size="sm" className="flex-1 bg-green-500 hover:bg-green-600" onClick={() => handleUpdateRequestStatus(req.id, 'Approved')}><Check className="w-4 h-4 mr-1"/> ACC</Button>
+                                        <Button size="sm" className="flex-1 bg-red-500 hover:bg-red-600" onClick={() => handleUpdateRequestStatus(req.id, 'Rejected')}><X className="w-4 h-4 mr-1"/> Reject</Button>
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        <p className="text-xs font-semibold text-amber-700">Menunggu Konfirmasi Admin</p>
+                                        <Button
+                                            size="sm"
+                                            className="w-full bg-green-600 hover:bg-green-700"
+                                            onClick={() => handleSendRequestToAdmin(req)}
+                                        >
+                                            <MessageCircle className="mr-2 h-4 w-4" />
+                                            Kirim WA request Anda ke admin
+                                        </Button>
+                                    </div>
+                                )}
                             </motion.div>
                         ))
                     )}

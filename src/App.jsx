@@ -82,16 +82,22 @@ function App() {
   const visibleTabs = allTabs.filter((tab) => visibleTabIds.includes(tab.id));
 
   const primaryTabs = useMemo(() => {
+    if (userRole === 'karyawan') {
+      return ['kamar', 'request']
+        .map((id) => visibleTabs.find((tab) => tab.id === id))
+        .filter(Boolean);
+    }
     const preferred = ['dashboard', 'kamar', 'finance'];
     return preferred
       .map((id) => visibleTabs.find((tab) => tab.id === id))
       .filter(Boolean);
-  }, [visibleTabs]);
+  }, [userRole, visibleTabs]);
 
   const secondaryTabs = useMemo(() => {
+    if (userRole === 'karyawan') return [];
     const hiddenFromPrimary = new Set([...primaryTabs.map((tab) => tab.id), 'form']);
     return visibleTabs.filter((tab) => !hiddenFromPrimary.has(tab.id));
-  }, [visibleTabs, primaryTabs]);
+  }, [userRole, visibleTabs, primaryTabs]);
 
   useEffect(() => {
     if (!visibleTabIds.includes(activeTab)) {

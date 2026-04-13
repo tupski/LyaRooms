@@ -36,6 +36,7 @@ const selectStyles = {
   }),
   valueContainer: (base) => ({ ...base, paddingLeft: 12, paddingRight: 12 }),
   menu: (base) => ({ ...base, borderRadius: 12, overflow: 'hidden' }),
+  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
 const formatCurrency = (value) => {
@@ -78,6 +79,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
     buktiTransferFile: null,
     input_by: '',
   });
+  const selectPortalTarget = typeof document !== 'undefined' ? document.body : null;
 
   useEffect(() => {
     const inputBy = user?.user_metadata?.full_name || user?.email || '';
@@ -269,6 +271,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                   <label className="mb-2 block text-sm font-medium text-slate-700">Lokasi Apartemen *</label>
                   <SelectComponent
                     styles={selectStyles}
+                    menuPortalTarget={selectPortalTarget}
                     options={lokasiOptions}
                     placeholder={canManageReferences ? 'Pilih lokasi atau tambah baru...' : 'Pilih lokasi...'}
                     value={lokasiOptions.find((x) => x.value === formData.lokasiApartemen) || null}
@@ -306,6 +309,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                   <label className="mb-2 block text-sm font-medium text-slate-700">Nomor Kamar *</label>
                   <SelectComponent
                     styles={selectStyles}
+                    menuPortalTarget={selectPortalTarget}
                     options={kamarOptions}
                     placeholder={formData.lokasiApartemen ? (canManageReferences ? 'Pilih nomor kamar atau tambah baru...' : 'Pilih nomor kamar...') : 'Pilih lokasi terlebih dahulu'}
                     value={kamarOptions.find((x) => x.value === formData.nomorKamar) || null}
@@ -359,6 +363,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                   <label className="mb-2 block text-sm font-medium text-slate-700">Nama Marketing *</label>
                   <CreatableSelect
                     styles={selectStyles}
+                    menuPortalTarget={selectPortalTarget}
                     options={marketingOptions}
                     placeholder="Pilih marketing atau tambah baru..."
                     value={marketingOptions.find((x) => x.value === formData.namaMarketing) || null}
@@ -373,6 +378,7 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                     <label className="mb-2 block text-sm font-medium text-slate-700">Input Oleh *</label>
                     <Select
                       styles={selectStyles}
+                      menuPortalTarget={selectPortalTarget}
                       options={karyawanOptions}
                       placeholder="Pilih karyawan atau ketik nama..."
                       value={karyawanOptions.find((x) => x.value === formData.input_by) || null}
