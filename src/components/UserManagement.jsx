@@ -69,7 +69,7 @@ const UserManagement = () => {
     password: '',
     full_name: '',
     phone: '',
-    role: 'user'
+    role: 'karyawan'
   });
 
   useEffect(() => {
@@ -80,25 +80,25 @@ const UserManagement = () => {
     try {
       setLoading(true);
 
-      // Get all users from auth.users (admin only)
+      // Ambil semua pengguna dari auth.users (khusus admin)
       const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
       if (authError) throw authError;
 
-      // Get user profiles with roles
+      // Ambil profil pengguna beserta peran
       const { data: profiles, error: profileError } = await supabase
         .from('user_profiles')
         .select('*');
 
       if (profileError) throw profileError;
 
-      // Combine auth users with profiles
+      // Gabungkan data auth users dengan profil
       const combinedUsers = authUsers.users.map(authUser => {
         const profile = profiles.find(p => p.id === authUser.id);
         return {
           ...authUser,
           profile: profile || {},
-          role: profile?.role || 'user',
+          role: profile?.role || 'karyawan',
           full_name: profile?.full_name || authUser.user_metadata?.full_name || '',
           phone: profile?.phone || authUser.user_metadata?.phone || '',
           created_at: authUser.created_at,
@@ -110,7 +110,7 @@ const UserManagement = () => {
       setUsers(combinedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
+      toast.error('Gagal memuat data karyawan');
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ const UserManagement = () => {
 
   const handleCreateUser = async () => {
     try {
-      // Create auth user
+      // Buat pengguna auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
@@ -131,7 +131,7 @@ const UserManagement = () => {
 
       if (authError) throw authError;
 
-      // Create user profile
+      // Buat profil pengguna
       const { error: profileError } = await supabase
         .from('user_profiles')
         .insert({
@@ -144,19 +144,19 @@ const UserManagement = () => {
 
       if (profileError) throw profileError;
 
-      toast.success('User created successfully');
+      toast.success('Karyawan berhasil ditambahkan');
       setIsCreateDialogOpen(false);
       resetForm();
       fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
-      toast.error('Failed to create user: ' + error.message);
+      toast.error('Gagal menambahkan karyawan: ' + error.message);
     }
   };
 
   const handleUpdateUser = async () => {
     try {
-      // Update user metadata
+      // Perbarui metadata pengguna
       const { error: authError } = await supabase.auth.admin.updateUserById(
         selectedUser.id,
         {
@@ -169,7 +169,7 @@ const UserManagement = () => {
 
       if (authError) throw authError;
 
-      // Update user profile
+      // Perbarui profil pengguna
       const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
@@ -181,20 +181,20 @@ const UserManagement = () => {
 
       if (profileError) throw profileError;
 
-      toast.success('User updated successfully');
+      toast.success('Data karyawan berhasil diperbarui');
       setIsEditDialogOpen(false);
       setSelectedUser(null);
       resetForm();
       fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
-      toast.error('Failed to update user: ' + error.message);
+      toast.error('Gagal memperbarui karyawan: ' + error.message);
     }
   };
 
   const handleDeleteUser = async () => {
     try {
-      // Delete user profile first
+      // Hapus profil pengguna terlebih dahulu
       const { error: profileError } = await supabase
         .from('user_profiles')
         .delete()
@@ -202,18 +202,18 @@ const UserManagement = () => {
 
       if (profileError) throw profileError;
 
-      // Delete auth user
+      // Hapus pengguna auth
       const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
 
       if (authError) throw authError;
 
-      toast.success('User deleted successfully');
+      toast.success('Karyawan berhasil dihapus');
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      toast.error('Failed to delete user: ' + error.message);
+      toast.error('Gagal menghapus karyawan: ' + error.message);
     }
   };
 
@@ -223,7 +223,7 @@ const UserManagement = () => {
       password: '',
       full_name: '',
       phone: '',
-      role: 'user'
+      role: 'karyawan'
     });
   };
 
@@ -231,10 +231,10 @@ const UserManagement = () => {
     setSelectedUser(user);
     setFormData({
       email: user.email,
-      password: '', // Don't show password
+      password: '', // Jangan tampilkan kata sandi
       full_name: user.full_name || '',
       phone: user.phone || '',
-      role: user.role || 'user'
+      role: user.role || 'karyawan'
     });
     setIsEditDialogOpen(true);
   };
@@ -257,7 +257,7 @@ const UserManagement = () => {
         return 'bg-red-100 text-red-800 border-red-200';
       case 'admin':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'user':
+      case 'karyawan':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -288,21 +288,21 @@ const UserManagement = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600">Manage system users and their permissions</p>
+          <h1 className="text-2xl font-bold text-gray-900">Manajemen Karyawan</h1>
+          <p className="text-gray-600">Kelola karyawan sistem dan izin mereka</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <UserPlus className="h-4 w-4 mr-2" />
-              Add User
+              Tambah Karyawan
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
+              <DialogTitle>Tambah Karyawan Baru</DialogTitle>
               <DialogDescription>
-                Add a new user to the system with appropriate role and permissions.
+                Tambahkan karyawan baru ke sistem dengan peran dan izin yang sesuai.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -317,7 +317,7 @@ const UserManagement = () => {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="password" className="text-right">Password</Label>
+                <Label htmlFor="password" className="text-right">Kata Sandi</Label>
                 <Input
                   id="password"
                   type="password"
@@ -327,7 +327,7 @@ const UserManagement = () => {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="full_name" className="text-right">Full Name</Label>
+                <Label htmlFor="full_name" className="text-right">Nama Lengkap</Label>
                 <Input
                   id="full_name"
                   value={formData.full_name}
@@ -336,7 +336,7 @@ const UserManagement = () => {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">Phone</Label>
+                <Label htmlFor="phone" className="text-right">Telepon</Label>
                 <Input
                   id="phone"
                   value={formData.phone}
@@ -345,13 +345,13 @@ const UserManagement = () => {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">Role</Label>
+                <Label htmlFor="role" className="text-right">Peran</Label>
                 <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value})}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="karyawan">Karyawan</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                   </SelectContent>
@@ -360,9 +360,9 @@ const UserManagement = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
+                Batal
               </Button>
-              <Button onClick={handleCreateUser}>Create User</Button>
+              <Button onClick={handleCreateUser}>Buat Karyawan</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -376,7 +376,7 @@ const UserManagement = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Search users..."
+                  placeholder="Cari karyawan..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -389,10 +389,10 @@ const UserManagement = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="user">Users</SelectItem>
-                <SelectItem value="admin">Admins</SelectItem>
-                <SelectItem value="super_admin">Super Admins</SelectItem>
+                <SelectItem value="all">Semua Peran</SelectItem>
+                <SelectItem value="karyawan">Karyawan</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="super_admin">Super Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -402,18 +402,18 @@ const UserManagement = () => {
       {/* Users Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
+          <CardTitle>Karyawan ({filteredUsers.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Contact</TableHead>
+                <TableHead>Karyawan</TableHead>
+                <TableHead>Peran</TableHead>
+                <TableHead>Kontak</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Last Sign In</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Masuk Terakhir</TableHead>
+                <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -430,7 +430,7 @@ const UserManagement = () => {
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">
-                          {user.full_name || 'No name'}
+                          {user.full_name || 'Tanpa nama'}
                         </div>
                         <div className="text-gray-500 text-sm">{user.email}</div>
                       </div>
@@ -460,7 +460,7 @@ const UserManagement = () => {
                   </TableCell>
                   <TableCell>
                     <Badge variant={user.email_confirmed_at ? 'default' : 'secondary'}>
-                      {user.email_confirmed_at ? 'Verified' : 'Unverified'}
+                      {user.email_confirmed_at ? 'Terverifikasi' : 'Belum verifikasi'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -470,7 +470,7 @@ const UserManagement = () => {
                         {new Date(user.last_sign_in_at).toLocaleDateString()}
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-sm">Never</span>
+                      <span className="text-gray-400 text-sm">Belum pernah</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -481,18 +481,18 @@ const UserManagement = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(user)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete User
+                          <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Karyawan
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => openDeleteDialog(user)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus Karyawan
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -508,9 +508,9 @@ const UserManagement = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle>Edit Karyawan</DialogTitle>
             <DialogDescription>
-              Update user information and permissions.
+              Perbarui informasi karyawan dan izinnya.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -525,7 +525,7 @@ const UserManagement = () => {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-full_name" className="text-right">Full Name</Label>
+              <Label htmlFor="edit-full_name" className="text-right">Nama Lengkap</Label>
               <Input
                 id="edit-full_name"
                 value={formData.full_name}
@@ -534,7 +534,7 @@ const UserManagement = () => {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-phone" className="text-right">Phone</Label>
+              <Label htmlFor="edit-phone" className="text-right">Telepon</Label>
               <Input
                 id="edit-phone"
                 value={formData.phone}
@@ -549,7 +549,7 @@ const UserManagement = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="karyawan">Karyawan</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="super_admin">Super Admin</SelectItem>
                 </SelectContent>
@@ -558,9 +558,9 @@ const UserManagement = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
+              Batal
             </Button>
-            <Button onClick={handleUpdateUser}>Update User</Button>
+            <Button onClick={handleUpdateUser}>Perbarui Karyawan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -569,9 +569,9 @@ const UserManagement = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
+            <DialogTitle>Hapus Karyawan</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this user? This action cannot be undone.
+              Yakin ingin menghapus karyawan ini? Tindakan ini tidak dapat dibatalkan.
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
@@ -586,7 +586,7 @@ const UserManagement = () => {
                 </div>
                 <div>
                   <div className="font-medium text-gray-900">
-                    {selectedUser.full_name || 'No name'}
+                    {selectedUser.full_name || 'Tanpa nama'}
                   </div>
                   <div className="text-gray-500 text-sm">{selectedUser.email}</div>
                   <Badge variant="outline" className={getRoleBadgeColor(selectedUser.role)}>
@@ -598,10 +598,10 @@ const UserManagement = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
+              Batal
             </Button>
             <Button variant="destructive" onClick={handleDeleteUser}>
-              Delete User
+              Hapus Karyawan
             </Button>
           </DialogFooter>
         </DialogContent>

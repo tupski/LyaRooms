@@ -33,12 +33,12 @@ const BottomNavigation = ({ userRole }) => {
   };
 
   const getCurrentCategory = () => {
-    // Determine current category based on current path
+    // Tentukan kategori saat ini berdasarkan path aktif
     const currentPath = location.pathname;
     for (const category of availableCategories) {
       const categoryItems = getMenuCountByCategory(category, userRole);
       if (categoryItems > 0) {
-        // This is a simplified check - in a real app you'd check if the current path matches any item in the category
+        // Ini pengecekan sederhana - idealnya cocokkan path dengan item menu dalam kategori
         return category;
       }
     }
@@ -48,10 +48,10 @@ const BottomNavigation = ({ userRole }) => {
   const currentCategory = getCurrentCategory();
 
   const handleCategoryClick = (category) => {
-    // Navigate to the first available item in the category
+    // Arahkan ke item pertama yang tersedia dalam kategori
     const categoryItems = getMenuCountByCategory(category, userRole);
     if (categoryItems > 0) {
-      // For now, navigate to dashboard for operations, or a placeholder for others
+      // Sementara: arahkan ke halaman utama tiap kategori
       const defaultRoutes = {
         [MENU_CATEGORIES.OPERATIONS]: '/dashboard',
         [MENU_CATEGORIES.ANALYTICS]: '/income-dashboard',
@@ -68,7 +68,7 @@ const BottomNavigation = ({ userRole }) => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
-      {/* Main Navigation Bar */}
+      {/* Bilah navigasi utama */}
       <div className="flex items-center justify-around px-2 py-2">
         {availableCategories.map((category) => {
           const Icon = categoryIcons[category];
@@ -106,7 +106,7 @@ const BottomNavigation = ({ userRole }) => {
           );
         })}
 
-        {/* Expand/Collapse Button */}
+        {/* Tombol buka/tutup */}
         <Button
           variant="ghost"
           size="sm"
@@ -118,11 +118,11 @@ const BottomNavigation = ({ userRole }) => {
           ) : (
             <ChevronUp className="h-5 w-5" />
           )}
-          <span className="text-xs font-medium">More</span>
+          <span className="text-xs font-medium">Lebih Banyak</span>
         </Button>
       </div>
 
-      {/* Expanded Menu Items */}
+      {/* Item menu saat dibuka */}
       {isExpanded && (
         <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
           <div className="grid grid-cols-2 gap-3">
@@ -136,9 +136,9 @@ const BottomNavigation = ({ userRole }) => {
                     {getCategoryDisplayName(category)}
                   </h3>
                   <div className="space-y-1">
-                    {/* Show first few items or indicate count */}
+                    {/* Tampilkan beberapa item pertama atau tunjukkan jumlah */}
                     <div className="text-xs text-gray-500">
-                      {itemCount} item{itemCount !== 1 ? 's' : ''} available
+                      {itemCount} item{itemCount !== 1 ? '' : ''} tersedia
                     </div>
                   </div>
                 </div>

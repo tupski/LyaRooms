@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     setSession(session);
     setUser(session?.user ?? null);
 
-    // Check user role
+    // Cek peran pengguna
     if (session?.user) {
       await checkUserRole(session.user.id);
     } else {
@@ -35,28 +35,28 @@ export const AuthProvider = ({ children }) => {
         .eq('user_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      if (error && error.code !== 'PGRST116') { // PGRST116 = tidak ada baris
         console.error('Error checking user role:', error);
-        setUserRole('user'); // Default to user role
+        setUserRole('karyawan'); // Peran default
       } else if (data) {
         setUserRole(data.role);
       } else {
-        // If no role found, check if user has admin metadata
+        // Jika belum ada peran, cek metadata admin
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.user_metadata?.role === 'super_admin') {
-          // Create role entry if it doesn't exist
+          // Buat entri peran jika belum ada
           await supabase.from('user_roles').insert({
             user_id: userId,
             role: 'super_admin'
           });
           setUserRole('super_admin');
         } else {
-          setUserRole('user');
+          setUserRole('karyawan');
         }
       }
     } catch (error) {
       console.error('Error in checkUserRole:', error);
-      setUserRole('user');
+      setUserRole('karyawan');
     }
   }, []);
 

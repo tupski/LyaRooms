@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, User, Settings, LogOut, Menu } from 'lucide-react';
+import { Bell, User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/SupabaseAuthContext';
 import { Button } from './ui/button';
 import {
@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 const HeaderLayout = ({ user, userRole }) => {
   const { signOut } = useAuth();
-  const [notifications] = useState(3); // Mock notification count
+  const [notifications] = useState(3); // Jumlah notifikasi sementara
 
   const getRoleBadgeColor = (role) => {
     switch (role) {
@@ -23,7 +23,7 @@ const HeaderLayout = ({ user, userRole }) => {
         return 'bg-red-100 text-red-800 border-red-200';
       case 'admin':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'user':
+      case 'karyawan':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -36,17 +36,17 @@ const HeaderLayout = ({ user, userRole }) => {
         return 'Super Admin';
       case 'admin':
         return 'Admin';
-      case 'user':
-        return 'User';
+      case 'karyawan':
+        return 'Karyawan';
       default:
-        return 'User';
+        return 'Karyawan';
     }
   };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="container flex h-16 items-center justify-between px-4">
-        {/* Logo/Brand */}
+        {/* Logo/Merek */}
         <div className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold">
             KR
@@ -54,9 +54,9 @@ const HeaderLayout = ({ user, userRole }) => {
           <span className="font-semibold text-lg">Kost Rental</span>
         </div>
 
-        {/* Right side - User menu and notifications */}
+        {/* Sisi kanan - menu karyawan dan notifikasi */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
+          {/* Notifikasi */}
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
             {notifications > 0 && (
@@ -69,7 +69,7 @@ const HeaderLayout = ({ user, userRole }) => {
             )}
           </Button>
 
-          {/* User Menu */}
+          {/* Menu karyawan */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -101,16 +101,16 @@ const HeaderLayout = ({ user, userRole }) => {
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+                <span>Profil</span>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <span>Pengaturan</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-red-600">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>Keluar</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -293,7 +293,13 @@ import React, { useState, useEffect, useCallback } from 'react';
                                 {transaksi.transfer_proof_url && (
                                     <Dialog>
                                         <DialogTrigger asChild><Button size="icon" variant="outline" className="h-8 w-8"><ImageIcon className="w-4 h-4"/></Button></DialogTrigger>
-                                        <DialogContent className="bg-black/80"><img src={transaksi.transfer_proof_url} alt="Bukti Transfer" className="rounded-lg w-full" /></DialogContent>
+                                        <DialogContent className="bg-black/80">
+                                          <DialogHeader>
+                                            <DialogTitle className="text-white">Bukti Transfer</DialogTitle>
+                                            <DialogDescription className="text-gray-300">Pratinjau gambar bukti transfer transaksi.</DialogDescription>
+                                          </DialogHeader>
+                                          <img src={transaksi.transfer_proof_url} alt="Bukti Transfer" className="rounded-lg w-full" />
+                                        </DialogContent>
                                     </Dialog>
                                 )}
                                 <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleEditClick(transaksi)}><Edit className="w-4 h-4" /></Button>

@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -124,6 +125,7 @@ const AutocompleteInput = ({ title, table, value, onValueChange, filterBy }) => 
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Kelola {title}</DialogTitle>
+              <DialogDescription>Tambah atau hapus data referensi untuk kolom {title}.</DialogDescription>
             </DialogHeader>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {listItems.map((item) => (

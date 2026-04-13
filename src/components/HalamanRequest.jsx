@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 const HalamanRequest = () => {
     const { user } = useAuth();
@@ -127,7 +127,10 @@ const HalamanRequest = () => {
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="bg-white">
-                        <DialogHeader><DialogTitle>Form Request Karyawan</DialogTitle></DialogHeader>
+                        <DialogHeader>
+                            <DialogTitle>Form Request Karyawan</DialogTitle>
+                            <DialogDescription>Isi data permintaan karyawan lalu kirim untuk ditinjau.</DialogDescription>
+                        </DialogHeader>
                         <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                             <select value={newRequest.request_type} onChange={(e) => handleInputChange('request_type', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
                                 <option value="">Pilih Jenis Request</option>

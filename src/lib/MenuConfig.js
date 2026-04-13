@@ -11,20 +11,18 @@ import {
   Calendar,
   DollarSign,
   Building,
-  UserCheck,
   Key,
   Bell,
   Database,
   Lock,
   Globe,
   Smartphone,
-  Monitor,
   Zap,
   Activity,
   PieChart
 } from 'lucide-react';
 
-// Menu Categories
+// Kategori Menu
 export const MENU_CATEGORIES = {
   OPERATIONS: 'operations',
   ANALYTICS: 'analytics',
@@ -32,184 +30,184 @@ export const MENU_CATEGORIES = {
   SETTINGS: 'settings'
 };
 
-// Menu Items Configuration
+// Konfigurasi Item Menu
 export const MENU_ITEMS = [
-  // Operations Category
+  // Kategori Operasi
   {
     id: 'dashboard',
-    name: 'Dashboard',
+    name: 'Dasbor',
     icon: Home,
     path: '/dashboard',
     category: MENU_CATEGORIES.OPERATIONS,
     priority: 1,
-    roles: ['user', 'admin', 'super_admin'],
-    description: 'Main dashboard overview'
+    roles: ['karyawan', 'admin', 'super_admin'],
+    description: 'Ringkasan dasbor utama'
   },
   {
     id: 'add-transaction',
-    name: 'Add Transaction',
+    name: 'Tambah Transaksi',
     icon: Plus,
     path: '/add-transaction',
     category: MENU_CATEGORIES.OPERATIONS,
     priority: 2,
-    roles: ['user', 'admin', 'super_admin'],
-    description: 'Create new rental transaction'
+    roles: ['karyawan', 'admin', 'super_admin'],
+    description: 'Buat transaksi sewa baru'
   },
   {
     id: 'edit-transaction',
-    name: 'Edit Transaction',
+    name: 'Edit Transaksi',
     icon: Edit,
     path: '/edit-transaction',
     category: MENU_CATEGORIES.OPERATIONS,
     priority: 3,
     roles: ['admin', 'super_admin'],
-    description: 'Modify existing transactions'
+    description: 'Modifikasi transaksi yang ada'
   },
   {
     id: 'room-availability',
-    name: 'Room Availability',
+    name: 'Ketersediaan Kamar',
     icon: Building,
     path: '/room-availability',
     category: MENU_CATEGORIES.OPERATIONS,
     priority: 4,
-    roles: ['user', 'admin', 'super_admin'],
-    description: 'Check room availability'
+    roles: ['karyawan', 'admin', 'super_admin'],
+    description: 'Periksa ketersediaan kamar'
   },
   {
     id: 'calendar',
-    name: 'Calendar',
+    name: 'Kalender',
     icon: Calendar,
     path: '/calendar',
     category: MENU_CATEGORIES.OPERATIONS,
     priority: 5,
-    roles: ['user', 'admin', 'super_admin'],
-    description: 'Booking calendar view'
+    roles: ['karyawan', 'admin', 'super_admin'],
+    description: 'Tampilan kalender pemesanan'
   },
 
-  // Analytics Category
+  // Kategori Analitik
   {
     id: 'income-dashboard',
-    name: 'Income Dashboard',
+    name: 'Dasbor Pendapatan',
     icon: DollarSign,
     path: '/income-dashboard',
     category: MENU_CATEGORIES.ANALYTICS,
     priority: 1,
     roles: ['admin', 'super_admin'],
-    description: 'Revenue analytics and reports'
+    description: 'Analitik dan laporan pendapatan'
   },
   {
     id: 'revenue-chart',
-    name: 'Revenue Chart',
+    name: 'Grafik Pendapatan',
     icon: BarChart3,
     path: '/revenue-chart',
     category: MENU_CATEGORIES.ANALYTICS,
     priority: 2,
     roles: ['admin', 'super_admin'],
-    description: 'Detailed revenue charts'
+    description: 'Grafik pendapatan detail'
   },
   {
     id: 'marketing-ranking',
-    name: 'Marketing Ranking',
+    name: 'Peringkat Marketing',
     icon: TrendingUp,
     path: '/marketing-ranking',
     category: MENU_CATEGORIES.ANALYTICS,
     priority: 3,
     roles: ['admin', 'super_admin'],
-    description: 'Marketing performance ranking'
+    description: 'Peringkat performa marketing'
   },
   {
     id: 'occupancy-report',
-    name: 'Occupancy Report',
+    name: 'Laporan Hunian',
     icon: PieChart,
     path: '/occupancy-report',
     category: MENU_CATEGORIES.ANALYTICS,
     priority: 4,
     roles: ['admin', 'super_admin'],
-    description: 'Room occupancy analytics'
+    description: 'Analitik hunian kamar'
   },
 
-  // Management Category
+  // Kategori Manajemen
   {
     id: 'user-management',
-    name: 'User Management',
+    name: 'Manajemen Karyawan',
     icon: Users,
     path: '/user-management',
     category: MENU_CATEGORIES.MANAGEMENT,
     priority: 1,
     roles: ['super_admin'],
-    description: 'Manage system users'
+    description: 'Kelola karyawan sistem'
   },
   {
     id: 'menu-controls',
-    name: 'Menu Controls',
+    name: 'Kontrol Menu',
     icon: Settings,
     path: '/menu-controls',
     category: MENU_CATEGORIES.MANAGEMENT,
     priority: 2,
     roles: ['super_admin'],
-    description: 'Control menu access and permissions'
+    description: 'Kendalikan akses dan izin menu'
   },
   {
     id: 'billing-requests',
-    name: 'Billing Requests',
+    name: 'Permintaan Tagihan',
     icon: FileText,
     path: '/billing-requests',
     category: MENU_CATEGORIES.MANAGEMENT,
     priority: 3,
     roles: ['admin', 'super_admin'],
-    description: 'Handle billing requests'
+    description: 'Tangani permintaan tagihan'
   },
   {
     id: 'room-management',
-    name: 'Room Management',
+    name: 'Manajemen Kamar',
     icon: Key,
     path: '/room-management',
     category: MENU_CATEGORIES.MANAGEMENT,
     priority: 4,
     roles: ['admin', 'super_admin'],
-    description: 'Manage room inventory'
+    description: 'Kelola inventaris kamar'
   },
   {
     id: 'activity-logs',
-    name: 'Activity Logs',
+    name: 'Log Aktivitas',
     icon: Activity,
     path: '/activity-logs',
     category: MENU_CATEGORIES.MANAGEMENT,
     priority: 5,
     roles: ['admin', 'super_admin'],
-    description: 'System activity monitoring'
+    description: 'Pemantauan aktivitas sistem'
   },
 
-  // Settings Category
+  // Kategori Pengaturan
   {
     id: 'system-settings',
-    name: 'System Settings',
+    name: 'Pengaturan Sistem',
     icon: Settings,
     path: '/system-settings',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 1,
     roles: ['super_admin'],
-    description: 'Global system configuration'
+    description: 'Konfigurasi sistem global'
   },
   {
     id: 'security-settings',
-    name: 'Security Settings',
+    name: 'Pengaturan Keamanan',
     icon: Shield,
     path: '/security-settings',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 2,
     roles: ['admin', 'super_admin'],
-    description: 'Security and access controls'
+    description: 'Kendali keamanan dan akses'
   },
   {
     id: 'notification-settings',
-    name: 'Notifications',
+    name: 'Notifikasi',
     icon: Bell,
     path: '/notification-settings',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 3,
-    roles: ['user', 'admin', 'super_admin'],
-    description: 'Notification preferences'
+    roles: ['karyawan', 'admin', 'super_admin'],
+    description: 'Preferensi notifikasi'
   },
   {
     id: 'backup-restore',
@@ -219,51 +217,51 @@ export const MENU_ITEMS = [
     category: MENU_CATEGORIES.SETTINGS,
     priority: 4,
     roles: ['super_admin'],
-    description: 'Data backup and restore'
+    description: 'Backup dan restore data'
   },
   {
     id: 'pwa-settings',
-    name: 'PWA Settings',
+    name: 'Pengaturan PWA',
     icon: Smartphone,
     path: '/pwa-settings',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 5,
     roles: ['super_admin'],
-    description: 'Progressive Web App configuration'
+    description: 'Konfigurasi Progressive Web App'
   },
   {
     id: 'api-settings',
-    name: 'API Settings',
+    name: 'Pengaturan API',
     icon: Globe,
     path: '/api-settings',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 6,
     roles: ['super_admin'],
-    description: 'API configuration and keys'
+    description: 'Konfigurasi API dan kunci'
   },
   {
     id: 'performance-monitor',
-    name: 'Performance',
+    name: 'Performa',
     icon: Zap,
     path: '/performance-monitor',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 7,
     roles: ['admin', 'super_admin'],
-    description: 'System performance monitoring'
+    description: 'Pemantauan performa sistem'
   },
   {
     id: 'audit-logs',
-    name: 'Audit Logs',
+    name: 'Log Audit',
     icon: Lock,
     path: '/audit-logs',
     category: MENU_CATEGORIES.SETTINGS,
     priority: 8,
     roles: ['super_admin'],
-    description: 'Security audit logs'
+    description: 'Log audit keamanan'
   }
 ];
 
-// Helper Functions
+// Fungsi Helper
 export const getMenuItemsByRole = (role) => {
   return MENU_ITEMS.filter(item => item.roles.includes(role));
 };
@@ -375,7 +373,7 @@ export const getCategoryStats = (userRole) => {
 };
 
 export const hasPermission = (permission, userRole) => {
-  // This could be expanded to check specific permissions
+  // Dapat dikembangkan untuk mengecek izin yang lebih spesifik
   return getMenuItemsByRole(userRole).some(item => item.id === permission);
 };
 
@@ -388,7 +386,7 @@ export const getBreadcrumbPath = (menuItemId) => {
   if (!item) return [];
 
   return [
-    { name: 'Home', path: '/dashboard' },
+    { name: 'Beranda', path: '/dashboard' },
     { name: getCategoryDisplayName(item.category), path: null },
     { name: item.name, path: item.path }
   ];
@@ -419,7 +417,7 @@ export const getMenuItemsByPermission = (permissions, userRole) => {
 
 export const getRoleHierarchyLevel = (role) => {
   const levels = {
-    user: 1,
+    karyawan: 1,
     admin: 2,
     super_admin: 3
   };
@@ -430,15 +428,15 @@ export const hasMorePrivileges = (userRole, requiredRole) => {
   return getRoleHierarchyLevel(userRole) >= getRoleHierarchyLevel(requiredRole);
 };
 
-// Utility function to get category display name
+// Fungsi utilitas untuk mendapatkan nama tampilan kategori
 export const getCategoryDisplayName = (category) => {
   const names = {
-    [MENU_CATEGORIES.OPERATIONS]: 'Operations',
-    [MENU_CATEGORIES.ANALYTICS]: 'Analytics',
-    [MENU_CATEGORIES.MANAGEMENT]: 'Management',
-    [MENU_CATEGORIES.SETTINGS]: 'Settings'
+    [MENU_CATEGORIES.OPERATIONS]: 'Operasi',
+    [MENU_CATEGORIES.ANALYTICS]: 'Analitik',
+    [MENU_CATEGORIES.MANAGEMENT]: 'Manajemen',
+    [MENU_CATEGORIES.SETTINGS]: 'Pengaturan'
   };
-  return names[category] || 'Unknown';
+  return names[category] || 'Tidak Diketahui';
 };
 
 // Export default

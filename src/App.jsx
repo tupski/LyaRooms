@@ -1,5 +1,4 @@
-import React, { useState, useRef } from 'react';
-import { Helmet } from 'react-helmet';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, LogOut, Lock } from 'lucide-react';
 import FormTransaksi from '@/components/FormTransaksi';
@@ -30,6 +29,10 @@ function App() {
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const correctPin = "232325";
 
+  useEffect(() => {
+    document.title = 'Laporan Transaksi KAKARAMA GROUP';
+  }, []);
+
   const handleDataUpdate = () => {
     setRefreshKey(prevKey => prevKey + 1);
   };
@@ -48,38 +51,42 @@ function App() {
 
   const handlePinComplete = (enteredPin) => {
     if (enteredPin === correctPin) {
-      toast({ title: "Akses Diberikan!", description: "Selamat datang di Menu Finance.", className: "bg-green-500 text-white" });
+      toast({ title: "Akses Diberikan!", description: "Selamat datang di Menu Keuangan.", className: "bg-green-500 text-white" });
       setIsTagihanUnlocked(true);
       setActiveTab('finance');
       setShowPinModal(false);
     } else {
       toast({ title: "PIN Salah!", description: "Silakan coba lagi.", variant: "destructive" });
-      setShowPinModal(false); // Close and force re-click
+      setShowPinModal(false); // Tutup modal dan minta klik ulang
     }
   };
 
-  if (loading) {
-    return (
-        <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-cyan-200 to-blue-300">
-            <div className="text-blue-800 text-xl">Memuat...</div>
-        </div>
-    );
-  }
-
-  if (!session) {
-      return <Auth />;
-  }
-
-  const tabs = [
+  const allTabs = [
     { id: 'form', label: 'Input', icon: Camera },
     { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-    { id: 'request', label: 'Request', icon: Send },
+    { id: 'request', label: 'Permintaan', icon: Send },
     { id: 'kamar', label: 'Kamar', icon: DoorOpen },
-    { id: 'finance', label: 'Finance', icon: FileText },
+    { id: 'finance', label: 'Keuangan', icon: FileText },
     { id: 'ranking', label: 'Ranking', icon: Trophy },
-    { id: 'chart', label: 'Chart', icon: PieChart },
+    { id: 'chart', label: 'Grafik', icon: PieChart },
     { id: 'logout', label: 'Keluar', icon: LogOut },
   ];
+
+  const allowedTabsByRole = {
+    karyawan: ['form', 'kamar', 'request'],
+    admin: allTabs.map((tab) => tab.id),
+    super_admin: allTabs.map((tab) => tab.id),
+  };
+
+  const visibleTabIds = allowedTabsByRole[userRole] || allTabs.map((tab) => tab.id);
+  const visibleTabs = allTabs.filter((tab) => visibleTabIds.includes(tab.id));
+
+  useEffect(() => {
+    // Pastikan tab aktif selalu tersedia untuk peran yang sedang login
+    if (!visibleTabIds.includes(activeTab)) {
+      setActiveTab(visibleTabs[0]?.id || 'form');
+    }
+  }, [activeTab, visibleTabIds, visibleTabs]);
 
   const pageVariants = {
     initial: { opacity: 0, scale: 0.95 },
@@ -115,19 +122,25 @@ function App() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-cyan-200 to-blue-300">
+        <div className="text-blue-800 text-xl">Memuat...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <>
-      <Helmet>
-        <title>Laporan Transaksi KAKARAMA GROUP</title>
-        <meta name="description" content="Aplikasi mobile untuk input transaksi rental dengan dashboard pemasukan dan ranking marketing" />
-        <body className="bg-gradient-to-br from-cyan-200 to-blue-300" />
-      </Helmet>
-
-      {/* Header with user info */}
-      <div className="bg-white/10 backdrop-blur-sm border-b border-white/20 px-4 py-3">
+      {/* Header dengan info pengguna */}
+      <div className="bg-white/70 backdrop-blur-sm border-b border-white/30 px-4 py-3">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-800">🏢 Apartemen Management</h1>
+            <h1 className="text-xl font-bold text-gray-800">🏢 KR</h1>
             {isSuperAdmin && (
               <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center gap-1">
                 <Lock className="w-3 h-3" />
@@ -137,7 +150,7 @@ function App() {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-700 font-medium">{session?.user?.email}</p>
-            <p className="text-xs text-gray-600 capitalize">{userRole || 'user'}</p>
+            <p className="text-xs text-gray-600 capitalize">{userRole || 'karyawan'}</p>
           </div>
         </div>
       </div>
@@ -158,7 +171,7 @@ function App() {
         </DialogContent>
       </Dialog>
 
-      <div className="min-h-screen pb-24">
+      <div className="min-h-screen pb-24 sm:pb-28">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -172,29 +185,30 @@ function App() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="fixed bottom-0 left-0 right-0 p-2 z-50">
-          <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-full max-w-full sm:max-w-lg mx-auto">
-            <div className="flex justify-between items-center px-1 py-1">
-              {tabs.map((tab) => {
+        <div className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+          <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white/95 shadow-xl backdrop-blur">
+            <div className="flex items-center justify-between gap-1 p-1.5">
+              {visibleTabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <motion.button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-12 rounded-full transition-colors duration-300 relative`}
+                    className="relative flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors duration-200"
                     whileTap={{ scale: 0.9 }}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="active-pill"
-                        className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full shadow-lg"
-                        style={{ borderRadius: 9999 }}
+                        className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md"
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                       />
                     )}
-                    <Icon className={`w-4 h-4 z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-300'}`} />
-                    <span className={`text-[9px] font-semibold z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-300'}`}>{tab.label}</span>
+                    <Icon className={`z-10 h-4 w-4 transition-colors ${isActive ? 'text-white' : 'text-slate-700'}`} />
+                    <span className={`z-10 text-[10px] font-semibold leading-none transition-colors ${isActive ? 'text-white' : 'text-slate-700'}`}>
+                      {tab.label}
+                    </span>
                   </motion.button>
                 );
               })}

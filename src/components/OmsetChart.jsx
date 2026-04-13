@@ -3,20 +3,23 @@ import { motion } from 'framer-motion';
 import { PieChart, BarChart, Target, Edit } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1943'];
 
 const OmsetChart = () => {
-  const { user } = useAuth();
   const [omsetPerLokasi, setOmsetPerLokasi] = useState([]);
   const [totalOmset, setTotalOmset] = useState(0);
   const [target, setTarget] = useState(0);
   const [newTarget, setNewTarget] = useState('');
   const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
+
+  const getTargetFromLocal = () => {
+    const localTarget = localStorage.getItem('omset_target');
+    return localTarget ? Number(localTarget) : 0;
+  };
 
   const fetchData = async () => {
     const { data: transactions, error: transactionsError } = await supabase.from('transactions').select('apartment_location, cash_amount, transfer_amount');
@@ -38,13 +41,7 @@ const OmsetChart = () => {
     setOmsetPerLokasi(chartData);
     setTotalOmset(Object.values(lokasiStats).reduce((sum, val) => sum + val, 0));
 
-    const { data: settingsData, error: settingsError } = await supabase.from('settings').select('value').eq('key', 'omset_target');
-    
-    if (settingsError) {
-        console.error("Error fetching settings:", settingsError);
-    }
-
-    const savedTarget = settingsData?.[0]?.value?.target || 0;
+    const savedTarget = getTargetFromLocal();
     setTarget(savedTarget);
     setNewTarget(savedTarget.toString());
   };
@@ -53,7 +50,6 @@ const OmsetChart = () => {
     fetchData();
     const channel = supabase.channel('realtime-omset-chart')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, fetchData)
       .subscribe();
 
     return () => {
@@ -70,14 +66,11 @@ const OmsetChart = () => {
         toast({ title: "Target tidak valid", variant: "destructive" });
         return;
     }
-    const { error } = await supabase.from('settings').upsert({ key: 'omset_target', value: { target: numericTarget }, user_id: user.id }, { onConflict: 'key' });
-    if (error) {
-      toast({ title: "Gagal menyimpan target", description: error.message, variant: "destructive" });
-    } else {
-      setTarget(numericTarget);
-      setIsTargetDialogOpen(false);
-      toast({ title: "🎯 Target Diperbarui!" });
-    }
+    localStorage.setItem('omset_target', String(numericTarget));
+
+    setTarget(numericTarget);
+    setIsTargetDialogOpen(false);
+    toast({ title: "🎯 Target Diperbarui!" });
   };
 
   const progress = target > 0 ? (totalOmset / target) * 100 : 0;
@@ -103,7 +96,10 @@ const OmsetChart = () => {
             <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen}>
               <DialogTrigger asChild><Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Edit Target Omset</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Edit Target Omset</DialogTitle>
+                  <DialogDescription>Atur target omset bulanan yang ingin dicapai.</DialogDescription>
+                </DialogHeader>
                 <input type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} className="w-full px-4 py-3 rounded-xl border-2" />
                 <DialogFooter><Button onClick={handleTargetSave}>Simpan</Button></DialogFooter>
               </DialogContent>

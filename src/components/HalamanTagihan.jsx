@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     import {
       Dialog,
       DialogContent,
+      DialogDescription,
       DialogHeader,
       DialogTitle,
       DialogTrigger,
@@ -276,7 +277,7 @@ import React, { useState, useEffect, useCallback } from 'react';
               </Button>
           </DialogTrigger>
           <DialogContent className="bg-white">
-              <DialogHeader><DialogTitle>Form Tagihan Baru</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Form Tagihan Baru</DialogTitle><DialogDescription>Isi data tagihan baru lalu simpan.</DialogDescription></DialogHeader>
               <div className="space-y-4 py-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Lokasi Apartemen</label>
@@ -342,12 +343,12 @@ import React, { useState, useEffect, useCallback } from 'react';
                   <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="mt-4 space-y-3 overflow-hidden">
                       {paidList.length > 0 ? paidList.map(item => (
                           <motion.div key={item.id} layout initial={{opacity: 0}} animate={{opacity: 1}} className="bg-white/50 p-4 rounded-2xl relative">
-                              <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                              <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Data riwayat lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
                               <p className="font-bold text-gray-900">{item.apartment_location} - {item.room_number}</p>
                               <p className="text-blue-700 font-semibold">{formatRupiah(item.amount)}</p>
                               <p className="text-xs text-gray-500">Lunas: {new Date(item.paid_at).toLocaleString('id-ID')}</p>
                               <div className="flex justify-between items-center mt-2">
-                                {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/> Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><img src={item.proof_url} alt="Bukti bayar" className="rounded-lg" /></DialogContent></Dialog>)}
+                                {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/> Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran tagihan bulanan.</DialogDescription></DialogHeader><img src={item.proof_url} alt="Bukti bayar" className="rounded-lg" /></DialogContent></Dialog>)}
                               </div>
                           </motion.div>
                       )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat.</p>}
@@ -511,7 +512,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                             <div className="flex gap-2 mt-4 border-t pt-4">
                             <AlertDialog>
                                 <AlertDialogTrigger asChild><Button size="sm" className="flex-1 bg-green-500" onClick={() => setSelectedMarketing(fee)}><CheckCircle className="mr-2 h-4 w-4" /> Done</Button></AlertDialogTrigger>
-                                <AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Konfirmasi Pembayaran</AlertDialogTitle></AlertDialogHeader>
+                                <AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Konfirmasi Pembayaran</AlertDialogTitle><AlertDialogDescription>Unggah bukti pembayaran jika tersedia, lalu tandai sebagai lunas.</AlertDialogDescription></AlertDialogHeader>
                                 <input type="file" accept="image/*" onChange={(e) => setUploadFile(e.target.files[0])} className="w-full text-sm text-gray-700 file:text-blue-600"/>
                                 <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleFeeDone} className="bg-green-600">Tandai Lunas</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
@@ -533,12 +534,12 @@ import React, { useState, useEffect, useCallback } from 'react';
                         <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="mt-4 space-y-3 overflow-hidden">
                             {paidFees.length > 0 ? paidFees.map(item => (
                                 <motion.div key={item.id} layout className="bg-white/50 border p-4 rounded-2xl relative">
-                                    <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                                    <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Riwayat fee lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
                                     <p className="font-bold text-lg text-gray-900">{item.marketing_name}</p>
                                     <p className="text-blue-700 font-semibold">{formatRupiah(item.total_fee)} ({item.customer_count} CS)</p>
                                     <p className="text-xs text-gray-500">Lunas: {new Date(item.paid_at).toLocaleTimeString('id-ID')}</p>
                                     <div className="flex gap-2 items-center mt-2">
-                                        {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><img src={item.proof_url} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
+                                        {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran Fee</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran fee marketing.</DialogDescription></DialogHeader><img src={item.proof_url} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
                                         <Button size="icon" onClick={() => handleShare(item)} className="h-7 w-7 bg-green-500"><Share2 className="w-4 h-4" /></Button>
                                     </div>
                                 </motion.div>
@@ -628,7 +629,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="bg-white">
-                        <DialogHeader><DialogTitle>Form Pengeluaran Baru</DialogTitle></DialogHeader>
+                        <DialogHeader><DialogTitle>Form Pengeluaran Baru</DialogTitle><DialogDescription>Masukkan detail pengeluaran untuk dicatat ke sistem.</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
                             <input type="text" placeholder="Nama Pengeluaran" value={newExpense.nama_pengeluaran} onChange={(e) => handleInputChange('nama_pengeluaran', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
                             <input type="text" placeholder="Jumlah (Rp)" value={newExpense.jumlah} onChange={(e) => handleInputChange('jumlah', e.target.value)} inputMode="numeric" className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
@@ -656,7 +657,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                             <motion.div key={expense.id} layout className="bg-white/50 p-4 rounded-2xl shadow-sm border relative">
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger>
-                                    <AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Pengeluaran?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(expense.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                    <AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Pengeluaran?</AlertDialogTitle><AlertDialogDescription>Data pengeluaran ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(expense.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                 </AlertDialog>
                                 <div className="flex justify-between items-start">
                                     <h3 className="font-bold text-gray-900 pr-8">{expense.nama_pengeluaran}</h3>
