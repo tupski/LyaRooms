@@ -13,9 +13,9 @@ const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
 const TRANSFER_TARGET_OPTIONS = ['Kakarama', 'Marketing'];
 
 const SectionCard = ({ icon: Icon, title, subtitle, children, className = '' }) => (
-  <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+  <section className={`rounded-2xl border border-blue-100 bg-white/90 p-5 shadow-sm backdrop-blur ${className}`}>
     <div className="mb-4 flex items-start gap-3">
-      <div className="rounded-xl bg-slate-100 p-2 text-slate-700"><Icon className="h-5 w-5" /></div>
+    <div className="rounded-xl bg-blue-100 p-2 text-blue-700"><Icon className="h-5 w-5" /></div>
       <div>
         <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
         {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
@@ -242,17 +242,17 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 pb-28 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 p-4 pb-28 md:p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <header className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Form Input Transaksi</h1>
-              <p className="text-sm text-slate-500">Catat transaksi apartemen dengan alur cepat dan rapi.</p>
+              <h1 className="text-2xl font-bold tracking-tight text-white">Form Input Transaksi</h1>
+              <p className="text-sm text-blue-100">Catat transaksi apartemen dengan alur cepat dan rapi.</p>
             </div>
-            <div className="rounded-xl bg-slate-100 px-4 py-2 text-sm text-slate-700">
+            <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
               <div className="font-medium">{user?.user_metadata?.full_name || user?.email}</div>
-              <div className="text-xs uppercase tracking-wide text-slate-500">{userRole || 'karyawan'}</div>
+              <div className="text-xs uppercase tracking-wide text-blue-100">{userRole || 'karyawan'}</div>
             </div>
           </div>
         </header>

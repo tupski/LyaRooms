@@ -9,6 +9,7 @@ import EditTransaksiModal from '@/components/EditTransaksiModal';
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import * as XLSX from 'xlsx';
 import PinInput from '@/components/PinInput';
+import { resolveStorageUrl } from '@/lib/storageUrl';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -333,7 +334,7 @@ const DashboardPemasukan = () => {
                               <DialogTitle className="text-white">Bukti Transfer</DialogTitle>
                               <DialogDescription className="text-gray-300">Pratinjau gambar bukti transfer transaksi.</DialogDescription>
                             </DialogHeader>
-                            <img src={transaksi.transfer_proof_url} alt="Bukti Transfer" className="w-full rounded-lg" />
+                            <img src={resolveStorageUrl(transaksi.transfer_proof_url)} alt="Bukti Transfer" className="w-full rounded-lg" />
                           </DialogContent>
                         </Dialog>
                       )}

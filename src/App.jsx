@@ -138,9 +138,9 @@ function App() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-blue-300 bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 px-4 py-3 text-white shadow-md backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-800">🏢 KR</h1>
+          <h1 className="text-lg font-bold text-white">🏢 KR</h1>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded-full ring-offset-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">

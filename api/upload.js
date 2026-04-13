@@ -32,8 +32,11 @@ export default async function handler(req, res) {
       contentType,
     });
 
+    const proxyUrl = `/api/blob?pathname=${encodeURIComponent(blob.pathname)}`;
     return res.status(200).json({
-      url: blob.url,
+      url: access === 'private' ? proxyUrl : blob.url,
+      blobUrl: blob.url,
+      proxyUrl,
       pathname: blob.pathname,
       access,
     });

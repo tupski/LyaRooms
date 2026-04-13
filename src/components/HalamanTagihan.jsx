@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     import { toast } from '@/components/ui/use-toast';
     import { supabase } from '@/lib/customSupabaseClient';
     import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
+    import { resolveStorageUrl } from '@/lib/storageUrl';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
     import {
@@ -347,7 +348,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                               <p className="text-blue-700 font-semibold">{formatRupiah(item.amount)}</p>
                               <p className="text-xs text-gray-500">Lunas: {new Date(item.paid_at).toLocaleString('id-ID')}</p>
                               <div className="flex justify-between items-center mt-2">
-                                {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/> Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran tagihan bulanan.</DialogDescription></DialogHeader><img src={item.proof_url} alt="Bukti bayar" className="rounded-lg" /></DialogContent></Dialog>)}
+                                {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/> Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran tagihan bulanan.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt="Bukti bayar" className="rounded-lg" /></DialogContent></Dialog>)}
                               </div>
                           </motion.div>
                       )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat.</p>}
@@ -536,7 +537,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                                     <p className="text-blue-700 font-semibold">{formatRupiah(item.total_fee)} ({item.customer_count} CS)</p>
                                     <p className="text-xs text-gray-500">Lunas: {new Date(item.paid_at).toLocaleTimeString('id-ID')}</p>
                                     <div className="flex gap-2 items-center mt-2">
-                                        {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran Fee</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran fee marketing.</DialogDescription></DialogHeader><img src={item.proof_url} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
+                                        {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran Fee</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran fee marketing.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
                                         <Button size="icon" onClick={() => handleShare(item)} className="h-7 w-7 bg-green-500"><Share2 className="w-4 h-4" /></Button>
                                     </div>
                                 </motion.div>
