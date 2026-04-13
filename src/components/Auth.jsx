@@ -3,7 +3,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
-import { LogIn } from 'lucide-react';
+import { LogIn, Shield, User } from 'lucide-react';
 
 const Auth = () => {
     const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ const Auth = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-900 p-4">
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-sm mx-auto bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8"
@@ -33,13 +33,25 @@ const Auth = () => {
                     <h1 className="text-3xl font-bold text-white">Selamat Datang</h1>
                     <p className="text-gray-300">Silakan masuk untuk melanjutkan</p>
                 </div>
+
+                {/* Admin Info */}
+                <div className="mb-6 p-4 bg-yellow-500/20 rounded-lg border border-yellow-400/30">
+                    <div className="flex items-center gap-2 text-yellow-200 text-sm">
+                        <Shield className="h-4 w-4" />
+                        <span className="font-semibold">Super Admin Access</span>
+                    </div>
+                    <p className="text-yellow-100 text-xs mt-1">
+                        Gunakan akun admin untuk akses penuh ke semua fitur
+                    </p>
+                </div>
+
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-300 mb-2">Email</label>
                         <input
                             className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 text-white placeholder-gray-400 focus:ring-4 focus:ring-blue-300 focus:border-blue-400 transition-all outline-none"
                             type="email"
-                            placeholder="email@anda.com"
+                            placeholder="admin@apartemen.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
@@ -62,6 +74,12 @@ const Auth = () => {
                         </Button>
                     </div>
                 </form>
+
+                <div className="mt-6 text-center">
+                    <p className="text-gray-400 text-xs">
+                        Belum punya akun? Hubungi administrator untuk membuat akun.
+                    </p>
+                </div>
             </motion.div>
         </div>
     );

@@ -25,7 +25,7 @@ import PinInput from '@/components/PinInput';
 function App() {
   const [activeTab, setActiveTab] = useState('form');
   const [refreshKey, setRefreshKey] = useState(0);
-  const { session, loading, signOut } = useAuth();
+  const { session, loading, signOut, userRole, isSuperAdmin } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const correctPin = "232325";
@@ -122,6 +122,25 @@ function App() {
         <meta name="description" content="Aplikasi mobile untuk input transaksi rental dengan dashboard pemasukan dan ranking marketing" />
         <body className="bg-gradient-to-br from-cyan-200 to-blue-300" />
       </Helmet>
+
+      {/* Header with user info */}
+      <div className="bg-white/10 backdrop-blur-sm border-b border-white/20 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-800">🏢 Apartemen Management</h1>
+            {isSuperAdmin && (
+              <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                SUPER ADMIN
+              </span>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-700 font-medium">{session?.user?.email}</p>
+            <p className="text-xs text-gray-600 capitalize">{userRole || 'user'}</p>
+          </div>
+        </div>
+      </div>
 
       <Dialog open={showPinModal} onOpenChange={setShowPinModal}>
         <DialogContent className="bg-white">
