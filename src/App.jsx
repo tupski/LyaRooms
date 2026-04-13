@@ -143,7 +143,24 @@ function App() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-cyan-200 to-blue-300">
-        <div className="text-xl text-blue-800">Memuat...</div>
+        <div className="flex flex-col items-center gap-4 text-blue-900">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0.75 }}
+            animate={{ scale: [0.9, 1.05, 0.9], opacity: [0.75, 1, 0.75] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+            className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-500 shadow-lg"
+          >
+            <span className="text-3xl font-extrabold tracking-tight text-white">KR</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0.5 }}
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+            className="text-base font-semibold sm:text-lg"
+          >
+            Memuat...
+          </motion.div>
+        </div>
       </div>
     );
   }

@@ -277,20 +277,32 @@ const KaryawanTransaksi = () => {
         <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Input Transaksi Karyawan</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <input value={formData.namaCustomer} onChange={(e) => handleChange('namaCustomer', e.target.value)} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Nama customer" />
-            <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={lokasiOptions} value={lokasiOptions.find((o) => o.value === formData.lokasiApartemen) || null} onChange={(opt) => { handleChange('lokasiApartemen', opt?.value || ''); handleChange('nomorKamar', ''); }} placeholder="Lokasi apartemen" isClearable />
-            <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={kamarOptions} value={kamarOptions.find((o) => o.value === formData.nomorKamar) || null} onChange={(opt) => handleChange('nomorKamar', opt?.value || '')} placeholder="Nomor kamar" isDisabled={!formData.lokasiApartemen} isClearable />
-            <CreatableSelect
-              styles={selectStyles}
-              menuPortalTarget={selectPortalTarget}
-              options={marketingOptions}
-              value={marketingOptions.find((o) => o.value === formData.namaMarketing) || null}
-              onChange={(opt) => handleChange('namaMarketing', opt?.value || '')}
-              onCreateOption={handleCreateMarketing}
-              placeholder="Nama marketing"
-              isClearable
-              formatCreateLabel={(inputValue) => `Tambah marketing: ${inputValue}`}
-            />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Nama Customer *</label>
+              <input value={formData.namaCustomer} onChange={(e) => handleChange('namaCustomer', e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm" placeholder="Masukkan nama customer" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Lokasi Apartemen *</label>
+              <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={lokasiOptions} value={lokasiOptions.find((o) => o.value === formData.lokasiApartemen) || null} onChange={(opt) => { handleChange('lokasiApartemen', opt?.value || ''); handleChange('nomorKamar', ''); }} placeholder="Pilih lokasi apartemen..." isClearable />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Nomor Kamar *</label>
+              <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={kamarOptions} value={kamarOptions.find((o) => o.value === formData.nomorKamar) || null} onChange={(opt) => handleChange('nomorKamar', opt?.value || '')} placeholder="Pilih nomor kamar..." isDisabled={!formData.lokasiApartemen} isClearable />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Nama Marketing *</label>
+              <CreatableSelect
+                styles={selectStyles}
+                menuPortalTarget={selectPortalTarget}
+                options={marketingOptions}
+                value={marketingOptions.find((o) => o.value === formData.namaMarketing) || null}
+                onChange={(opt) => handleChange('namaMarketing', opt?.value || '')}
+                onCreateOption={handleCreateMarketing}
+                placeholder="Pilih marketing atau tambah baru..."
+                isClearable
+                formatCreateLabel={(inputValue) => `Tambah marketing: ${inputValue}`}
+              />
+            </div>
           </div>
 
           <label className="block text-sm font-medium text-slate-700">Durasi Sewa</label>
@@ -318,12 +330,24 @@ const KaryawanTransaksi = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Tunai (Rp)" />
-            <input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Transfer (Rp)" />
-            <div className="grid grid-cols-2 gap-2">
-              {TRANSFER_TARGET_OPTIONS.map((item) => <button key={item} type="button" onClick={() => handleToggleChoice('transferKe', item)} className={`h-11 rounded-xl border text-sm ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300'}`}>{item}</button>)}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Tunai (Rp)</label>
+              <input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm" placeholder="0" />
             </div>
-            <input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Fee marketing (Rp)" />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Transfer (Rp)</label>
+              <input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm" placeholder="0" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Bank Tujuan</label>
+              <div className="grid grid-cols-2 gap-2">
+                {TRANSFER_TARGET_OPTIONS.map((item) => <button key={item} type="button" onClick={() => handleToggleChoice('transferKe', item)} className={`h-11 rounded-xl border text-sm ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300'}`}>{item}</button>)}
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Fee Marketing (Rp)</label>
+              <input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm" placeholder="0" />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -383,14 +407,14 @@ const KaryawanTransaksi = () => {
       </div>
 
       <Dialog open={Boolean(previewTransaksi)} onOpenChange={() => setPreviewTransaksi(null)}>
-        <DialogContent className="bg-black/90">
+        <DialogContent className="max-h-[85vh] overflow-y-auto bg-black/90 [&>button]:text-white">
           <DialogHeader>
             <DialogTitle className="text-white">Berkas Transaksi</DialogTitle>
             <DialogDescription className="text-gray-300">Menampilkan KTP dan bukti transfer jika tersedia.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {previewTransaksi?.ktp_image_url && <img src={resolveStorageUrl(previewTransaksi.ktp_image_url)} alt="KTP" className="w-full rounded-lg" />}
-            {previewTransaksi?.transfer_proof_url && <img src={resolveStorageUrl(previewTransaksi.transfer_proof_url)} alt="Bukti Transfer" className="w-full rounded-lg" />}
+          <div className="grid grid-cols-2 gap-3">
+            {previewTransaksi?.ktp_image_url && <img src={resolveStorageUrl(previewTransaksi.ktp_image_url)} alt="KTP" className="h-44 w-full rounded-lg object-cover" />}
+            {previewTransaksi?.transfer_proof_url && <img src={resolveStorageUrl(previewTransaksi.transfer_proof_url)} alt="Bukti Transfer" className="h-44 w-full rounded-lg object-cover" />}
           </div>
         </DialogContent>
       </Dialog>
