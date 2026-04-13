@@ -24,8 +24,10 @@ export default async function handler(req, res) {
     }
 
     const pathname = `${folder}/${rawName}`;
+    const requestedAccess = (process.env.BLOB_OBJECT_ACCESS || '').toLowerCase();
+    const access = requestedAccess === 'public' ? 'public' : 'private';
     const blob = await put(pathname, body, {
-      access: 'public',
+      access,
       addRandomSuffix: true,
       contentType,
     });
@@ -33,6 +35,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       url: blob.url,
       pathname: blob.pathname,
+      access,
     });
   } catch (error) {
     return res.status(500).json({
