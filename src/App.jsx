@@ -128,7 +128,7 @@ function App() {
       case 'kamar':
         return <KetersediaanKamar key={key} />;
       case 'finance':
-        return isTagihanUnlocked ? <HalamanTagihan key={key} /> : null;
+        return userRole === 'super_admin' || isTagihanUnlocked ? <HalamanTagihan key={key} /> : null;
       case 'ranking':
         return <RankingMarketing key={key} />;
       case 'chart':
@@ -207,16 +207,16 @@ function App() {
         </AnimatePresence>
 
         <div className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2">
-          <div className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white/95 shadow-xl backdrop-blur">
+          <div className="mx-auto w-full max-w-md rounded-3xl border-2 border-slate-300 bg-white/95 shadow-xl backdrop-blur">
             <div className="relative flex items-end justify-between gap-1 px-2 py-2">
-              {primaryTabs.slice(0, 2).map((tab) => {
+              {primaryTabs.slice(0, userRole === 'karyawan' ? 1 : 2).map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl ${isActive ? 'bg-cyan-600 text-white' : 'text-slate-700'}`}
+                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl border ${isActive ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 text-slate-700'}`}
                   >
                     <Icon className="h-4 w-4" />
                     <span className="mt-1 text-[10px]">{tab.label}</span>
@@ -234,14 +234,14 @@ function App() {
                 <span className="mt-0.5 text-[9px] font-semibold">Input</span>
               </button>
 
-              {primaryTabs.slice(2, 4).map((tab) => {
+              {primaryTabs.slice(userRole === 'karyawan' ? 1 : 2, userRole === 'karyawan' ? 2 : 4).map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl ${isActive ? 'bg-cyan-600 text-white' : 'text-slate-700'}`}
+                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl border ${isActive ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 text-slate-700'}`}
                   >
                     <Icon className="h-4 w-4" />
                     <span className="mt-1 text-[10px]">{tab.label}</span>

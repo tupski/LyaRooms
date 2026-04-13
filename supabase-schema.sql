@@ -616,3 +616,89 @@ CREATE POLICY "menu_access_logs_read_superadmin" ON public.menu_access_logs
 
 CREATE POLICY "menu_access_logs_insert_authenticated" ON public.menu_access_logs
     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- ============================================================
+-- Cascade delete transaksi + sinkronisasi data turunan
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.delete_transaction_cascade(p_transaction_id BIGINT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_tx public.transactions%ROWTYPE;
+    v_user_role TEXT;
+    v_removed_fee_rows INTEGER := 0;
+    v_updated_fee_rows INTEGER := 0;
+BEGIN
+    SELECT *
+    INTO v_tx
+    FROM public.transactions
+    WHERE id = p_transaction_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Transaksi tidak ditemukan.';
+    END IF;
+
+    SELECT ur.role
+    INTO v_user_role
+    FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    LIMIT 1;
+
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Sesi tidak valid.';
+    END IF;
+
+    IF auth.uid() <> v_tx.user_id AND COALESCE(v_user_role, 'karyawan') NOT IN ('admin', 'super_admin') THEN
+        RAISE EXCEPTION 'Akses ditolak untuk menghapus transaksi ini.';
+    END IF;
+
+    -- Sinkronisasi riwayat komisi marketing (tagihan_fee_lunas) berdasarkan detail customer+lokasi
+    UPDATE public.tagihan_fee_lunas tfl
+    SET
+        transactions_detail = COALESCE(
+            (
+                SELECT jsonb_agg(elem)
+                FROM jsonb_array_elements(COALESCE(tfl.transactions_detail, '[]'::jsonb)) elem
+                WHERE NOT (
+                    COALESCE(elem->>'customer', '') = COALESCE(v_tx.customer_name, '')
+                    AND COALESCE(elem->>'location', '') = COALESCE(v_tx.apartment_location, '')
+                )
+            ),
+            '[]'::jsonb
+        ),
+        customer_count = GREATEST(COALESCE(tfl.customer_count, 0) - 1, 0),
+        total_fee = GREATEST(COALESCE(tfl.total_fee, 0) - COALESCE(v_tx.marketing_fee, 0), 0)
+    WHERE tfl.marketing_name = v_tx.marketing_name
+      AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(COALESCE(tfl.transactions_detail, '[]'::jsonb)) elem
+          WHERE COALESCE(elem->>'customer', '') = COALESCE(v_tx.customer_name, '')
+            AND COALESCE(elem->>'location', '') = COALESCE(v_tx.apartment_location, '')
+      );
+
+    GET DIAGNOSTICS v_updated_fee_rows = ROW_COUNT;
+
+    DELETE FROM public.tagihan_fee_lunas
+    WHERE customer_count <= 0
+       OR COALESCE(transactions_detail, '[]'::jsonb) = '[]'::jsonb;
+
+    GET DIAGNOSTICS v_removed_fee_rows = ROW_COUNT;
+
+    -- Hapus transaksi utama
+    DELETE FROM public.transactions
+    WHERE id = p_transaction_id;
+
+    RETURN jsonb_build_object(
+        'deleted_transaction_id', p_transaction_id,
+        'updated_fee_rows', v_updated_fee_rows,
+        'removed_fee_rows', v_removed_fee_rows
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_transaction_cascade(BIGINT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.delete_transaction_cascade(BIGINT) TO authenticated;

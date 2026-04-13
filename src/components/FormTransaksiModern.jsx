@@ -120,7 +120,20 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
     fetchRefs();
   }, []);
 
-  const lokasiOptions = useMemo(() => refs.lokasi.map((x) => ({ value: x.name, label: x.name })), [refs.lokasi]);
+  const lokasiOptions = useMemo(
+    () =>
+      refs.lokasi.map((x) => {
+        const roomsInLocation = refs.kamar.filter((room) => room.lokasi === x.name);
+        const availableCount = roomsInLocation.filter((room) => !occupiedMap[`${room.lokasi}__${room.name}`]).length;
+        const soldOut = roomsInLocation.length > 0 && availableCount === 0;
+        return {
+          value: x.name,
+          label: soldOut ? `${x.name} (Habis)` : x.name,
+          isDisabled: soldOut,
+        };
+      }),
+    [refs.lokasi, refs.kamar, occupiedMap]
+  );
   const kamarOptions = useMemo(
     () =>
       refs.kamar
@@ -428,9 +441,24 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                       isClearable
                     />
                     {formData.input_by && (
-                      <button type="button" className="mt-2 text-sm text-slate-600 hover:text-slate-900" onClick={() => handleChange('input_by', '')}>
-                        Kosongkan pilihan input oleh
-                      </button>
+                      <div className="mt-2 flex gap-3">
+                        <button type="button" className="text-sm text-slate-600 hover:text-slate-900" onClick={() => handleChange('input_by', '')}>
+                          Kosongkan pilihan input oleh
+                        </button>
+                        <button type="button" className="text-sm text-red-600 hover:text-red-800" onClick={async () => {
+                          if (!window.confirm(`Hapus nama input oleh ${formData.input_by}?`)) return;
+                          const { error } = await supabase.from('karyawan_list').delete().eq('name', formData.input_by);
+                          if (error) {
+                            toast({ title: 'Gagal menghapus input oleh', description: error.message, variant: 'destructive' });
+                            return;
+                          }
+                          setRefs((prev) => ({ ...prev, karyawan: prev.karyawan.filter((item) => item.name !== formData.input_by) }));
+                          handleChange('input_by', '');
+                          toast({ title: 'Input oleh dihapus dari daftar' });
+                        }}>
+                          Hapus dari daftar
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

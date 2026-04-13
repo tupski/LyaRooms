@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Select from 'react-select';
-import { AlertTriangle, Share2, Save, Upload } from 'lucide-react';
+import { AlertTriangle, Image as ImageIcon, Save, Upload, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
+import { resolveStorageUrl } from '@/lib/storageUrl';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM', 'PROMO MALAM', 'Fullday', 'Custom'];
 const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
@@ -29,7 +31,6 @@ const formatCurrency = (value) => {
   if (!numeric) return '';
   return new Intl.NumberFormat('id-ID').format(Number(numeric));
 };
-
 const parseCurrency = (value) => Number(String(value || '').replace(/\D/g, '')) || 0;
 
 const getRentalHours = (duration, customHours) => {
@@ -40,13 +41,17 @@ const getRentalHours = (duration, customHours) => {
   return matched ? Number(matched[0]) : 1;
 };
 
-const KaryawanTransaksi = ({ onRequestNavigate }) => {
+const KaryawanTransaksi = () => {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [refs, setRefs] = useState({ lokasi: [], kamar: [], marketing: [] });
   const [occupiedMap, setOccupiedMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewTransaksi, setPreviewTransaksi] = useState(null);
+  const [reportTransaksi, setReportTransaksi] = useState(null);
+  const [confirmResendTransaksi, setConfirmResendTransaksi] = useState(null);
+  const [reportDraft, setReportDraft] = useState(null);
   const [formData, setFormData] = useState({
     namaCustomer: '',
     lokasiApartemen: '',
@@ -66,7 +71,29 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
   const ktpInputRef = useRef(null);
   const transferInputRef = useRef(null);
 
-  const lokasiOptions = useMemo(() => refs.lokasi.map((item) => ({ value: item.name, label: item.name })), [refs.lokasi]);
+  const getSentMap = () => {
+    try {
+      return JSON.parse(localStorage.getItem('kr_report_sent_map') || '{}');
+    } catch (_e) {
+      return {};
+    }
+  };
+  const markSent = (id) => {
+    const map = getSentMap();
+    map[id] = new Date().toISOString();
+    localStorage.setItem('kr_report_sent_map', JSON.stringify(map));
+  };
+
+  const lokasiOptions = useMemo(
+    () =>
+      refs.lokasi.map((item) => {
+        const roomsInLocation = refs.kamar.filter((room) => room.lokasi === item.name);
+        const availableCount = roomsInLocation.filter((room) => !occupiedMap[`${room.lokasi}__${room.name}`]).length;
+        const soldOut = roomsInLocation.length > 0 && availableCount === 0;
+        return { value: item.name, label: soldOut ? `${item.name} (Habis)` : item.name, isDisabled: soldOut };
+      }),
+    [refs.lokasi, refs.kamar, occupiedMap]
+  );
   const kamarOptions = useMemo(
     () =>
       refs.kamar
@@ -74,11 +101,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
         .map((item) => {
           const key = `${item.lokasi}__${item.name}`;
           const occupied = Boolean(occupiedMap[key]);
-          return {
-            value: item.name,
-            label: occupied ? `${item.name} (Terisi)` : item.name,
-            isDisabled: occupied,
-          };
+          return { value: item.name, label: occupied ? `${item.name} (Terisi)` : item.name, isDisabled: occupied };
         }),
     [refs.kamar, formData.lokasiApartemen, occupiedMap]
   );
@@ -91,15 +114,12 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     setLoading(true);
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, customer_name, apartment_location, room_number, marketing_name, rental_duration, shift, created_at, input_by')
+      .select('id, customer_name, apartment_location, room_number, marketing_name, rental_duration, shift, created_at, input_by, cash_amount, transfer_amount, transfer_to, marketing_fee, ktp_image_url, transfer_proof_url')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      toast({ title: 'Gagal memuat transaksi', description: error.message, variant: 'destructive' });
-    } else {
-      setTransactions(data || []);
-    }
+    if (error) toast({ title: 'Gagal memuat transaksi', description: error.message, variant: 'destructive' });
+    else setTransactions(data || []);
     setLoading(false);
   }, [user]);
 
@@ -112,14 +132,11 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     ]);
     setRefs({ lokasi: lokasi || [], kamar: kamar || [], marketing: marketing || [] });
     const activeMap = {};
-    const txList = roomTransactions || [];
-    txList.forEach((tx) => {
+    (roomTransactions || []).forEach((tx) => {
       if (tx.checkout_at) return;
       const key = `${tx.apartment_location}__${tx.room_number}`;
       if (activeMap[key]) return;
-      const startedAt = new Date(tx.created_at);
-      const rentalHours = Number(tx.rental_duration) || 1;
-      const endAt = new Date(startedAt.getTime() + rentalHours * 60 * 60 * 1000);
+      const endAt = new Date(new Date(tx.created_at).getTime() + (Number(tx.rental_duration) || 1) * 60 * 60 * 1000);
       if (new Date() < endAt) activeMap[key] = true;
     });
     setOccupiedMap(activeMap);
@@ -137,64 +154,64 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     return map[hours] || `${hours} JAM`;
   };
 
-  const handleShareReport = async () => {
-    if (transactions.length === 0) {
-      toast({ title: 'Tidak ada transaksi', description: 'Belum ada transaksi untuk dilaporkan.', variant: 'destructive' });
+  const buildForwardMessage = (t) =>
+    `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nTunai: Rp ${new Intl.NumberFormat('id-ID').format(t.cash_amount || 0)}\nTransfer: Rp ${new Intl.NumberFormat('id-ID').format(t.transfer_amount || 0)}\nInput oleh: ${t.input_by || '-'}\nWaktu: ${formatDateTime(t.created_at)}`;
+
+  const sendForwardReport = (t, force = false) => {
+    const sentAt = getSentMap()[t.id];
+    if (sentAt && !force) {
+      setConfirmResendTransaksi(t);
       return;
     }
-
-    const rows = transactions.map((t, index) => `*${index + 1}. ${t.customer_name}*\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nWaktu: ${formatDateTime(t.created_at)}\n`).join('\n');
-    const message = `*LAPORAN TRANSAKSI KARYAWAN*\n-------------------------\n${rows}-------------------------\nDiinput oleh: ${user?.user_metadata?.full_name || user?.email || '-'}\nJumlah transaksi: ${transactions.length}`;
-
-    try {
-      await navigator.clipboard.writeText(message);
-      toast({ title: 'Laporan disalin', description: 'Buka WhatsApp dan tempel pesan untuk mengirim.' });
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
-    } catch (_error) {
-      toast({ title: 'Gagal kirim laporan', description: 'Silakan coba lagi.', variant: 'destructive' });
-    }
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(buildForwardMessage(t))}`, '_blank');
+    markSent(t.id);
   };
 
-  const uploadFile = async (file, folder) => {
-    if (!file) return null;
-    return uploadToVercelBlob(file, folder);
+  const openReportModal = (t) => {
+    setReportDraft({
+      customer_name: t.customer_name || '',
+      apartment_location: t.apartment_location || '',
+      room_number: t.room_number || '',
+      marketing_name: t.marketing_name || '',
+      rental_duration: formatRentalDuration(t.rental_duration),
+      shift: t.shift || '',
+      cash_amount: String(t.cash_amount || 0),
+      transfer_amount: String(t.transfer_amount || 0),
+      transfer_to: t.transfer_to || '',
+      marketing_fee: String(t.marketing_fee || 0),
+      input_by: t.input_by || user?.email || '',
+      alasan: '',
+    });
+    setReportTransaksi(t);
+  };
+
+  const sendIssueReport = () => {
+    if (!reportTransaksi || !reportDraft) return;
+    const msg = `*LAPOR KESALAHAN TRANSAKSI*\n\nAlasan: ${reportDraft.alasan || '-'}\n\nCustomer: ${reportDraft.customer_name}\nLokasi: ${reportDraft.apartment_location}\nKamar: ${reportDraft.room_number}\nMarketing: ${reportDraft.marketing_name || '-'}\nDurasi Sewa: ${reportDraft.rental_duration}\nShift: ${reportDraft.shift || '-'}\nTunai: Rp ${new Intl.NumberFormat('id-ID').format(Number(reportDraft.cash_amount || 0))}\nTransfer: Rp ${new Intl.NumberFormat('id-ID').format(Number(reportDraft.transfer_amount || 0))}\nTransfer ke: ${reportDraft.transfer_to || '-'}\nFee Marketing: Rp ${new Intl.NumberFormat('id-ID').format(Number(reportDraft.marketing_fee || 0))}\nInput oleh: ${reportDraft.input_by || '-'}\nID Transaksi: ${reportTransaksi.id}`;
+    window.open(`https://wa.me/6289613413636?text=${encodeURIComponent(msg)}`, '_blank');
+    setReportTransaksi(null);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!user?.id) {
-      toast({ title: 'Sesi tidak valid', description: 'Silakan login ulang lalu coba lagi.', variant: 'destructive' });
-      return;
-    }
-
+    if (!user?.id) return;
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);
     const feeAmount = parseCurrency(formData.feeMarketing);
-
     if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.namaMarketing || !formData.lamaSewa) {
-      toast({ title: 'Data wajib belum lengkap', description: 'Lengkapi customer, lokasi, kamar, marketing, dan durasi sewa.', variant: 'destructive' });
-      return;
-    }
-    if (formData.lamaSewa === 'Custom' && !formData.customSewaJam) {
-      toast({ title: 'Jam custom belum diisi', variant: 'destructive' });
+      toast({ title: 'Data wajib belum lengkap', variant: 'destructive' });
       return;
     }
     if (cashAmount <= 0 && transferAmount <= 0) {
-      toast({ title: 'Pembayaran kosong', description: 'Isi minimal tunai atau transfer.', variant: 'destructive' });
+      toast({ title: 'Pembayaran kosong', variant: 'destructive' });
       return;
     }
-    if (transferAmount > 0 && !formData.transferKe) {
-      toast({ title: 'Tujuan transfer belum dipilih', variant: 'destructive' });
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const [ktpUrl, transferProofUrl] = await Promise.all([
-        uploadFile(formData.ktpFile, 'ktp-images'),
-        uploadFile(formData.buktiTransferFile, 'transfer-proofs'),
+        formData.ktpFile ? uploadToVercelBlob(formData.ktpFile, 'ktp-images') : Promise.resolve(null),
+        formData.buktiTransferFile ? uploadToVercelBlob(formData.buktiTransferFile, 'transfer-proofs') : Promise.resolve(null),
       ]);
-
       const { error } = await supabase.from('transactions').insert({
         user_id: user.id,
         customer_name: formData.namaCustomer.trim(),
@@ -212,22 +229,10 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
         transfer_proof_url: transferProofUrl,
       });
       if (error) throw error;
-
       toast({ title: 'Transaksi berhasil disimpan' });
       setFormData({
-        namaCustomer: '',
-        lokasiApartemen: '',
-        nomorKamar: '',
-        namaMarketing: '',
-        lamaSewa: '',
-        customSewaJam: '1',
-        shift: '',
-        tunai: '',
-        transfer: '',
-        transferKe: '',
-        feeMarketing: '',
-        ktpFile: null,
-        buktiTransferFile: null,
+        namaCustomer: '', lokasiApartemen: '', nomorKamar: '', namaMarketing: '', lamaSewa: '', customSewaJam: '1', shift: '',
+        tunai: '', transfer: '', transferKe: '', feeMarketing: '', ktpFile: null, buktiTransferFile: null,
       });
       if (ktpInputRef.current) ktpInputRef.current.value = '';
       if (transferInputRef.current) transferInputRef.current.value = '';
@@ -243,76 +248,37 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     <div className="min-h-screen bg-slate-50 p-4 pb-28 md:p-6">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaksi Saya</h1>
-              <p className="text-sm text-slate-500">Hanya transaksi yang Anda input sendiri.</p>
-            </div>
-            <div className="flex flex-col gap-1 text-right">
-              <span className="text-sm font-semibold text-slate-900">{user?.user_metadata?.full_name || user?.email}</span>
-              <span className="text-xs uppercase tracking-wide text-slate-500">karyawan</span>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaksi Saya</h1>
+          <p className="text-sm text-slate-500">Hanya transaksi yang Anda input sendiri.</p>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Input Transaksi Karyawan</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Nama Customer *</label>
-              <input value={formData.namaCustomer} onChange={(e) => handleChange('namaCustomer', e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-slate-700" placeholder="Masukkan nama customer" />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Lokasi Apartemen *</label>
-              <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={lokasiOptions} value={lokasiOptions.find((item) => item.value === formData.lokasiApartemen) || null} onChange={(opt) => { handleChange('lokasiApartemen', opt?.value || ''); handleChange('nomorKamar', ''); }} placeholder="Pilih lokasi..." isClearable />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Nomor Kamar *</label>
-              <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={kamarOptions} value={kamarOptions.find((item) => item.value === formData.nomorKamar) || null} onChange={(opt) => handleChange('nomorKamar', opt?.value || '')} placeholder={formData.lokasiApartemen ? 'Pilih kamar...' : 'Pilih lokasi dulu'} isDisabled={!formData.lokasiApartemen} isClearable />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Nama Marketing *</label>
-              <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={marketingOptions} value={marketingOptions.find((item) => item.value === formData.namaMarketing) || null} onChange={(opt) => handleChange('namaMarketing', opt?.value || '')} placeholder="Pilih marketing..." isClearable />
-            </div>
+            <input value={formData.namaCustomer} onChange={(e) => handleChange('namaCustomer', e.target.value)} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Nama customer" />
+            <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={lokasiOptions} value={lokasiOptions.find((o) => o.value === formData.lokasiApartemen) || null} onChange={(opt) => { handleChange('lokasiApartemen', opt?.value || ''); handleChange('nomorKamar', ''); }} placeholder="Lokasi apartemen" isClearable />
+            <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={kamarOptions} value={kamarOptions.find((o) => o.value === formData.nomorKamar) || null} onChange={(opt) => handleChange('nomorKamar', opt?.value || '')} placeholder="Nomor kamar" isDisabled={!formData.lokasiApartemen} isClearable />
+            <Select styles={selectStyles} menuPortalTarget={selectPortalTarget} options={marketingOptions} value={marketingOptions.find((o) => o.value === formData.namaMarketing) || null} onChange={(opt) => handleChange('namaMarketing', opt?.value || '')} placeholder="Nama marketing" isClearable />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Durasi Sewa *</label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {DURATION_OPTIONS.map((item) => (
-                <button key={item} type="button" onClick={() => handleChange('lamaSewa', item)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${formData.lamaSewa === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  {item}
-                </button>
-              ))}
-            </div>
-            {formData.lamaSewa === 'Custom' && (
-              <input type="number" min={1} max={168} value={formData.customSewaJam} onChange={(e) => handleChange('customSewaJam', e.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-slate-700" placeholder="Jumlah jam custom" />
-            )}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {DURATION_OPTIONS.map((item) => (
+              <button key={item} type="button" onClick={() => handleChange('lamaSewa', item)} className={`rounded-xl px-3 py-2 text-xs font-semibold ${formData.lamaSewa === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</button>
+            ))}
           </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Shift</label>
-            <div className="grid grid-cols-3 gap-2">
-              {SHIFT_OPTIONS.map((item) => (
-                <button key={item} type="button" onClick={() => handleChange('shift', item)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${formData.shift === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  {item}
-                </button>
-              ))}
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            {SHIFT_OPTIONS.map((item) => (
+              <button key={item} type="button" onClick={() => handleChange('shift', item)} className={`rounded-xl px-3 py-2 text-sm font-semibold ${formData.shift === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</button>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <div><label className="mb-2 block text-sm font-medium text-slate-700">Tunai (Rp)</label><input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
-            <div><label className="mb-2 block text-sm font-medium text-slate-700">Transfer (Rp)</label><input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Bank Tujuan</label>
-              <div className="grid grid-cols-2 gap-2">
-                {TRANSFER_TARGET_OPTIONS.map((item) => (
-                  <button key={item} type="button" onClick={() => handleChange('transferKe', item)} className={`h-11 rounded-xl border text-sm font-medium ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>{item}</button>
-                ))}
-              </div>
+            <input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Tunai (Rp)" />
+            <input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Transfer (Rp)" />
+            <div className="grid grid-cols-2 gap-2">
+              {TRANSFER_TARGET_OPTIONS.map((item) => <button key={item} type="button" onClick={() => handleChange('transferKe', item)} className={`h-11 rounded-xl border text-sm ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300'}`}>{item}</button>)}
             </div>
-            <div><label className="mb-2 block text-sm font-medium text-slate-700">Fee Marketing (Rp)</label><input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
+            <input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 rounded-xl border border-slate-300 px-3 text-sm" placeholder="Fee marketing (Rp)" />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -330,16 +296,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
             </label>
           </div>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full bg-emerald-600 hover:bg-emerald-700">
-            <Save className="mr-2 h-4 w-4" />
-            {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
-          </Button>
+          <Button type="submit" disabled={isSubmitting} className="w-full bg-emerald-600 hover:bg-emerald-700"><Save className="mr-2 h-4 w-4" />{isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}</Button>
         </form>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Button className="bg-amber-500 hover:bg-amber-600" onClick={onRequestNavigate}><AlertTriangle className="mr-2 h-4 w-4" /> Lapor Kesalahan</Button>
-          <Button className="bg-green-600 hover:bg-green-700" onClick={handleShareReport}><Share2 className="mr-2 h-4 w-4" /> Kirim Laporan</Button>
-        </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-slate-900">Riwayat Transaksi</h2>
@@ -349,27 +307,90 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
             <p className="text-sm text-slate-500">Belum ada transaksi yang Anda input.</p>
           ) : (
             <div className="space-y-4">
-              {transactions.map((t) => (
-                <motion.div key={t.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="font-semibold text-slate-900">{t.customer_name}</h3>
-                      <p className="text-sm text-slate-600">{formatDateTime(t.created_at)}</p>
+              {transactions.map((t) => {
+                const sentAt = getSentMap()[t.id];
+                return (
+                  <motion.div key={t.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border bg-white/70 p-4">
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-gray-800">{t.customer_name}</h3>
+                      <p className="text-right text-base font-extrabold text-orange-600">Rp {new Intl.NumberFormat('id-ID').format((t.cash_amount || 0) + (t.transfer_amount || 0))}</p>
                     </div>
-                    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs uppercase text-slate-700">{formatRentalDuration(t.rental_duration)}</span>
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <p className="text-sm text-slate-700"><span className="font-semibold">Lokasi:</span> {t.apartment_location}</p>
-                    <p className="text-sm text-slate-700"><span className="font-semibold">Kamar:</span> {t.room_number}</p>
-                    <p className="text-sm text-slate-700"><span className="font-semibold">Marketing:</span> {t.marketing_name || '-'}</p>
-                    <p className="text-sm text-slate-700"><span className="font-semibold">Shift:</span> {t.shift || '-'}</p>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="mb-3 space-y-1 border-y py-2 text-xs text-gray-700">
+                      <p>Lokasi: {t.apartment_location} - Kamar {t.room_number}</p>
+                      <p>Sewa: {formatRentalDuration(t.rental_duration)} ({t.shift || '-'})</p>
+                      <p>Waktu: {formatDateTime(t.created_at)}</p>
+                      <p>Marketing: {t.marketing_name || '-'}</p>
+                      <p>Diinput oleh: {t.input_by || '-'}</p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setPreviewTransaksi(t)}><ImageIcon className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => openReportModal(t)}><AlertTriangle className="h-4 w-4" /></Button>
+                      <Button size="icon" className={`h-8 w-8 ${sentAt ? 'bg-slate-500 hover:bg-slate-600' : 'bg-green-600 hover:bg-green-700'}`} onClick={() => sendForwardReport(t)}>
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={Boolean(previewTransaksi)} onOpenChange={() => setPreviewTransaksi(null)}>
+        <DialogContent className="bg-black/90">
+          <DialogHeader>
+            <DialogTitle className="text-white">Berkas Transaksi</DialogTitle>
+            <DialogDescription className="text-gray-300">Menampilkan KTP dan bukti transfer jika tersedia.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {previewTransaksi?.ktp_image_url && <img src={resolveStorageUrl(previewTransaksi.ktp_image_url)} alt="KTP" className="w-full rounded-lg" />}
+            {previewTransaksi?.transfer_proof_url && <img src={resolveStorageUrl(previewTransaksi.transfer_proof_url)} alt="Bukti Transfer" className="w-full rounded-lg" />}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(reportTransaksi)} onOpenChange={() => setReportTransaksi(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle>Laporkan Kesalahan</DialogTitle>
+            <DialogDescription>Lengkapi data laporan sebelum kirim ke admin via WhatsApp.</DialogDescription>
+          </DialogHeader>
+          {reportDraft && (
+            <div className="space-y-3">
+              <input className="w-full rounded-xl border px-3 py-2 text-sm" value={reportDraft.alasan} onChange={(e) => setReportDraft((p) => ({ ...p, alasan: e.target.value }))} placeholder="Alasan" />
+              {['customer_name', 'apartment_location', 'room_number', 'marketing_name', 'rental_duration', 'shift', 'cash_amount', 'transfer_amount', 'transfer_to', 'marketing_fee', 'input_by'].map((field) => (
+                <input key={field} className="w-full rounded-xl border px-3 py-2 text-sm" value={reportDraft[field] || ''} onChange={(e) => setReportDraft((p) => ({ ...p, [field]: e.target.value }))} placeholder={field} />
+              ))}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setReportTransaksi(null)}>Batal</Button>
+                <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={sendIssueReport}>
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Kirim
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(confirmResendTransaksi)} onOpenChange={() => setConfirmResendTransaksi(null)}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Lapor Ulang</DialogTitle>
+            <DialogDescription>
+              Customer ini sudah dilaporkan pada {confirmResendTransaksi ? new Date(getSentMap()[confirmResendTransaksi.id]).toLocaleString('id-ID') : '-'}.
+              Apakah Anda yakin ingin laporkan ulang?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setConfirmResendTransaksi(null)}>Gak jadi</Button>
+            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => { if (confirmResendTransaksi) sendForwardReport(confirmResendTransaksi, true); setConfirmResendTransaksi(null); }}>
+              Ya, kirim aja
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

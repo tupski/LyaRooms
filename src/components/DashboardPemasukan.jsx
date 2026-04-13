@@ -165,11 +165,12 @@ const DashboardPemasukan = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Yakin ingin menghapus transaksi ini?')) return;
-    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    const { data, error } = await supabase.rpc('delete_transaction_cascade', { p_transaction_id: id });
     if (error) {
       toast({ title: 'Gagal menghapus', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Transaksi dihapus' });
+      const removedInfo = data?.removed_fee_rows ? `, komisi terhapus ${data.removed_fee_rows}` : '';
+      toast({ title: `Transaksi dihapus${removedInfo}` });
       loadTransaksi();
     }
   };
