@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     marketing_name VARCHAR(255) NOT NULL,
     rental_duration INTEGER NOT NULL,
     shift VARCHAR(50),
-    diinputoleh VARCHAR(255) NOT NULL,
+    input_by VARCHAR(255) NOT NULL,
     apartment_location VARCHAR(255) NOT NULL REFERENCES public.lokasi_apartemen(name),
     room_number VARCHAR(255) NOT NULL,
     cash_amount DECIMAL(15,2) DEFAULT 0,

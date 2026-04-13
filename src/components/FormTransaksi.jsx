@@ -277,7 +277,7 @@ const FormTransaksi = ({ onDataUpdate }) => {
       marketing_name: formData.namaMarketing,
       rental_duration: rentalHours,
       shift: formData.shift,
-      diinputoleh: formData.diinputOleh,
+      input_by: formData.diinputOleh,
       apartment_location: formData.lokasiApartemen,
       room_number: formData.nomorKamar,
       cash_amount: Number(deformatRupiah(formData.tunai)) || 0,
