@@ -98,6 +98,14 @@ CREATE TABLE IF NOT EXISTS public.requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS public.user_roles (
+    id SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(user_id)
+);
+
 -- Create storage bucket for tagihan proofs
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('tagihan_proofs', 'tagihan_proofs', true)
@@ -123,6 +131,7 @@ ALTER TABLE public.pengeluaran ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tagihan_bulanan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tagihan_fee_lunas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for authenticated users
 DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.lokasi_apartemen;
@@ -268,6 +277,23 @@ CREATE POLICY "Enable update for authenticated users" ON public.requests
 
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.requests;
 CREATE POLICY "Enable delete for authenticated users" ON public.requests
+    FOR DELETE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+
+-- Policies for user_roles table
+DROP POLICY IF EXISTS "Enable read user roles for authenticated users" ON public.user_roles;
+CREATE POLICY "Enable read user roles for authenticated users" ON public.user_roles
+    FOR SELECT USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Enable insert user roles for authenticated users" ON public.user_roles;
+CREATE POLICY "Enable insert user roles for authenticated users" ON public.user_roles
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Enable update user roles for authenticated users" ON public.user_roles;
+CREATE POLICY "Enable update user roles for authenticated users" ON public.user_roles
+    FOR UPDATE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Enable delete user roles for authenticated users" ON public.user_roles;
+CREATE POLICY "Enable delete user roles for authenticated users" ON public.user_roles
     FOR DELETE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
 
 -- Storage policies for all buckets

@@ -263,13 +263,19 @@ const FormTransaksi = ({ onDataUpdate }) => {
     const ktpUrl = await uploadFile(formData.ktpFile, 'ktp_images');
     const buktiTransferUrl = await uploadFile(formData.buktiTransferFile, 'transfer_proofs');
     
-    const rentalDuration = formData.lamaSewa === 'Custom' ? `${formData.customSewaJam} JAM` : formData.lamaSewa;
+    // Extract hours from rental duration (e.g., "3 JAM" → 3)
+    const extractHours = (dur) => {
+      if (dur === 'Custom') return Number(formData.customSewaJam) || 1;
+      const match = dur.match(/\d+/);
+      return match ? Number(match[0]) : 1;
+    };
+    const rentalHours = extractHours(formData.lamaSewa);
 
     const newTransaksi = {
       user_id: user.id,
       customer_name: formData.namaCustomer,
       marketing_name: formData.namaMarketing,
-      rental_duration: rentalDuration,
+      rental_duration: rentalHours,
       shift: formData.shift,
       diinputoleh: formData.diinputOleh,
       apartment_location: formData.lokasiApartemen,
