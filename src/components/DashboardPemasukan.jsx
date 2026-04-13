@@ -142,7 +142,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     
       const handleShare = async (transaksi) => {
         const total = (transaksi.cash_amount || 0) + (transaksi.transfer_amount || 0);
-        const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${transaksi.rental_duration} (${transaksi.shift})\n*Total Bayar:* ${formatRupiah(total)}\n  - Tunai: ${formatRupiah(transaksi.cash_amount || 0)}\n  - Transfer: ${formatRupiah(transaksi.transfer_amount || 0)} ${transaksi.transfer_to ? `(ke ${transaksi.transfer_to})` : ''}\n-------------------\nDiinput oleh: ${transaksi.diinputoleh || '-'}`;
+        const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${transaksi.rental_duration} (${transaksi.shift})\n*Total Bayar:* ${formatRupiah(total)}\n  - Tunai: ${formatRupiah(transaksi.cash_amount || 0)}\n  - Transfer: ${formatRupiah(transaksi.transfer_amount || 0)} ${transaksi.transfer_to ? `(ke ${transaksi.transfer_to})` : ''}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
         
         try {
             await navigator.clipboard.writeText(message);
@@ -169,7 +169,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             'Transfer': t.transfer_amount,
             'Total': (t.cash_amount || 0) + (t.transfer_amount || 0),
             'Fee Marketing': t.marketing_fee,
-            'Diinput Oleh': t.diinputoleh,
+            'Diinput Oleh': t.input_by,
         }));
     
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -273,7 +273,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                           <p>Waktu: {formatDateTime(transaksi.created_at)}</p>
                           {transaksi.marketing_name && <p>Marketing: {transaksi.marketing_name}</p>}
                           {transaksi.marketing_fee > 0 && <p>Fee: {formatRupiah(transaksi.marketing_fee)}</p>}
-                          {transaksi.diinputoleh && <p><UserCheck className="w-3 h-3 inline mr-1" /> Diinput oleh: {transaksi.diinputoleh}</p>}
+                          {transaksi.input_by && <p><UserCheck className="w-3 h-3 inline mr-1" /> Diinput oleh: {transaksi.input_by}</p>}
                         </div>
                         <div className="flex justify-between items-center">
                             <div className="text-xs space-y-1">

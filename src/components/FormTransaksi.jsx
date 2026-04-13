@@ -209,7 +209,7 @@ const SuccessPopup = ({ onClose }) => (
 const FormTransaksi = ({ onDataUpdate }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    namaCustomer: '', namaMarketing: '', lamaSewa: '', shift: '', diinputOleh: '',
+    namaCustomer: '', namaMarketing: '', lamaSewa: '', shift: '', input_by: '',
     lokasiApartemen: '', nomorKamar: '', tunai: '', transfer: '', transferKe: '', feeMarketing: '',
     ktpFile: null, buktiTransferFile: null, customSewaJam: '1'
   });
@@ -277,7 +277,7 @@ const FormTransaksi = ({ onDataUpdate }) => {
       marketing_name: formData.namaMarketing,
       rental_duration: rentalHours,
       shift: formData.shift,
-      input_by: formData.diinputOleh,
+      input_by: formData.input_by,
       apartment_location: formData.lokasiApartemen,
       room_number: formData.nomorKamar,
       cash_amount: Number(deformatRupiah(formData.tunai)) || 0,
@@ -295,7 +295,7 @@ const FormTransaksi = ({ onDataUpdate }) => {
     } else {
       setShowSuccessPopup(true);
       setFormData({
-        namaCustomer: '', namaMarketing: '', lamaSewa: '', shift: '', diinputOleh: '',
+        namaCustomer: '', namaMarketing: '', lamaSewa: '', shift: '', input_by: '',
         lokasiApartemen: '', nomorKamar: '', tunai: '', transfer: '', transferKe: '', feeMarketing: '',
         ktpFile: null, buktiTransferFile: null, customSewaJam: '1'
       });
@@ -376,7 +376,7 @@ const FormTransaksi = ({ onDataUpdate }) => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Diinput oleh</label>
-                <AutocompleteInput title="Karyawan" table="karyawan_list" value={formData.diinputOleh} onValueChange={(val) => handleInputChange('diinputOleh', val)} />
+                <AutocompleteInput title="Karyawan" table="karyawan_list" value={formData.input_by} onValueChange={(val) => handleInputChange('input_by', val)} />
               </div>
             </div>
             

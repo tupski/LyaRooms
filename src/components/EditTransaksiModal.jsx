@@ -122,7 +122,7 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2 text-gray-700">Diinput oleh</label>
-              <AutocompleteInput table="karyawan_list" value={formData.diinputoleh} onValueChange={(val) => handleInputChange('diinputoleh', val)} />
+              <AutocompleteInput table="karyawan_list" value={formData.input_by} onValueChange={(val) => handleInputChange('input_by', val)} />
             </div>
           </div>
           <div className="p-4 rounded-2xl space-y-3 bg-gray-50">
