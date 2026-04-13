@@ -34,12 +34,15 @@ export default async function handler(req, res) {
     }
 
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const baseUrlFromEnv = process.env.VERCEL_BLOB_BASE_URL;
+    const baseUrlFromEnvRaw = process.env.VERCEL_BLOB_BASE_URL;
     const storeId = process.env.VERCEL_BLOB_STORE_ID;
     const derivedBaseUrl = storeId
       ? `https://${storeId.replace(/^store_/i, '').toLowerCase()}.private.blob.vercel-storage.com`
       : '';
-    const baseUrl = baseUrlFromEnv || derivedBaseUrl;
+    const normalizedEnvBaseUrl = typeof baseUrlFromEnvRaw === 'string' ? baseUrlFromEnvRaw.trim().replace(/^["']|["']$/g, '') : '';
+    const baseUrl = normalizedEnvBaseUrl.startsWith('http://') || normalizedEnvBaseUrl.startsWith('https://')
+      ? normalizedEnvBaseUrl
+      : derivedBaseUrl;
 
     if (!token || !baseUrl) {
       return res.status(500).json({ error: 'Konfigurasi Blob belum lengkap.' });
