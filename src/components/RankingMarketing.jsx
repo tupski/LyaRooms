@@ -57,7 +57,7 @@ const RankingMarketing = () => {
       const k = toMonthKey(t.created_at);
       if (k) set.add(k);
     });
-    return [...set].sort().reverse();
+    return ['all', ...[...set].sort().reverse()];
   }, [rows]);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ const RankingMarketing = () => {
       setSelectedMonth(null);
       return;
     }
-    setSelectedMonth((prev) => (prev && monthKeys.includes(prev) ? prev : monthKeys[0]));
+    setSelectedMonth((prev) => (prev && monthKeys.includes(prev) ? prev : 'all'));
   }, [monthKeys]);
 
   useEffect(() => {
@@ -78,6 +78,7 @@ const RankingMarketing = () => {
 
   const filteredRows = useMemo(() => {
     if (!selectedMonth) return [];
+    if (selectedMonth === 'all') return rows || [];
     return (rows || []).filter((t) => toMonthKey(t.created_at) === selectedMonth);
   }, [rows, selectedMonth]);
 
@@ -100,12 +101,14 @@ const RankingMarketing = () => {
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
 
   const statsPeriodLabel =
-    selectedMonth && selectedMonth === currentMonthKey()
-      ? 'Bulan ini'
-      : formatMonthLabel(selectedMonth || '');
+    selectedMonth === 'all'
+      ? 'Keseluruhan'
+      : selectedMonth && selectedMonth === currentMonthKey()
+        ? 'Bulan ini'
+        : formatMonthLabel(selectedMonth || '');
 
-  const totalMarketing = rankings.length;
-  const totalTransaksi = rankings.reduce((sum, r) => sum + r.jumlahTransaksi, 0);
+  const totalMarketingAktif = rankings.length;
+  const totalCs = rankings.reduce((sum, r) => sum + r.jumlahTransaksi, 0);
 
   const totalPages = Math.max(1, Math.ceil(rankings.length / ITEMS_PER_PAGE));
 
@@ -130,7 +133,7 @@ const RankingMarketing = () => {
               >
                 {monthKeys.map((mk) => (
                   <option key={mk} value={mk}>
-                    {formatMonthLabel(mk)}
+                    {mk === 'all' ? 'Keseluruhan' : formatMonthLabel(mk)}
                   </option>
                 ))}
               </select>
@@ -145,8 +148,8 @@ const RankingMarketing = () => {
                 <Users className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-xs text-slate-500">Total Marketing ({statsPeriodLabel})</p>
-                <p className="text-lg font-semibold tabular-nums text-slate-900">{totalMarketing}</p>
+                <p className="truncate text-xs text-slate-500">Marketing Aktif ({statsPeriodLabel})</p>
+                <p className="text-lg font-semibold tabular-nums text-slate-900">{totalMarketingAktif}</p>
               </div>
             </div>
             <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -154,8 +157,8 @@ const RankingMarketing = () => {
                 <TrendingUp className="h-4 w-4" />
               </div>
               <div className="min-w-0 text-right">
-                <p className="truncate text-xs text-slate-500">Total Transaksi ({statsPeriodLabel})</p>
-                <p className="text-lg font-semibold tabular-nums text-slate-900">{totalTransaksi}</p>
+                <p className="truncate text-xs text-slate-500">Total CS ({statsPeriodLabel})</p>
+                <p className="text-lg font-semibold tabular-nums text-slate-900">{totalCs}</p>
               </div>
             </div>
           </div>
@@ -165,20 +168,22 @@ const RankingMarketing = () => {
           <div className="space-y-2">
             {paginatedRankings.map((marketing, index) => {
               const absoluteIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+              const accent = absoluteIndex % 2 === 0 ? 'border-l-blue-600' : 'border-l-emerald-600';
+              const bg = absoluteIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50';
               return (
                 <motion.div
                   key={`${marketing.nama}-${absoluteIndex}`}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.15 }}
-                  className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+                  className={`rounded-lg border border-slate-200 ${bg} border-l-4 ${accent} p-3 shadow-sm`}
                 >
                   <div className="mb-2 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                     <span className="text-xs font-medium text-slate-400">#{absoluteIndex + 1}</span>
                     <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{marketing.nama}</h3>
                   </div>
                   <div className="flex justify-between gap-2 text-xs">
-                    <span className="text-slate-500">Transaksi</span>
+                    <span className="text-slate-500">CS</span>
                     <span className="font-medium tabular-nums text-slate-800">{marketing.jumlahTransaksi}</span>
                   </div>
                   <div className="mt-1 flex justify-between gap-2 text-xs">

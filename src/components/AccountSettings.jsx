@@ -12,7 +12,7 @@ import { isPushSupported, registerPushSubscription, saveSubscriptionToSupabase }
 const DEFAULT_AVATAR = '/logo-kr-transparent-square.png';
 
 export default function AccountSettings({ open, onOpenChange }) {
-  const { user, userRole, isAdmin, refreshSession } = useAuth();
+  const { user, userRole, refreshSession } = useAuth();
   const userId = user?.id;
   const avatarInputRef = useRef(null);
 
@@ -53,6 +53,33 @@ export default function AccountSettings({ open, onOpenChange }) {
     if (error) {
       toast({ title: 'Gagal memuat profil', description: error.message, variant: 'destructive' });
       return;
+    }
+
+    // Jika belum ada row profile, buat minimal row agar update tidak jadi no-op.
+    if (!data) {
+      await supabase.from('user_profiles').upsert(
+        {
+          id: userId,
+          email: user?.email || '',
+          full_name: user?.user_metadata?.full_name || null,
+          phone: null,
+          role: userRole || 'karyawan',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+      ({ data, error } = await supabase
+        .from('user_profiles')
+        .select('id,email,full_name,phone,avatar_url,role')
+        .eq('id', userId)
+        .maybeSingle());
+      if (error && String(error.message || '').includes('avatar_url')) {
+        ({ data } = await supabase
+          .from('user_profiles')
+          .select('id,email,full_name,phone,role')
+          .eq('id', userId)
+          .maybeSingle());
+      }
     }
 
     const p = data || null;
@@ -116,11 +143,13 @@ export default function AccountSettings({ open, onOpenChange }) {
       const cleanedPhone = String(phone || '').replace(/\\D/g, '');
       const phoneWithPrefix = cleanedPhone ? `+62${cleanedPhone}` : null;
       const payload = {
+        id: userId,
+        email: user?.email || email || '',
         full_name: String(fullName || '').trim() || null,
         phone: phoneWithPrefix,
         updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from('user_profiles').update(payload).eq('id', userId);
+      const { error } = await supabase.from('user_profiles').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       await supabase.auth.updateUser({ data: { full_name: payload.full_name || '' } });
       await refreshSession?.();
@@ -128,25 +157,6 @@ export default function AccountSettings({ open, onOpenChange }) {
       await loadProfile();
     } catch (e) {
       toast({ title: 'Gagal menyimpan profil', description: e?.message || 'Coba lagi.', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChangeEmail = async () => {
-    if (!isAdmin) return;
-    const next = String(email || '').trim();
-    if (!next) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.updateUser({ email: next });
-      if (error) throw error;
-      // user_profiles email juga ikut
-      await supabase.from('user_profiles').update({ email: next, updated_at: new Date().toISOString() }).eq('id', userId);
-      toast({ title: 'Permintaan ganti email dikirim', description: 'Silakan cek email untuk konfirmasi.' });
-      setEmail(data?.user?.email || next);
-    } catch (e) {
-      toast({ title: 'Gagal ganti email', description: e?.message || 'Coba lagi.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -189,6 +199,14 @@ export default function AccountSettings({ open, onOpenChange }) {
     if (!userId) return;
     if (!isPushSupported()) {
       toast({ title: 'Push tidak didukung', description: 'Gunakan Chrome/Edge terbaru dan pastikan notifikasi diizinkan.', variant: 'destructive' });
+      return;
+    }
+    if (!vapidPublicKey) {
+      toast({
+        title: 'VAPID Public Key belum tersedia',
+        description: 'Set env frontend `VITE_VAPID_PUBLIC_KEY` di Vercel (nilainya sama dengan `VAPID_PUBLIC_KEY`).',
+        variant: 'destructive',
+      });
       return;
     }
     try {
@@ -273,20 +291,16 @@ export default function AccountSettings({ open, onOpenChange }) {
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={!isAdmin}
+                disabled
                 className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none disabled:bg-slate-100"
               />
-              {isAdmin && (
-                <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={handleChangeEmail} disabled={loading}>
-                  Simpan Email
-                </Button>
-              )}
+              <p className="mt-1 text-[11px] text-slate-500">Email hanya bisa diubah oleh admin.</p>
             </div>
           </div>
 
           <DialogFooter className="mt-4">
             <Button type="button" className="bg-slate-900 hover:bg-slate-800" onClick={handleSaveProfile} disabled={loading}>
-              <Save className="mr-2 h-4 w-4" /> Simpan Profil
+              <Save className="mr-2 h-4 w-4" /> Update Profil
             </Button>
           </DialogFooter>
         </section>
