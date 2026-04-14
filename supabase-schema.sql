@@ -437,7 +437,7 @@ ALTER TABLE public.user_roles
 
 UPDATE public.user_roles
 SET role = 'karyawan'
-WHERE role = 'user';
+WHERE role = 'user';image.png
 
 -- Tabel profil karyawan/pengguna aplikasi
 CREATE TABLE IF NOT EXISTS public.user_profiles (
