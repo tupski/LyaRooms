@@ -9,6 +9,7 @@ const Auth = () => {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const currentYear = new Date().getFullYear();
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [isInstalled, setIsInstalled] = useState(false);
 
@@ -157,6 +158,9 @@ const Auth = () => {
                         Belum punya akun?
                         <br />
                         Hubungi <b>Om Tupas</b> untuk membuat akun karyawan/admin KakaRama Room.
+                    </p>
+                    <p className="mt-4 text-[11px] text-white/60">
+                        © {currentYear} - Kakarama Room. All rights reserved.
                     </p>
                 </div>
             </motion.div>

@@ -11,7 +11,8 @@ Aplikasi web modern untuk mengelola transaksi penyewaan apartemen, tagihan bulan
 - ✅ **Request System** - Sistem permintaan karyawan (cuti, kasbon, dll.)
 - ✅ **Dashboard Analytics** - Laporan omset, ranking marketing, dan statistik
 - ✅ **Authentication** - Sistem login berbasis Supabase Auth
-- ✅ **File Upload** - Upload KTP dan bukti pembayaran ke Supabase Storage
+- ✅ **File Upload** - Upload KTP dan bukti pembayaran (dengan kompresi gambar)
+- ✅ **PWA** - Bisa di-install seperti aplikasi (Install prompt dari layar login)
 
 ## 🛠️ Tech Stack
 
@@ -223,6 +224,10 @@ npm run preview      # Preview production build
 npm run lint         # Run ESLint
 ```
 
+## 🗒️ Changelog
+
+Lihat `CHANGELOG.md`.
+
 ## 🔒 Security Notes
 
 - ✅ **Environment Variables**: Jangan commit `.env` ke Git
@@ -251,26 +256,4 @@ Jika ada pertanyaan atau masalah:
 
 ---
 
-**Happy Coding! 🚀**
-4. Install dependencies: `npm install`
-5. Run development server: `npm run dev`
-
-## 📋 Fitur
-
-- ✅ Manajemen transaksi penyewaan
-- ✅ Tracking pengeluaran
-- ✅ Sistem tagihan bulanan
-- ✅ Manajemen fee marketing
-- ✅ Sistem request karyawan
-- ✅ Upload bukti pembayaran
-- ✅ Dashboard dan laporan
-- ✅ Authentication dengan Supabase Auth
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React + Vite
-- **UI**: Tailwind CSS + Radix UI
-- **Database**: Supabase (PostgreSQL)
-- **Storage**: Supabase Storage
-- **Authentication**: Supabase Auth
-- **Deployment**: Vercel
+© 2026 - Kakarama Room. All rights reserved.

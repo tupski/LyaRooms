@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 function App() {
+  const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') return 'form';
     return localStorage.getItem('kr_active_tab') || 'form';
@@ -340,6 +341,9 @@ function App() {
                 </div>
               </div>
             )}
+          </div>
+          <div className="mx-auto mt-2 w-full max-w-md px-2 text-center text-[11px] text-slate-600">
+            © {currentYear} - Kakarama Room. All rights reserved.
           </div>
         </div>
       </div>
