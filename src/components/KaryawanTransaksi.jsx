@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
 import { resolveStorageUrl } from '@/lib/storageUrl';
 import { compressImageFile } from '@/lib/compressImage';
+import { formatPaymentLines, formatRupiahNumber } from '@/lib/formatPaymentText';
 import ImageViewerModal from '@/components/ImageViewerModal';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -200,8 +201,15 @@ const KaryawanTransaksi = () => {
     return map[hours] || `${hours} JAM`;
   };
 
-  const buildForwardMessage = (t) =>
-    `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nTunai: Rp ${new Intl.NumberFormat('id-ID').format(t.cash_amount || 0)}\nTransfer: Rp ${new Intl.NumberFormat('id-ID').format(t.transfer_amount || 0)}\nInput oleh: ${t.input_by || '-'}\nWaktu: ${formatDateTime(t.created_at)}`;
+  const buildForwardMessage = (t) => {
+    const { total, lines } = formatPaymentLines({
+      cashAmount: t.cash_amount || 0,
+      transferAmount: t.transfer_amount || 0,
+      transferTo: t.transfer_to || null,
+    });
+
+    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nInput oleh: ${t.input_by || '-'}\nWaktu: ${formatDateTime(t.created_at)}`;
+  };
 
   const sendForwardReport = (t, force = false) => {
     const sentAt = getSentMap()[t.id];
@@ -233,7 +241,12 @@ const KaryawanTransaksi = () => {
 
   const sendIssueReport = () => {
     if (!reportTransaksi || !reportDraft) return;
-    const msg = `*LAPOR KESALAHAN TRANSAKSI*\n\nAlasan: ${reportDraft.alasan || '-'}\n\nCustomer: ${reportDraft.customer_name}\nLokasi: ${reportDraft.apartment_location}\nKamar: ${reportDraft.room_number}\nMarketing: ${reportDraft.marketing_name || '-'}\nDurasi Sewa: ${reportDraft.rental_duration}\nShift: ${reportDraft.shift || '-'}\nTunai: Rp ${new Intl.NumberFormat('id-ID').format(Number(reportDraft.cash_amount || 0))}\nTransfer: Rp ${new Intl.NumberFormat('id-ID').format(Number(reportDraft.transfer_amount || 0))}\nTransfer ke: ${reportDraft.transfer_to || '-'}\nFee Marketing: Rp ${new Intl.NumberFormat('id-ID').format(Number(reportDraft.marketing_fee || 0))}\nInput oleh: ${reportDraft.input_by || '-'}\nID Transaksi: ${reportTransaksi.id}`;
+    const { total, lines } = formatPaymentLines({
+      cashAmount: Number(reportDraft.cash_amount || 0),
+      transferAmount: Number(reportDraft.transfer_amount || 0),
+      transferTo: reportDraft.transfer_to || null,
+    });
+    const msg = `*LAPOR KESALAHAN TRANSAKSI*\n\nAlasan: ${reportDraft.alasan || '-'}\n\nCustomer: ${reportDraft.customer_name}\nLokasi: ${reportDraft.apartment_location}\nKamar: ${reportDraft.room_number}\nMarketing: ${reportDraft.marketing_name || '-'}\nDurasi Sewa: ${reportDraft.rental_duration}\nShift: ${reportDraft.shift || '-'}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nFee Marketing: ${formatRupiahNumber(Number(reportDraft.marketing_fee || 0))}\nInput oleh: ${reportDraft.input_by || '-'}\nID Transaksi: ${reportTransaksi.id}`;
     window.open(`https://wa.me/6289613413636?text=${encodeURIComponent(msg)}`, '_blank');
     setReportTransaksi(null);
   };

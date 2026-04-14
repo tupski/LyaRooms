@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import PinInput from '@/components/PinInput';
 import { resolveStorageUrl } from '@/lib/storageUrl';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { formatPaymentLines, formatRupiahNumber } from '@/lib/formatPaymentText';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -188,8 +189,12 @@ const DashboardPemasukan = () => {
   };
 
   const handleShare = async (transaksi) => {
-    const total = (transaksi.cash_amount || 0) + (transaksi.transfer_amount || 0);
-    const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${formatRentalDuration(transaksi.rental_duration)} (${transaksi.shift})\n*Total Bayar:* ${formatRupiah(total)}\n  - Tunai: ${formatRupiah(transaksi.cash_amount || 0)}\n  - Transfer: ${formatRupiah(transaksi.transfer_amount || 0)} ${transaksi.transfer_to ? `(ke ${transaksi.transfer_to})` : ''}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
+    const { total, lines } = formatPaymentLines({
+      cashAmount: transaksi.cash_amount || 0,
+      transferAmount: transaksi.transfer_amount || 0,
+      transferTo: transaksi.transfer_to || null,
+    });
+    const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${formatRentalDuration(transaksi.rental_duration)} (${transaksi.shift})\n*Total Bayar:* ${formatRupiahNumber(total)}\n${lines.join('\n')}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
     try {
       await navigator.clipboard.writeText(message);
       toast({ title: 'Pesan disalin', description: 'Buka WhatsApp dan tempel pesan.' });
