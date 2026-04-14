@@ -1,3 +1,5 @@
+/* eslint-env node */
+/* global process, Buffer */
 const ALLOWED_ORIGINS = [
   'https://admin.kakaramaroom.com',
   'https://kr-gamma.vercel.app',

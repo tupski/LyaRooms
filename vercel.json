@@ -7,6 +7,10 @@
     {
       "path": "/api/cleanup-blobs",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/generate-notifications",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

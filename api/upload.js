@@ -1,3 +1,5 @@
+/* eslint-env node */
+/* global process, Buffer */
 import { put } from '@vercel/blob';
 
 const readRequestBody = async (req) => {

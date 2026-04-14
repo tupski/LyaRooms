@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
+import { Bell, Camera, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
 import FormTransaksi from '@/components/FormTransaksiModern';
 import KaryawanTransaksi from '@/components/KaryawanTransaksi';
 import DashboardPemasukan from '@/components/DashboardPemasukan';
@@ -16,6 +16,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from '@/components/ui/use-toast';
 import PinInput from '@/components/PinInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import NotificationsInbox from '@/components/NotificationsInbox';
+import { supabase } from '@/lib/customSupabaseClient';
+import { useMemo as useMemoReact } from 'react';
+import AccountSettings from '@/components/AccountSettings';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +49,9 @@ function App() {
   const { session, loading, signOut, userRole, isSuperAdmin } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const correctPin = '232325';
@@ -52,6 +59,52 @@ function App() {
   useEffect(() => {
     document.title = 'Laporan Transaksi KAKARAMA GROUP';
   }, []);
+
+  const audienceFilter = useMemoReact(() => {
+    const userId = session?.user?.id;
+    if (!userId) return null;
+    if (userRole === 'super_admin') return `audience_user_id.eq.${userId},audience_role.eq.super_admin,audience_role.eq.all`;
+    if (userRole === 'admin') return `audience_user_id.eq.${userId},audience_role.eq.admin,audience_role.eq.all`;
+    return `audience_user_id.eq.${userId},audience_role.eq.all`;
+  }, [session?.user?.id, userRole]);
+
+  const refreshUnread = async () => {
+    const userId = session?.user?.id;
+    if (!userId || !audienceFilter) return;
+
+    const { data: notif, error: nErr } = await supabase
+      .from('notifications')
+      .select('id')
+      .or(audienceFilter)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (nErr) return;
+    const ids = (notif || []).map((n) => n.id);
+    if (!ids.length) {
+      setUnreadCount(0);
+      return;
+    }
+    const { data: reads, error: rErr } = await supabase
+      .from('notification_reads')
+      .select('notification_id')
+      .eq('user_id', userId)
+      .in('notification_id', ids);
+    if (rErr) return;
+    const readSet = new Set((reads || []).map((r) => r.notification_id));
+    setUnreadCount(ids.filter((id) => !readSet.has(id)).length);
+  };
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    refreshUnread();
+    const channel = supabase
+      .channel(`notif_badge_${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, refreshUnread)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_reads' }, refreshUnread)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, audienceFilter, userRole]);
 
   const handleDataUpdate = () => setRefreshKey((prevKey) => prevKey + 1);
 
@@ -190,25 +243,46 @@ function App() {
             </span>
             <span className="text-sm font-bold tracking-wide text-white sm:text-base">Kakarama Room</span>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="rounded-full ring-offset-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={session?.user?.user_metadata?.avatar_url} alt={session?.user?.email} />
-                  <AvatarFallback>{session?.user?.email?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
-                </Avatar>
-              </button>
-            </DropdownMenuTrigger>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowInbox(true)}
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-offset-2 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              aria-label="Notifikasi"
+            >
+              <Bell className="h-5 w-5 text-white" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-full ring-offset-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={session?.user?.user_metadata?.avatar_url} alt={session?.user?.email} />
+                    <AvatarFallback>{session?.user?.email?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuLabel className="space-y-1">
-                <p className="text-xs text-slate-500">Email</p>
-                <p className="truncate text-sm font-medium">{session?.user?.email}</p>
-                <p className="pt-1 text-xs text-slate-500">Role: {displayRole}</p>
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {session?.user?.user_metadata?.full_name || session?.user?.email}
+                </p>
+                <p className="pt-0.5 text-xs text-slate-500">{displayRole}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setShowAccountSettings(true);
+                }}
+              >
                 <Settings className="mr-2 h-4 w-4" />
-                Pengaturan (segera hadir)
+                Pengaturan
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={(e) => {
@@ -221,9 +295,13 @@ function App() {
                 Keluar
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
+
+      <NotificationsInbox open={showInbox} onOpenChange={setShowInbox} />
+      <AccountSettings open={showAccountSettings} onOpenChange={setShowAccountSettings} />
 
       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
         <AlertDialogContent>

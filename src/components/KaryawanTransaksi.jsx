@@ -330,8 +330,8 @@ const KaryawanTransaksi = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 pb-28 md:p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <div className="min-h-screen bg-slate-50 px-2 py-4 pb-28">
+      <div className="mx-auto max-w-md space-y-6">
         <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaksi Saya</h1>
           <p className="text-sm text-slate-500">Hanya transaksi yang Anda input sendiri.</p>

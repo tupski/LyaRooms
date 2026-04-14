@@ -1,3 +1,5 @@
+/* eslint-env node */
+/* global process */
 import { del, list } from '@vercel/blob';
 
 const DAYS = 30;
