@@ -87,38 +87,9 @@ const Auth = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-sm mx-auto bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8"
             >
-                {canShowInstall && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -14 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="mb-5 rounded-xl border border-white/20 bg-white/10 p-3 text-white"
-                    >
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                <p className="text-sm font-semibold">Install aplikasi</p>
-                                <p className="mt-0.5 text-xs text-white/80">
-                                    {deferredPrompt
-                                        ? 'Biar lebih cepat dibuka seperti aplikasi.'
-                                        : 'iPhone/iPad: buka via Safari → Share → Add to Home Screen.'}
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                onClick={handleInstallClick}
-                                size="sm"
-                                className="shrink-0 bg-white text-blue-800 hover:bg-white/90"
-                            >
-                                <Download className="mr-2 h-4 w-4" />
-                                Install
-                            </Button>
-                        </div>
-                    </motion.div>
-                )}
-
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-white">KakaRama Room</h1>
-                    <p className="text-gray-300">Masuk menggunakan akun karyawan/admin KakaRama Room</p>
+                    <small className="text-gray-300">Masuk menggunakan akun karyawan/admin KakaRama Room</small>
                 </div>
 
                 {/* Admin Info */}

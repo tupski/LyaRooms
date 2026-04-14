@@ -159,9 +159,9 @@ function App() {
             initial={{ scale: 0.9, opacity: 0.75 }}
             animate={{ scale: [0.9, 1.05, 0.9], opacity: [0.75, 1, 0.75] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-            className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-500 shadow-lg"
+            className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg ring-1 ring-blue-200"
           >
-            <span className="text-3xl font-extrabold tracking-tight text-white">KR</span>
+            <img src="/logo-kr-transparent-square.png" alt="KR" className="h-14 w-14 object-contain" />
           </motion.div>
           <motion.div
             initial={{ opacity: 0.5 }}
@@ -183,7 +183,12 @@ function App() {
     <>
       <header className="sticky top-0 z-50 border-b border-blue-300 bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 px-4 py-3 text-white shadow-md backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <h1 className="text-lg font-bold text-white">🏢 KR</h1>
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-white/40">
+              <img src="/logo-kr-transparent-square.png" alt="KR" className="h-full w-full object-contain" />
+            </span>
+            <span className="text-sm font-bold tracking-wide text-white sm:text-base">Kakarama Room</span>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded-full ring-offset-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">

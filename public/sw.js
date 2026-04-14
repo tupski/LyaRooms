@@ -4,8 +4,7 @@ const APP_SHELL = [
   '/index.html',
   '/manifest.webmanifest',
   '/favicon.svg',
-  '/pwa-icon-192.svg',
-  '/pwa-icon-512.svg',
+  '/logo-kr-transparent-square.png',
   '/pwa-splash.svg',
 ];
 
