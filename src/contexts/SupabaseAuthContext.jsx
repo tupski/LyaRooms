@@ -129,6 +129,11 @@ export const AuthProvider = ({ children }) => {
     return { error };
   }, [toast]);
 
+  const refreshSession = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await handleSession(session);
+  }, [handleSession]);
+
   const value = useMemo(() => ({
     user,
     session,
@@ -139,7 +144,8 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
-  }), [user, session, loading, userRole, isSuperAdmin, isAdmin, signUp, signIn, signOut]);
+    refreshSession,
+  }), [user, session, loading, userRole, isSuperAdmin, isAdmin, signUp, signIn, signOut, refreshSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

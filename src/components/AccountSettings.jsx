@@ -12,7 +12,7 @@ import { isPushSupported, registerPushSubscription, saveSubscriptionToSupabase }
 const DEFAULT_AVATAR = '/logo-kr-transparent-square.png';
 
 export default function AccountSettings({ open, onOpenChange }) {
-  const { user, userRole, isAdmin } = useAuth();
+  const { user, userRole, isAdmin, refreshSession } = useAuth();
   const userId = user?.id;
   const avatarInputRef = useRef(null);
 
@@ -35,11 +35,21 @@ export default function AccountSettings({ open, onOpenChange }) {
 
   const loadProfile = async () => {
     if (!userId) return;
-    const { data, error } = await supabase
+    let data;
+    let error;
+    ({ data, error } = await supabase
       .from('user_profiles')
       .select('id,email,full_name,phone,avatar_url,role')
       .eq('id', userId)
-      .maybeSingle();
+      .maybeSingle());
+    if (error && String(error.message || '').includes('avatar_url')) {
+      // Backward compatible jika DB belum di-migrate
+      ({ data, error } = await supabase
+        .from('user_profiles')
+        .select('id,email,full_name,phone,role')
+        .eq('id', userId)
+        .maybeSingle());
+    }
     if (error) {
       toast({ title: 'Gagal memuat profil', description: error.message, variant: 'destructive' });
       return;
@@ -78,9 +88,18 @@ export default function AccountSettings({ open, onOpenChange }) {
       setAvatarUrl(url);
       // Simpan ke user_profiles
       const { error } = await supabase.from('user_profiles').update({ avatar_url: url, updated_at: new Date().toISOString() }).eq('id', userId);
-      if (error) throw error;
+      if (error && String(error.message || '').includes('avatar_url')) {
+        toast({
+          title: 'Kolom avatar_url belum ada',
+          description: 'Jalankan update schema Supabase (ALTER TABLE user_profiles ADD COLUMN avatar_url). Foto profil tetap disimpan di akun.',
+          variant: 'destructive',
+        });
+      } else if (error) {
+        throw error;
+      }
       // Update metadata agar header langsung ikut
       await supabase.auth.updateUser({ data: { avatar_url: url } });
+      await refreshSession?.();
       toast({ title: 'Foto profil diperbarui' });
     } catch (e) {
       toast({ title: 'Gagal upload foto profil', description: e?.message || 'Coba lagi.', variant: 'destructive' });
@@ -104,6 +123,7 @@ export default function AccountSettings({ open, onOpenChange }) {
       const { error } = await supabase.from('user_profiles').update(payload).eq('id', userId);
       if (error) throw error;
       await supabase.auth.updateUser({ data: { full_name: payload.full_name || '' } });
+      await refreshSession?.();
       toast({ title: 'Profil disimpan' });
       await loadProfile();
     } catch (e) {
