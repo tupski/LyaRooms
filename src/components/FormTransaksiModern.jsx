@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
-import { Building2, Clock3, DoorOpen, Landmark, MapPin, Save, Upload, UserCircle2, UserSquare2, Wallet } from 'lucide-react';
+import { Building2, Clock3, DoorOpen, Eye, Landmark, MapPin, Save, Upload, UserCircle2, UserSquare2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
+import { compressImageFile } from '@/lib/compressImage';
+import ImageViewerModal from '@/components/ImageViewerModal';
 
 const DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM', 'PROMO MALAM', 'Fullday', 'Custom'];
 const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
@@ -62,6 +65,9 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
   const ktpInputRef = useRef(null);
   const transferInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerItems, setViewerItems] = useState([]);
   const [refs, setRefs] = useState({ lokasi: [], kamar: [], marketing: [], karyawan: [] });
   const [occupiedMap, setOccupiedMap] = useState({});
   const [formData, setFormData] = useState({
@@ -203,43 +209,82 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
     }
   };
 
+  const [ktpPreviewUrl, setKtpPreviewUrl] = useState(null);
+  const [buktiPreviewUrl, setBuktiPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (!formData.ktpFile) {
+      setKtpPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(formData.ktpFile);
+    setKtpPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [formData.ktpFile]);
+
+  useEffect(() => {
+    if (!formData.buktiTransferFile) {
+      setBuktiPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(formData.buktiTransferFile);
+    setBuktiPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [formData.buktiTransferFile]);
+
+  const handleImagePick = async (field, file) => {
+    if (!file) {
+      handleChange(field, null);
+      return;
+    }
+    try {
+      const compressed = await compressImageFile(file);
+      handleChange(field, compressed);
+    } catch (err) {
+      toast({ title: 'Gagal memproses gambar', description: err?.message || 'Coba gambar lain.', variant: 'destructive' });
+      handleChange(field, null);
+    }
+  };
+
   const uploadFile = async (file, bucket) => {
     if (!file) return null;
     const folder = bucket === 'ktp_images' ? 'ktp-images' : bucket === 'transfer_proofs' ? 'transfer-proofs' : 'uploads';
     return uploadToVercelBlob(file, folder);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const validateAndOpenConfirm = () => {
     if (!user?.id) {
       toast({ title: 'Sesi tidak valid', description: 'Silakan login ulang lalu coba lagi.', variant: 'destructive' });
       return;
     }
-    setIsSubmitting(true);
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);
-    const feeAmount = parseCurrency(formData.feeMarketing);
 
     if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.lamaSewa) {
       toast({ title: 'Data wajib belum lengkap', description: 'Isi customer, lokasi, kamar, dan durasi sewa.', variant: 'destructive' });
-      setIsSubmitting(false);
       return;
     }
     if (formData.lamaSewa === 'Custom' && !formData.customSewaJam) {
       toast({ title: 'Jam custom belum diisi', variant: 'destructive' });
-      setIsSubmitting(false);
       return;
     }
     if (cashAmount <= 0 && transferAmount <= 0) {
       toast({ title: 'Pembayaran kosong', description: 'Isi minimal salah satu nilai tunai atau transfer.', variant: 'destructive' });
-      setIsSubmitting(false);
       return;
     }
     if (transferAmount > 0 && !formData.transferKe) {
       toast({ title: 'Tujuan transfer belum dipilih', variant: 'destructive' });
-      setIsSubmitting(false);
       return;
     }
+    setShowConfirmModal(true);
+  };
+
+  const performSubmit = async () => {
+    if (!user?.id) return;
+    setIsSubmitting(true);
+    const cashAmount = parseCurrency(formData.tunai);
+    const transferAmount = parseCurrency(formData.transfer);
+    const feeAmount = parseCurrency(formData.feeMarketing);
 
     try {
       const [ktpUrl, transferProofUrl] = await Promise.all([
@@ -265,8 +310,25 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
       const { error } = await supabase.from('transactions').insert(payload);
       if (error) throw error;
 
+      setShowConfirmModal(false);
       toast({ title: 'Transaksi berhasil disimpan' });
-      setFormData((prev) => ({ ...prev, namaCustomer: '', lokasiApartemen: '', nomorKamar: '', namaMarketing: '', lamaSewa: '', customSewaJam: '1', shift: '', tunai: '', transfer: '', transferKe: '', feeMarketing: '', ktpFile: null, buktiTransferFile: null }));
+      window.alert('Transaksi berhasil disimpan.');
+      setFormData((prev) => ({
+        ...prev,
+        namaCustomer: '',
+        lokasiApartemen: '',
+        nomorKamar: '',
+        namaMarketing: '',
+        lamaSewa: '',
+        customSewaJam: '1',
+        shift: '',
+        tunai: '',
+        transfer: '',
+        transferKe: '',
+        feeMarketing: '',
+        ktpFile: null,
+        buktiTransferFile: null,
+      }));
       if (ktpInputRef.current) ktpInputRef.current.value = '';
       if (transferInputRef.current) transferInputRef.current.value = '';
       onDataUpdate?.();
@@ -298,7 +360,13 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
           </div>
         </header>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            validateAndOpenConfirm();
+          }}
+          className="space-y-6"
+        >
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <SectionCard icon={UserCircle2} title="Data Penyewa" subtitle="Identitas customer dan unit apartemen">
               <div className="space-y-4">
@@ -482,20 +550,68 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
             </div>
           </SectionCard>
 
-          <SectionCard icon={Upload} title="Unggah Berkas" subtitle="KTP dan bukti transfer">
+          <SectionCard icon={Upload} title="Unggah Berkas" subtitle="KTP dan bukti transfer (gambar dikompres otomatis)">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center">
-                <Upload className="mb-2 h-5 w-5 text-slate-500" />
-                <span className="text-sm font-medium text-slate-700">Upload KTP</span>
-                <span className="text-xs text-slate-500">{formData.ktpFile?.name || 'Pilih file gambar'}</span>
-                <input ref={ktpInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleChange('ktpFile', e.target.files?.[0] || null)} />
-              </label>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center">
-                <Landmark className="mb-2 h-5 w-5 text-slate-500" />
-                <span className="text-sm font-medium text-slate-700">Upload Bukti Transfer</span>
-                <span className="text-xs text-slate-500">{formData.buktiTransferFile?.name || 'Pilih file gambar'}</span>
-                <input ref={transferInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleChange('buktiTransferFile', e.target.files?.[0] || null)} />
-              </label>
+              <div className="space-y-2">
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center">
+                  <Upload className="mb-1 h-5 w-5 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Upload KTP</span>
+                  <span className="text-xs text-slate-500">{formData.ktpFile?.name || 'Pilih file gambar'}</span>
+                  <input
+                    ref={ktpInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleImagePick('ktpFile', e.target.files?.[0] || null)}
+                  />
+                </label>
+                {ktpPreviewUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setViewerItems([{ src: ktpPreviewUrl, title: 'KTP', downloadName: formData.ktpFile?.name || 'ktp.jpg' }]);
+                      setViewerOpen(true);
+                    }}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Pratinjau KTP
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center">
+                  <Landmark className="mb-1 h-5 w-5 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Upload Bukti Transfer</span>
+                  <span className="text-xs text-slate-500">{formData.buktiTransferFile?.name || 'Pilih file gambar'}</span>
+                  <input
+                    ref={transferInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleImagePick('buktiTransferFile', e.target.files?.[0] || null)}
+                  />
+                </label>
+                {buktiPreviewUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setViewerItems([
+                        { src: buktiPreviewUrl, title: 'Bukti transfer', downloadName: formData.buktiTransferFile?.name || 'bukti.jpg' },
+                      ]);
+                      setViewerOpen(true);
+                    }}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Pratinjau bukti
+                  </Button>
+                )}
+              </div>
             </div>
           </SectionCard>
 
@@ -511,6 +627,60 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
             {isSubmitting ? 'Menyimpan Transaksi...' : 'Simpan Transaksi'}
           </Button>
         </form>
+
+        <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Konfirmasi data transaksi</DialogTitle>
+              <DialogDescription>Periksa ringkasan berikut sebelum mengirim.</DialogDescription>
+            </DialogHeader>
+            <ul className="space-y-1.5 text-sm text-slate-700">
+              <li>
+                <span className="font-medium text-slate-900">Customer:</span> {formData.namaCustomer || '-'}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Lokasi / Kamar:</span> {formData.lokasiApartemen || '-'} — {formData.nomorKamar || '-'}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Marketing:</span> {formData.namaMarketing || formData.input_by || user?.email || '-'}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Durasi / Shift:</span> {formData.lamaSewa || '-'}
+                {formData.lamaSewa === 'Custom' && ` (${formData.customSewaJam} jam)`} / {formData.shift || '-'}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Tunai:</span>{' '}
+                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.tunai))}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Transfer:</span>{' '}
+                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.transfer))}{' '}
+                {formData.transferKe ? `(ke ${formData.transferKe})` : ''}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Fee marketing:</span>{' '}
+                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.feeMarketing))}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Input oleh:</span> {formData.input_by || user?.email || '-'}
+              </li>
+              <li>
+                <span className="font-medium text-slate-900">Berkas:</span> KTP {formData.ktpFile ? `(${formData.ktpFile.name})` : '(tidak ada)'} — Bukti{' '}
+                {formData.buktiTransferFile ? `(${formData.buktiTransferFile.name})` : '(tidak ada)'}
+              </li>
+            </ul>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setShowConfirmModal(false)} disabled={isSubmitting}>
+                Batal
+              </Button>
+              <Button type="button" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => performSubmit()} disabled={isSubmitting}>
+                {isSubmitting ? 'Mengirim...' : 'Kirim'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <ImageViewerModal open={viewerOpen} onOpenChange={setViewerOpen} items={viewerItems} />
       </div>
     </div>
   );
