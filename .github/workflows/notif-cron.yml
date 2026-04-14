@@ -1,0 +1,33 @@
+name: Notifications Cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: notif-cron
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call generate-notifications
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          NOTIF_CRON_SECRET: ${{ secrets.NOTIF_CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "Missing secrets.APP_URL"
+            exit 1
+          fi
+          if [ -z "$NOTIF_CRON_SECRET" ]; then
+            echo "Missing secrets.NOTIF_CRON_SECRET"
+            exit 1
+          fi
+          URL="${APP_URL%/}/api/generate-notifications?secret=${NOTIF_CRON_SECRET}"
+          echo "Calling $URL"
+          curl -fsS --retry 3 --retry-delay 2 --max-time 30 "$URL"
+
