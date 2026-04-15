@@ -16,7 +16,7 @@ import { formatPaymentLines, formatRupiahNumber } from '@/lib/formatPaymentText'
 const ITEMS_PER_PAGE = 6;
 
 const DashboardPemasukan = () => {
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const [filterType, setFilterType] = useState('harian');
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -178,9 +178,30 @@ const DashboardPemasukan = () => {
 
   const handleSaveEdit = async (updatedTransaksi) => {
     const { id, ...updateData } = updatedTransaksi;
-    const { error } = await supabase.from('transactions').update(updateData).eq('id', id);
+    const isPrivilegedRole = userRole === 'admin' || userRole === 'super_admin';
+    const isOwnTransaction = String(updatedTransaksi.user_id || '') === String(user?.id || '');
+    let error = null;
+
+    if (isPrivilegedRole && !isOwnTransaction) {
+      const { error: rpcError } = await supabase.rpc('update_transaction_by_privileged_role', {
+        p_transaction_id: id,
+        p_payload: updateData,
+      });
+      error = rpcError;
+    } else {
+      const { error: updateError } = await supabase.from('transactions').update(updateData).eq('id', id);
+      error = updateError;
+    }
+
     if (error) {
-      toast({ title: 'Gagal menyimpan', description: error.message, variant: 'destructive' });
+      const rlsError = error?.message?.toLowerCase().includes('row-level security');
+      toast({
+        title: 'Gagal menyimpan',
+        description: rlsError
+          ? 'Akses edit ditolak oleh policy database. Jalankan fungsi RPC baru untuk admin/superadmin di Supabase.'
+          : error.message,
+        variant: 'destructive',
+      });
     } else {
       toast({ title: 'Transaksi diperbarui' });
       setEditingTransaksi(null);

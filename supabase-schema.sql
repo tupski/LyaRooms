@@ -694,6 +694,63 @@ CREATE POLICY "menu_access_logs_insert_authenticated" ON public.menu_access_logs
 -- Cascade delete transaksi + sinkronisasi data turunan
 -- ============================================================
 
+CREATE OR REPLACE FUNCTION public.update_transaction_by_privileged_role(
+    p_transaction_id BIGINT,
+    p_payload JSONB
+)
+RETURNS public.transactions
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_user_role TEXT;
+    v_tx public.transactions%ROWTYPE;
+BEGIN
+    SELECT ur.role
+    INTO v_user_role
+    FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    LIMIT 1;
+
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Sesi tidak valid.';
+    END IF;
+
+    IF COALESCE(v_user_role, 'karyawan') NOT IN ('admin', 'super_admin') THEN
+        RAISE EXCEPTION 'Akses ditolak untuk mengubah transaksi ini.';
+    END IF;
+
+    UPDATE public.transactions
+    SET
+        customer_name = COALESCE(p_payload->>'customer_name', customer_name),
+        marketing_name = COALESCE(p_payload->>'marketing_name', marketing_name),
+        rental_duration = COALESCE(NULLIF(p_payload->>'rental_duration', '')::INTEGER, rental_duration),
+        shift = COALESCE(p_payload->>'shift', shift),
+        input_by = COALESCE(p_payload->>'input_by', input_by),
+        apartment_location = COALESCE(p_payload->>'apartment_location', apartment_location),
+        room_number = COALESCE(p_payload->>'room_number', room_number),
+        cash_amount = COALESCE(NULLIF(p_payload->>'cash_amount', '')::NUMERIC, cash_amount),
+        transfer_amount = COALESCE(NULLIF(p_payload->>'transfer_amount', '')::NUMERIC, transfer_amount),
+        transfer_to = CASE
+            WHEN p_payload ? 'transfer_to' THEN NULLIF(p_payload->>'transfer_to', '')
+            ELSE transfer_to
+        END,
+        marketing_fee = COALESCE(NULLIF(p_payload->>'marketing_fee', '')::NUMERIC, marketing_fee)
+    WHERE id = p_transaction_id
+    RETURNING * INTO v_tx;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Transaksi tidak ditemukan.';
+    END IF;
+
+    RETURN v_tx;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.update_transaction_by_privileged_role(BIGINT, JSONB) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.update_transaction_by_privileged_role(BIGINT, JSONB) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.delete_transaction_cascade(p_transaction_id BIGINT)
 RETURNS JSONB
 LANGUAGE plpgsql

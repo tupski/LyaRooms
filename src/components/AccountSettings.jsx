@@ -198,21 +198,39 @@ export default function AccountSettings({ open, onOpenChange }) {
   const handleEnablePush = async () => {
     if (!userId) return;
     if (!isPushSupported()) {
-      toast({ title: 'Push tidak didukung', description: 'Gunakan Chrome/Edge terbaru dan pastikan notifikasi diizinkan.', variant: 'destructive' });
+      toast({
+        title: 'Push tidak didukung',
+        description: 'Gunakan Chrome atau Edge terbaru (bukan Safari/Firefox mobile) dan pastikan notifikasi diizinkan di pengaturan browser.',
+        variant: 'destructive',
+      });
       return;
     }
     if (!vapidPublicKey) {
       toast({
         title: 'VAPID Public Key belum tersedia',
-        description: 'Set env frontend `VITE_VAPID_PUBLIC_KEY` di Vercel (nilainya sama dengan `VAPID_PUBLIC_KEY`).',
+        description: 'Set env frontend VITE_VAPID_PUBLIC_KEY di Vercel (nilainya sama dengan VAPID_PUBLIC_KEY).',
         variant: 'destructive',
       });
       return;
     }
     try {
+      // Minta izin notifikasi terlebih dahulu
+      const permission = await Notification.requestPermission();
+      if (permission === 'denied') {
+        toast({
+          title: 'Notifikasi diblokir',
+          description: 'Izinkan notifikasi di pengaturan browser lalu coba lagi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (permission !== 'granted') {
+        toast({ title: 'Izin notifikasi belum diberikan', variant: 'destructive' });
+        return;
+      }
       const sub = await registerPushSubscription({ vapidPublicKey });
       await saveSubscriptionToSupabase(sub, userId);
-      toast({ title: 'Notifikasi diaktifkan', description: 'Anda akan menerima notifikasi penting.' });
+      toast({ title: 'Notifikasi diaktifkan! ✅', description: 'Anda akan menerima notifikasi penting dari aplikasi.' });
     } catch (e) {
       toast({ title: 'Gagal mengaktifkan notifikasi', description: e?.message || 'Coba lagi.', variant: 'destructive' });
     }

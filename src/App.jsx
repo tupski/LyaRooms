@@ -18,7 +18,6 @@ import PinInput from '@/components/PinInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import NotificationsInbox from '@/components/NotificationsInbox';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useMemo as useMemoReact } from 'react';
 import AccountSettings from '@/components/AccountSettings';
 import {
   DropdownMenu,
@@ -60,7 +59,7 @@ function App() {
     document.title = 'Laporan Transaksi KAKARAMA GROUP';
   }, []);
 
-  const audienceFilter = useMemoReact(() => {
+  const audienceFilter = useMemo(() => {
     const userId = session?.user?.id;
     if (!userId) return null;
     if (userRole === 'super_admin') return `audience_user_id.eq.${userId},audience_role.eq.super_admin,audience_role.eq.all`;
@@ -71,27 +70,33 @@ function App() {
   const refreshUnread = async () => {
     const userId = session?.user?.id;
     if (!userId || !audienceFilter) return;
+    try {
+      const { data: notif, error: nErr } = await supabase
+        .from('notifications')
+        .select('id')
+        .or(audienceFilter)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (nErr) throw nErr;
 
-    const { data: notif, error: nErr } = await supabase
-      .from('notifications')
-      .select('id')
-      .or(audienceFilter)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (nErr) return;
-    const ids = (notif || []).map((n) => n.id);
-    if (!ids.length) {
+      const ids = (notif || []).map((n) => n.id);
+      if (!ids.length) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const { data: reads, error: rErr } = await supabase
+        .from('notification_reads')
+        .select('notification_id')
+        .eq('user_id', userId)
+        .in('notification_id', ids);
+      if (rErr) throw rErr;
+
+      const readSet = new Set((reads || []).map((r) => r.notification_id));
+      setUnreadCount(ids.filter((id) => !readSet.has(id)).length);
+    } catch (_error) {
       setUnreadCount(0);
-      return;
     }
-    const { data: reads, error: rErr } = await supabase
-      .from('notification_reads')
-      .select('notification_id')
-      .eq('user_id', userId)
-      .in('notification_id', ids);
-    if (rErr) return;
-    const readSet = new Set((reads || []).map((r) => r.notification_id));
-    setUnreadCount(ids.filter((id) => !readSet.has(id)).length);
   };
 
   useEffect(() => {
@@ -137,12 +142,12 @@ function App() {
     { id: 'finance', label: 'Keuangan', icon: FileText },
     { id: 'ranking', label: 'Ranking', icon: Trophy },
     { id: 'chart', label: 'Grafik', icon: PieChart },
-    { id: 'superadmin', label: 'Super Admin', icon: Settings },
+    { id: 'pengaturan', label: 'Pengaturan', icon: Settings },
   ];
 
   const allowedTabsByRole = {
     karyawan: ['form', 'kamar', 'request'],
-    admin: allTabs.filter((tab) => tab.id !== 'superadmin').map((tab) => tab.id),
+    admin: allTabs.filter((tab) => tab.id !== 'pengaturan').map((tab) => tab.id),
     super_admin: allTabs.map((tab) => tab.id),
   };
 
@@ -198,7 +203,7 @@ function App() {
         return <RankingMarketing key={key} />;
       case 'chart':
         return <OmsetChart key={key} />;
-      case 'superadmin':
+      case 'pengaturan':
         return isSuperAdmin ? <SuperAdminDashboard key={key} /> : <FormTransaksi key={key} onDataUpdate={handleDataUpdate} />;
       default:
         return <FormTransaksi key={key} onDataUpdate={handleDataUpdate} />;

@@ -42,15 +42,15 @@ const selectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const formatCurrency = (value) => {
+export const formatCurrency = (value) => {
   const numeric = String(value || '').replace(/\D/g, '');
   if (!numeric) return '';
   return new Intl.NumberFormat('id-ID').format(Number(numeric));
 };
 
-const parseCurrency = (value) => Number(String(value || '').replace(/\D/g, '')) || 0;
+export const parseCurrency = (value) => Number(String(value || '').replace(/\D/g, '')) || 0;
 
-const getRentalHours = (duration, customHours) => {
+export const getRentalHours = (duration, customHours) => {
   if (duration === 'Custom') return Number(customHours) || 1;
   if (duration === 'PROMO MALAM') return 12;
   if (duration === 'Fullday') return 24;
@@ -58,9 +58,33 @@ const getRentalHours = (duration, customHours) => {
   return matched ? Number(matched[0]) : 1;
 };
 
-const FormTransaksiModern = ({ onDataUpdate }) => {
+/**
+ * FormTransaksiModern – form transaksi tunggal yang dapat dikonfigurasi per role.
+ *
+ * Props:
+ *  onDataUpdate            – dipanggil setelah submit berhasil (alias lama)
+ *  onSuccess               – dipanggil setelah submit berhasil (semua mode)
+ *  roleMode                – 'karyawan' | 'admin' | 'super_admin' (default: dari userRole)
+ *  requireMarketing        – paksa marketing harus diisi (default: false)
+ *  allowReferenceManagement – izinkan create/delete lokasi, kamar, marketing (default: isAdmin||isSuperAdmin)
+ *  defaultInputBy          – nilai awal field input_by
+ */
+const FormTransaksiModern = ({
+  onDataUpdate,
+  onSuccess,
+  roleMode,
+  requireMarketing = false,
+  allowReferenceManagement,
+  defaultInputBy,
+}) => {
   const { user, userRole, isAdmin, isSuperAdmin } = useAuth();
-  const canManageReferences = isAdmin || isSuperAdmin;
+
+  const effectiveRole = roleMode || userRole;
+  const canManageReferences =
+    allowReferenceManagement !== undefined
+      ? allowReferenceManagement
+      : isAdmin || isSuperAdmin;
+
   const SelectComponent = canManageReferences ? CreatableSelect : Select;
   const ktpInputRef = useRef(null);
   const transferInputRef = useRef(null);
@@ -89,9 +113,9 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
   const selectPortalTarget = typeof document !== 'undefined' ? document.body : null;
 
   useEffect(() => {
-    const inputBy = user?.user_metadata?.full_name || user?.email || '';
+    const inputBy = defaultInputBy || user?.user_metadata?.full_name || user?.email || '';
     setFormData((prev) => ({ ...prev, input_by: inputBy }));
-  }, [user]);
+  }, [user, defaultInputBy]);
 
   useEffect(() => {
     const fetchRefs = async () => {
@@ -161,10 +185,8 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
       toast({ title: 'Akses ditolak', description: 'Hanya admin/superadmin yang dapat menambah data lokasi/kamar.', variant: 'destructive' });
       return;
     }
-
     const trimmed = String(value || '').trim();
     if (!trimmed) return;
-
     try {
       if (field === 'lokasiApartemen') {
         const exists = refs.lokasi.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
@@ -177,7 +199,6 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
         setFormData((prev) => ({ ...prev, lokasiApartemen: trimmed, nomorKamar: '' }));
         return;
       }
-
       if (field === 'namaMarketing') {
         const exists = refs.marketing.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
         if (!exists) {
@@ -189,7 +210,6 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
         setFormData((prev) => ({ ...prev, namaMarketing: trimmed }));
         return;
       }
-
       if (field === 'nomorKamar') {
         if (!formData.lokasiApartemen) {
           toast({ title: 'Pilih lokasi terlebih dahulu', variant: 'destructive' });
@@ -209,34 +229,44 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
     }
   };
 
+  // Karyawan bisa buat marketing baru tapi tidak bisa delete
+  const handleCreateMarketingKaryawan = async (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return;
+    const exists = refs.marketing.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      handleChange('namaMarketing', trimmed);
+      return;
+    }
+    const { error } = await supabase.from('marketing_list').insert({ name: trimmed });
+    if (error) {
+      toast({ title: 'Gagal menambah marketing', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setRefs((prev) => ({ ...prev, marketing: [...prev.marketing, { name: trimmed }] }));
+    handleChange('namaMarketing', trimmed);
+    toast({ title: 'Marketing baru ditambahkan', description: trimmed });
+  };
+
   const [ktpPreviewUrl, setKtpPreviewUrl] = useState(null);
   const [buktiPreviewUrl, setBuktiPreviewUrl] = useState(null);
 
   useEffect(() => {
-    if (!formData.ktpFile) {
-      setKtpPreviewUrl(null);
-      return;
-    }
+    if (!formData.ktpFile) { setKtpPreviewUrl(null); return; }
     const url = URL.createObjectURL(formData.ktpFile);
     setKtpPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [formData.ktpFile]);
 
   useEffect(() => {
-    if (!formData.buktiTransferFile) {
-      setBuktiPreviewUrl(null);
-      return;
-    }
+    if (!formData.buktiTransferFile) { setBuktiPreviewUrl(null); return; }
     const url = URL.createObjectURL(formData.buktiTransferFile);
     setBuktiPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [formData.buktiTransferFile]);
 
   const handleImagePick = async (field, file) => {
-    if (!file) {
-      handleChange(field, null);
-      return;
-    }
+    if (!file) { handleChange(field, null); return; }
     try {
       const compressed = await compressImageFile(file);
       handleChange(field, compressed);
@@ -264,6 +294,10 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
       toast({ title: 'Data wajib belum lengkap', description: 'Isi customer, lokasi, kamar, dan durasi sewa.', variant: 'destructive' });
       return;
     }
+    if (requireMarketing && !formData.namaMarketing) {
+      toast({ title: 'Marketing wajib diisi', description: 'Pilih atau tambahkan nama marketing terlebih dahulu.', variant: 'destructive' });
+      return;
+    }
     if (formData.lamaSewa === 'Custom' && !formData.customSewaJam) {
       toast({ title: 'Jam custom belum diisi', variant: 'destructive' });
       return;
@@ -277,6 +311,27 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
       return;
     }
     setShowConfirmModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData((prev) => ({
+      ...prev,
+      namaCustomer: '',
+      lokasiApartemen: '',
+      nomorKamar: '',
+      namaMarketing: '',
+      lamaSewa: '',
+      customSewaJam: '1',
+      shift: '',
+      tunai: '',
+      transfer: '',
+      transferKe: '',
+      feeMarketing: '',
+      ktpFile: null,
+      buktiTransferFile: null,
+    }));
+    if (ktpInputRef.current) ktpInputRef.current.value = '';
+    if (transferInputRef.current) transferInputRef.current.value = '';
   };
 
   const performSubmit = async () => {
@@ -313,25 +368,9 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
       setShowConfirmModal(false);
       toast({ title: 'Transaksi berhasil disimpan' });
       window.alert('Transaksi berhasil disimpan.');
-      setFormData((prev) => ({
-        ...prev,
-        namaCustomer: '',
-        lokasiApartemen: '',
-        nomorKamar: '',
-        namaMarketing: '',
-        lamaSewa: '',
-        customSewaJam: '1',
-        shift: '',
-        tunai: '',
-        transfer: '',
-        transferKe: '',
-        feeMarketing: '',
-        ktpFile: null,
-        buktiTransferFile: null,
-      }));
-      if (ktpInputRef.current) ktpInputRef.current.value = '';
-      if (transferInputRef.current) transferInputRef.current.value = '';
+      resetForm();
       onDataUpdate?.();
+      onSuccess?.();
     } catch (error) {
       const rlsError = error?.message?.toLowerCase().includes('row-level security');
       toast({
@@ -342,6 +381,45 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const renderMarketingSelector = () => {
+    const label = requireMarketing ? 'Nama Marketing *' : 'Nama Marketing';
+    const isKaryawanMode = effectiveRole === 'karyawan';
+    const onCreateOption = isKaryawanMode ? handleCreateMarketingKaryawan : (value) => handleCreateReference('namaMarketing', value);
+
+    return (
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-700">{label}</label>
+        <CreatableSelect
+          styles={selectStyles}
+          menuPortalTarget={selectPortalTarget}
+          options={marketingOptions}
+          placeholder="Pilih marketing atau tambah baru..."
+          value={marketingOptions.find((x) => x.value === formData.namaMarketing) || null}
+          onChange={(opt) => handleChange('namaMarketing', opt?.value || '')}
+          onCreateOption={onCreateOption}
+          isClearable
+          formatCreateLabel={(inputValue) => `Tambah marketing: ${inputValue}`}
+        />
+        {canManageReferences && formData.namaMarketing && (
+          <div className="mt-2 flex gap-3">
+            <button type="button" className="text-sm text-slate-600 hover:text-slate-900" onClick={() => handleChange('namaMarketing', '')}>Kosongkan pilihan</button>
+            <button type="button" className="text-sm text-red-600 hover:text-red-800" onClick={async () => {
+              if (!window.confirm(`Hapus nama marketing ${formData.namaMarketing}?`)) return;
+              const { error } = await supabase.from('marketing_list').delete().eq('name', formData.namaMarketing);
+              if (error) {
+                toast({ title: 'Gagal menghapus marketing', description: error.message, variant: 'destructive' });
+                return;
+              }
+              setRefs((prev) => ({ ...prev, marketing: prev.marketing.filter((item) => item.name !== formData.namaMarketing) }));
+              handleChange('namaMarketing', '');
+              toast({ title: 'Nama marketing dihapus' });
+            }}>Hapus dari daftar</button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -466,37 +544,8 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Nama Marketing</label>
-                  <CreatableSelect
-                    styles={selectStyles}
-                    menuPortalTarget={selectPortalTarget}
-                    options={marketingOptions}
-                    placeholder="Pilih marketing atau tambah baru..."
-                    value={marketingOptions.find((x) => x.value === formData.namaMarketing) || null}
-                    onChange={(opt) => handleChange('namaMarketing', opt?.value || '')}
-                    onCreateOption={(value) => handleCreateReference('namaMarketing', value)}
-                    isClearable
-                    formatCreateLabel={(inputValue) => `Tambah marketing: ${inputValue}`}
-                  />
-                  {canManageReferences && formData.namaMarketing && (
-                    <div className="mt-2 flex gap-3">
-                      <button type="button" className="text-sm text-slate-600 hover:text-slate-900" onClick={() => handleChange('namaMarketing', '')}>Kosongkan pilihan</button>
-                      <button type="button" className="text-sm text-red-600 hover:text-red-800" onClick={async () => {
-                        if (!window.confirm(`Hapus nama marketing ${formData.namaMarketing}?`)) return;
-                        const { error } = await supabase.from('marketing_list').delete().eq('name', formData.namaMarketing);
-                        if (error) {
-                          toast({ title: 'Gagal menghapus marketing', description: error.message, variant: 'destructive' });
-                          return;
-                        }
-                        setRefs((prev) => ({ ...prev, marketing: prev.marketing.filter((item) => item.name !== formData.namaMarketing) }));
-                        handleChange('namaMarketing', '');
-                        toast({ title: 'Nama marketing dihapus' });
-                      }}>Hapus dari daftar</button>
-                    </div>
-                  )}
-                </div>
-                {(userRole === 'admin' || userRole === 'super_admin') && (
+                {renderMarketingSelector()}
+                {(effectiveRole === 'admin' || effectiveRole === 'super_admin') && (
                   <div>
                     <label className="mb-2 block text-sm font-medium text-slate-700">Input Oleh</label>
                     <Select
@@ -557,27 +606,11 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                   <Upload className="mb-1 h-5 w-5 text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">Upload KTP</span>
                   <span className="text-xs text-slate-500">{formData.ktpFile?.name || 'Pilih file gambar'}</span>
-                  <input
-                    ref={ktpInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleImagePick('ktpFile', e.target.files?.[0] || null)}
-                  />
+                  <input ref={ktpInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImagePick('ktpFile', e.target.files?.[0] || null)} />
                 </label>
                 {ktpPreviewUrl && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setViewerItems([{ src: ktpPreviewUrl, title: 'KTP', downloadName: formData.ktpFile?.name || 'ktp.jpg' }]);
-                      setViewerOpen(true);
-                    }}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    Pratinjau KTP
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setViewerItems([{ src: ktpPreviewUrl, title: 'KTP', downloadName: formData.ktpFile?.name || 'ktp.jpg' }]); setViewerOpen(true); }}>
+                    <Eye className="mr-2 h-4 w-4" />Pratinjau KTP
                   </Button>
                 )}
               </div>
@@ -586,29 +619,11 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
                   <Landmark className="mb-1 h-5 w-5 text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">Upload Bukti Transfer</span>
                   <span className="text-xs text-slate-500">{formData.buktiTransferFile?.name || 'Pilih file gambar'}</span>
-                  <input
-                    ref={transferInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleImagePick('buktiTransferFile', e.target.files?.[0] || null)}
-                  />
+                  <input ref={transferInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImagePick('buktiTransferFile', e.target.files?.[0] || null)} />
                 </label>
                 {buktiPreviewUrl && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setViewerItems([
-                        { src: buktiPreviewUrl, title: 'Bukti transfer', downloadName: formData.buktiTransferFile?.name || 'bukti.jpg' },
-                      ]);
-                      setViewerOpen(true);
-                    }}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    Pratinjau bukti
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setViewerItems([{ src: buktiPreviewUrl, title: 'Bukti transfer', downloadName: formData.buktiTransferFile?.name || 'bukti.jpg' }]); setViewerOpen(true); }}>
+                    <Eye className="mr-2 h-4 w-4" />Pratinjau bukti
                   </Button>
                 )}
               </div>
@@ -635,47 +650,22 @@ const FormTransaksiModern = ({ onDataUpdate }) => {
               <DialogDescription>Periksa ringkasan berikut sebelum mengirim.</DialogDescription>
             </DialogHeader>
             <ul className="space-y-1.5 text-sm text-slate-700">
-              <li>
-                <span className="font-medium text-slate-900">Customer:</span> {formData.namaCustomer || '-'}
-              </li>
-              <li>
-                <span className="font-medium text-slate-900">Lokasi / Kamar:</span> {formData.lokasiApartemen || '-'} — {formData.nomorKamar || '-'}
-              </li>
-              <li>
-                <span className="font-medium text-slate-900">Marketing:</span> {formData.namaMarketing || formData.input_by || user?.email || '-'}
-              </li>
+              <li><span className="font-medium text-slate-900">Customer:</span> {formData.namaCustomer || '-'}</li>
+              <li><span className="font-medium text-slate-900">Lokasi / Kamar:</span> {formData.lokasiApartemen || '-'} — {formData.nomorKamar || '-'}</li>
+              <li><span className="font-medium text-slate-900">Marketing:</span> {formData.namaMarketing || formData.input_by || user?.email || '-'}</li>
               <li>
                 <span className="font-medium text-slate-900">Durasi / Shift:</span> {formData.lamaSewa || '-'}
                 {formData.lamaSewa === 'Custom' && ` (${formData.customSewaJam} jam)`} / {formData.shift || '-'}
               </li>
-              <li>
-                <span className="font-medium text-slate-900">Tunai:</span>{' '}
-                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.tunai))}
-              </li>
-              <li>
-                <span className="font-medium text-slate-900">Transfer:</span>{' '}
-                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.transfer))}{' '}
-                {formData.transferKe ? `(ke ${formData.transferKe})` : ''}
-              </li>
-              <li>
-                <span className="font-medium text-slate-900">Fee marketing:</span>{' '}
-                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.feeMarketing))}
-              </li>
-              <li>
-                <span className="font-medium text-slate-900">Input oleh:</span> {formData.input_by || user?.email || '-'}
-              </li>
-              <li>
-                <span className="font-medium text-slate-900">Berkas:</span> KTP {formData.ktpFile ? `(${formData.ktpFile.name})` : '(tidak ada)'} — Bukti{' '}
-                {formData.buktiTransferFile ? `(${formData.buktiTransferFile.name})` : '(tidak ada)'}
-              </li>
+              <li><span className="font-medium text-slate-900">Tunai:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.tunai))}</li>
+              <li><span className="font-medium text-slate-900">Transfer:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.transfer))}{' '}{formData.transferKe ? `(ke ${formData.transferKe})` : ''}</li>
+              <li><span className="font-medium text-slate-900">Fee marketing:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.feeMarketing))}</li>
+              <li><span className="font-medium text-slate-900">Input oleh:</span> {formData.input_by || user?.email || '-'}</li>
+              <li><span className="font-medium text-slate-900">Berkas:</span> KTP {formData.ktpFile ? `(${formData.ktpFile.name})` : '(tidak ada)'} — Bukti{' '}{formData.buktiTransferFile ? `(${formData.buktiTransferFile.name})` : '(tidak ada)'}</li>
             </ul>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => setShowConfirmModal(false)} disabled={isSubmitting}>
-                Batal
-              </Button>
-              <Button type="button" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => performSubmit()} disabled={isSubmitting}>
-                {isSubmitting ? 'Mengirim...' : 'Kirim'}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowConfirmModal(false)} disabled={isSubmitting}>Batal</Button>
+              <Button type="button" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => performSubmit()} disabled={isSubmitting}>{isSubmitting ? 'Mengirim...' : 'Kirim'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

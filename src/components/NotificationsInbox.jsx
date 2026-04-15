@@ -3,6 +3,7 @@ import { Check, CheckCheck, Bell, Filter } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatWibDateTime } from '@/lib/formatWib';
@@ -55,6 +56,12 @@ export default function NotificationsInbox({ open, onOpenChange }) {
 
       setItems(notif || []);
       setUnreadSet(unread);
+    } catch (error) {
+      toast({
+        title: 'Gagal memuat notifikasi',
+        description: error.message || 'Coba buka lagi beberapa saat.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -98,7 +105,13 @@ export default function NotificationsInbox({ open, onOpenChange }) {
         next.delete(id);
         return next;
       });
+      return;
     }
+    toast({
+      title: 'Gagal menandai notifikasi',
+      description: error.message || 'Silakan coba lagi.',
+      variant: 'destructive',
+    });
   };
 
   const markAllRead = async () => {
@@ -106,7 +119,15 @@ export default function NotificationsInbox({ open, onOpenChange }) {
     const ids = [...unreadSet];
     if (ids.length === 0) return;
     const payload = ids.map((id) => ({ notification_id: id, user_id: userId, read_at: new Date().toISOString() }));
-    await supabase.from('notification_reads').upsert(payload, { onConflict: 'notification_id,user_id' });
+    const { error } = await supabase.from('notification_reads').upsert(payload, { onConflict: 'notification_id,user_id' });
+    if (error) {
+      toast({
+        title: 'Gagal menandai semua notifikasi',
+        description: error.message || 'Silakan coba lagi.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setUnreadSet(new Set());
   };
 
@@ -179,4 +200,3 @@ export default function NotificationsInbox({ open, onOpenChange }) {
     </Dialog>
   );
 }
-

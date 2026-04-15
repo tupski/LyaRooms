@@ -58,6 +58,7 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
   const lamaSewaPilihan = [...lamaSewaDurations, ...customHours];
 
   const shiftPilihan = ['Pagi', 'Malam', 'Long Shift'];
+  const transferTargetOptions = ['Kakarama', 'Marketing'];
 
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
   const formatRupiah = (value) => value ? new Intl.NumberFormat('id-ID').format(String(value).replace(/[^0-9]/g, '')) : '';
@@ -122,6 +123,16 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
             <label className="block text-sm font-semibold mb-2 text-gray-700">Nama Customer</label>
             <input type="text" value={formData.customer_name} onChange={(e) => handleInputChange('customer_name', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" required />
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Lokasi Apartemen</label>
+              <AutocompleteInput table="lokasi_apartemen" value={formData.apartment_location || ''} onValueChange={(val) => handleInputChange('apartment_location', val)} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Nomor Kamar</label>
+              <AutocompleteInput table="nomor_kamar" value={formData.room_number || ''} onValueChange={(val) => handleInputChange('room_number', val)} />
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-700">Nama Marketing</label>
             <AutocompleteInput table="marketing_list" value={formData.marketing_name} onValueChange={(val) => handleInputChange('marketing_name', val)} />
@@ -159,6 +170,23 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
             <div>
               <label className="block text-sm font-semibold mb-2 text-gray-700">Transfer (Rp)</label>
               <input type="text" value={formData.transfer_amount} onChange={(e) => handleInputChange('transfer_amount', formatRupiah(e.target.value))} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Transfer Ke</label>
+              <div className="grid grid-cols-2 gap-2">
+                {transferTargetOptions.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => handleInputChange('transfer_to', formData.transfer_to === item ? '' : item)}
+                    className={`px-3 py-3 rounded-lg text-sm font-semibold ${
+                      formData.transfer_to === item ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-900'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
              <div>
               <label className="block text-sm font-semibold mb-2 text-gray-700">Fee Marketing (Rp)</label>

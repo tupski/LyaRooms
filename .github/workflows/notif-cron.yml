@@ -19,15 +19,30 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           NOTIF_CRON_SECRET: ${{ secrets.NOTIF_CRON_SECRET }}
         run: |
+          # Jika secret belum dikonfigurasi, skip dengan peringatan (bukan error)
           if [ -z "$APP_URL" ]; then
-            echo "Missing secrets.APP_URL"
-            exit 1
+            echo "::warning::secrets.APP_URL belum diset — lewati langkah ini."
+            exit 0
           fi
           if [ -z "$NOTIF_CRON_SECRET" ]; then
-            echo "Missing secrets.NOTIF_CRON_SECRET"
-            exit 1
+            echo "::warning::secrets.NOTIF_CRON_SECRET belum diset — lewati langkah ini."
+            exit 0
           fi
+
           URL="${APP_URL%/}/api/generate-notifications?secret=${NOTIF_CRON_SECRET}"
           echo "Calling $URL"
-          curl -fsS --retry 3 --retry-delay 2 --max-time 30 "$URL"
 
+          # Simpan body response dan HTTP status code secara terpisah
+          HTTP_CODE=$(curl -sS --retry 3 --retry-delay 2 --max-time 30 \
+            -w "%{http_code}" \
+            -o /tmp/notif_response.json \
+            "$URL" || echo "000")
+
+          echo "HTTP status: $HTTP_CODE"
+          cat /tmp/notif_response.json || true
+
+          # Gagalkan job hanya jika HTTP code bukan 2xx
+          if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
+            echo "::error::generate-notifications returned HTTP $HTTP_CODE"
+            exit 1
+          fi

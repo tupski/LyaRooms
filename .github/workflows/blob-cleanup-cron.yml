@@ -20,15 +20,30 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           BLOB_CLEANUP_SECRET: ${{ secrets.BLOB_CLEANUP_SECRET }}
         run: |
+          # Jika secret belum dikonfigurasi, skip dengan peringatan (bukan error)
           if [ -z "$APP_URL" ]; then
-            echo "Missing secrets.APP_URL"
-            exit 1
+            echo "::warning::secrets.APP_URL belum diset — lewati langkah ini."
+            exit 0
           fi
           if [ -z "$BLOB_CLEANUP_SECRET" ]; then
-            echo "Missing secrets.BLOB_CLEANUP_SECRET"
-            exit 1
+            echo "::warning::secrets.BLOB_CLEANUP_SECRET belum diset — lewati langkah ini."
+            exit 0
           fi
+
           URL="${APP_URL%/}/api/cleanup-blobs?secret=${BLOB_CLEANUP_SECRET}&days=30"
           echo "Calling $URL"
-          curl -fsS --retry 3 --retry-delay 2 --max-time 60 "$URL"
 
+          # Simpan body response dan HTTP status code secara terpisah
+          HTTP_CODE=$(curl -sS --retry 3 --retry-delay 2 --max-time 60 \
+            -w "%{http_code}" \
+            -o /tmp/cleanup_response.json \
+            "$URL" || echo "000")
+
+          echo "HTTP status: $HTTP_CODE"
+          cat /tmp/cleanup_response.json || true
+
+          # Gagalkan job hanya jika HTTP code bukan 2xx
+          if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
+            echo "::error::cleanup-blobs returned HTTP $HTTP_CODE"
+            exit 1
+          fi
