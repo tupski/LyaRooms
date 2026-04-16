@@ -1,96 +1,236 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { DoorOpen, LogOut, User, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Banknote,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  DoorOpen,
+  Landmark,
+  LogOut,
+  MapPin,
+  Phone,
+  User,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
-const INITIAL_VISIBLE_ROOMS = 6;
+const INITIAL_VISIBLE_ROOMS = 8;
 
+const formatTime = (date) =>
+  date ? date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '';
+const formatDate = (date) =>
+  date ? date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '';
+const formatRupiah = (v) =>
+  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v || 0);
+const formatDuration = (h) => {
+  if (!h) return '-';
+  const map = { 3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM' };
+  return map[h] || `${h} JAM`;
+};
+
+const calcEndAt = (tx) => {
+  const start = new Date(tx.created_at);
+  const hours = Number(tx.rental_duration || 1);
+  if (hours >= 24) {
+    const end = new Date(start);
+    end.setDate(start.getDate() + 1);
+    end.setHours(12, 0, 0, 0);
+    return end;
+  }
+  return new Date(start.getTime() + hours * 3600000);
+};
+
+// ── Detail Modal ───────────────────────────────────────
+const RoomDetailModal = ({ room, onClose, onCheckOut, canCheckout }) => {
+  if (!room) return null;
+  const isOccupied = room.status === 'terisi';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 pb-24 pt-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+        className="w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl max-h-[75vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{room.lokasi}</p>
+            <h2 className="text-2xl font-bold text-slate-900">{room.name}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {isOccupied ? (
+              <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Terisi</span>
+            ) : (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">Tersedia</span>
+            )}
+            <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {isOccupied ? (
+          <div className="space-y-4">
+            {/* Customer info */}
+            <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm text-slate-700">
+                <User className="h-4 w-4 text-slate-400" />
+                <span className="font-semibold text-slate-900">{room.customerName}</span>
+              </div>
+              {room.tx?.marketing_name && (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  <span>Marketing: {room.tx.marketing_name}</span>
+                </div>
+              )}
+              {room.tx?.input_by && (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <User className="h-4 w-4 text-slate-400" />
+                  <span>Diinput oleh: {room.tx.input_by}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Time info */}
+            <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm text-slate-700">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <div>
+                  <p>Check-in: <span className="font-semibold">{formatTime(room.checkInTime)} ({formatDate(room.checkInTime)})</span></p>
+                  <p>Check-out: <span className="font-semibold">{formatTime(room.readyAt)} ({formatDate(room.readyAt)})</span></p>
+                  <p>Durasi: <span className="font-semibold">{formatDuration(room.tx?.rental_duration)}</span> {room.tx?.shift ? `· ${room.tx.shift}` : ''}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment info */}
+            <div className="rounded-2xl bg-slate-50 p-4 space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pembayaran Sewa</p>
+              {(room.tx?.cash_amount || 0) > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Banknote className="h-4 w-4 text-green-500" />
+                  <span className="text-slate-700">Tunai: <span className="font-semibold text-green-700">{formatRupiah(room.tx.cash_amount)}</span></span>
+                </div>
+              )}
+              {(room.tx?.transfer_amount || 0) > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Landmark className="h-4 w-4 text-blue-500" />
+                  <span className="text-slate-700">Transfer: <span className="font-semibold text-blue-700">{formatRupiah(room.tx.transfer_amount)}</span>{room.tx.transfer_to ? ` → ${room.tx.transfer_to}` : ''}</span>
+                </div>
+              )}
+              <p className="text-sm font-bold text-slate-800 pt-1 border-t">
+                Total: {formatRupiah((room.tx?.cash_amount || 0) + (room.tx?.transfer_amount || 0))}
+              </p>
+            </div>
+
+            {/* Deposit info */}
+            {((room.tx?.deposit_cash || 0) > 0 || (room.tx?.deposit_transfer || 0) > 0) && (
+              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">💰 Deposit</p>
+                {(room.tx?.deposit_cash || 0) > 0 && (
+                  <p className="text-sm text-amber-800">Tunai: <span className="font-semibold">{formatRupiah(room.tx.deposit_cash)}</span></p>
+                )}
+                {(room.tx?.deposit_transfer || 0) > 0 && (
+                  <p className="text-sm text-amber-800">Transfer: <span className="font-semibold">{formatRupiah(room.tx.deposit_transfer)}</span></p>
+                )}
+              </div>
+            )}
+
+            {/* Checkout button */}
+            {canCheckout && (
+              <Button
+                onClick={() => { onCheckOut(room); onClose(); }}
+                className="h-12 w-full rounded-2xl bg-red-500 text-white hover:bg-red-600"
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Check Out Sekarang
+              </Button>
+            )}
+            {!canCheckout && (
+              <p className="text-center text-xs text-slate-500">Hanya admin atau karyawan yang input transaksi ini yang bisa checkout.</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-8 gap-3">
+            <div className="rounded-full bg-green-100 p-4">
+              <DoorOpen className="h-8 w-8 text-green-600" />
+            </div>
+            <p className="text-sm text-slate-500">Kamar ini sedang kosong dan siap disewa.</p>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
+// ── Main Component ─────────────────────────────────────
 const KetersediaanKamar = () => {
   const { user, userRole, isAdmin, isSuperAdmin } = useAuth();
   const [groupedRooms, setGroupedRooms] = useState({});
   const [expandedLocations, setExpandedLocations] = useState({});
   const [loading, setLoading] = useState(true);
+  const [selectedRoom, setSelectedRoom] = useState(null);
 
   const canCheckoutAll = isAdmin || isSuperAdmin;
 
-  const getSewaDurationAndEndTime = (transaction) => {
-    const startTime = new Date(transaction.created_at);
-    const rentalHours = transaction.rental_duration || 1;
-    if (rentalHours >= 24) {
-      const endTime = new Date(startTime);
-      endTime.setDate(startTime.getDate() + 1);
-      endTime.setHours(12, 0, 0, 0);
-      return { endTime };
-    }
-    const endTime = new Date(startTime.getTime() + rentalHours * 60 * 60 * 1000);
-    return { endTime };
-  };
-
   const fetchRoomStatus = useCallback(async () => {
     setLoading(true);
-    const { data: allRooms, error: roomsError } = await supabase.from('nomor_kamar').select('*').order('lokasi').order('name');
-    if (roomsError) {
-      toast({ title: 'Gagal memuat kamar', description: roomsError.message, variant: 'destructive' });
+    const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }] = await Promise.all([
+      supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
+      supabase.from('transactions')
+        .select('id, created_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer')
+        .is('checkout_at', null)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (roomsError || transError) {
+      toast({ title: 'Gagal memuat data kamar', description: (roomsError || transError)?.message, variant: 'destructive' });
       setLoading(false);
       return;
     }
 
-    const { data: transactions, error: transError } = await supabase
-      .from('transactions')
-      .select('id, created_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id')
-      .is('checkout_at', null)
-      .order('created_at', { ascending: false });
-
-    if (transError) {
-      toast({ title: 'Gagal memuat transaksi kamar', description: transError.message, variant: 'destructive' });
-      setLoading(false);
-      return;
-    }
-
+    const now = new Date();
     const roomStatus = (allRooms || []).map((room) => {
-      const latestTransaction = (transactions || []).find(
+      const tx = (transactions || []).find(
         (t) => t.apartment_location === room.lokasi && t.room_number === room.name
       );
-
-      if (latestTransaction) {
-        const { endTime } = getSewaDurationAndEndTime(latestTransaction);
-        if (new Date() < endTime) {
+      if (tx) {
+        const endAt = calcEndAt(tx);
+        if (now < endAt) {
           return {
             ...room,
-            transactionId: latestTransaction.id,
-            transactionUserId: latestTransaction.user_id,
+            tx,
+            transactionId: tx.id,
+            transactionUserId: tx.user_id,
             status: 'terisi',
-            readyAt: endTime,
-            customerName: latestTransaction.customer_name,
-            checkInTime: new Date(latestTransaction.created_at),
+            readyAt: endAt,
+            customerName: tx.customer_name,
+            checkInTime: new Date(tx.created_at),
           };
         }
       }
-
-      return {
-        ...room,
-        transactionId: null,
-        transactionUserId: null,
-        status: 'tersedia',
-        readyAt: null,
-        customerName: null,
-        checkInTime: null,
-      };
+      return { ...room, tx: null, transactionId: null, transactionUserId: null, status: 'tersedia', readyAt: null, customerName: null, checkInTime: null };
     });
 
     const grouped = roomStatus.reduce((acc, room) => {
-      const location = room.lokasi || 'Lainnya';
-      if (!acc[location]) acc[location] = [];
-      acc[location].push(room);
+      const loc = room.lokasi || 'Lainnya';
+      if (!acc[loc]) acc[loc] = [];
+      acc[loc].push(room);
       return acc;
     }, {});
-
-    Object.keys(grouped).forEach((location) => {
-      grouped[location].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    });
+    Object.keys(grouped).forEach((loc) =>
+      grouped[loc].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    );
 
     setGroupedRooms(grouped);
     setLoading(false);
@@ -99,54 +239,41 @@ const KetersediaanKamar = () => {
   useEffect(() => {
     fetchRoomStatus();
     const channel = supabase
-      .channel('realtime-kamar-grouped')
+      .channel('realtime-kamar-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, fetchRoomStatus)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'nomor_kamar' }, fetchRoomStatus)
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, [fetchRoomStatus]);
 
   const handleCheckOut = async (room) => {
     if (!room.transactionId) return;
     const isOwner = room.transactionUserId === user?.id;
     if (!canCheckoutAll && !isOwner) {
-      toast({
-        title: 'Akses ditolak',
-        description: 'Karyawan hanya bisa checkout transaksi yang diinput sendiri.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Akses ditolak', description: 'Karyawan hanya bisa checkout transaksi yang diinput sendiri.', variant: 'destructive' });
       return;
     }
-
-    if (!window.confirm(`Yakin checkout kamar ${room.name} di ${room.lokasi}?`)) return;
-
-    const { error } = await supabase
-      .from('transactions')
-      .update({ checkout_at: new Date().toISOString() })
-      .eq('id', room.transactionId);
-
+    if (!window.confirm(`Yakin checkout ${room.name} (${room.lokasi})?`)) return;
+    const { error } = await supabase.from('transactions').update({ checkout_at: new Date().toISOString() }).eq('id', room.transactionId);
     if (error) {
       toast({ title: 'Gagal Check Out', description: error.message, variant: 'destructive' });
-      return;
+    } else {
+      toast({ title: 'Check Out Berhasil ✅' });
+      fetchRoomStatus();
     }
-
-    toast({ title: 'Check Out Berhasil' });
-    fetchRoomStatus();
   };
 
-  const toggleShowMore = (location) => {
-    setExpandedLocations((prev) => ({ ...prev, [location]: !prev[location] }));
-  };
-
-  const formatTime = (date) => (date ? date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '');
-  const formatDate = (date) => (date ? date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '');
+  const stats = useMemo(() => {
+    const all = Object.values(groupedRooms).flat();
+    const total = all.length;
+    const occupied = all.filter((r) => r.status === 'terisi').length;
+    return { total, occupied, available: total - occupied };
+  }, [groupedRooms]);
 
   return (
-    <div className="min-h-screen p-4 pb-28 pt-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-md space-y-6">
+    <div className="min-h-screen p-3 pb-28 pt-5">
+      <div className="mx-auto max-w-md space-y-4">
+        {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-green-500 to-cyan-500 px-6 py-3 text-white shadow-lg">
             <DoorOpen className="h-5 w-5" />
@@ -154,79 +281,122 @@ const KetersediaanKamar = () => {
           </div>
         </div>
 
+        {/* Stats bar */}
+        {!loading && (
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white p-3 text-center shadow-sm border">
+              <p className="text-xl font-bold text-slate-800">{stats.total}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Total</p>
+            </div>
+            <div className="rounded-2xl bg-red-50 p-3 text-center shadow-sm border border-red-100">
+              <p className="text-xl font-bold text-red-600">{stats.occupied}</p>
+              <p className="text-[10px] text-red-500 mt-0.5">Terisi</p>
+            </div>
+            <div className="rounded-2xl bg-green-50 p-3 text-center shadow-sm border border-green-100">
+              <p className="text-xl font-bold text-green-600">{stats.available}</p>
+              <p className="text-[10px] text-green-500 mt-0.5">Tersedia</p>
+            </div>
+          </div>
+        )}
+
         {loading ? (
-          <p className="py-10 text-center text-gray-500">Memuat data kamar...</p>
+          <p className="py-12 text-center text-slate-500">Memuat data kamar...</p>
         ) : Object.keys(groupedRooms).length === 0 ? (
-          <p className="py-10 text-center text-gray-500">Belum ada kamar terdaftar.</p>
+          <p className="py-12 text-center text-slate-500">Belum ada kamar terdaftar.</p>
         ) : (
           Object.keys(groupedRooms).sort().map((location) => {
-            const allLocationRooms = groupedRooms[location];
+            const allRooms = groupedRooms[location];
             const expanded = !!expandedLocations[location];
-            const visibleRooms = expanded ? allLocationRooms : allLocationRooms.slice(0, INITIAL_VISIBLE_ROOMS);
-            const hasMore = allLocationRooms.length > INITIAL_VISIBLE_ROOMS;
+            const visibleRooms = expanded ? allRooms : allRooms.slice(0, INITIAL_VISIBLE_ROOMS);
+            const hasMore = allRooms.length > INITIAL_VISIBLE_ROOMS;
+            const occupiedCount = allRooms.filter((r) => r.status === 'terisi').length;
 
             return (
               <motion.div key={location} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border bg-white p-4 shadow-sm">
-                <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-gray-800">
-                  <MapPin className="h-4 w-4 text-cyan-600" />
-                  {location}
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                    <MapPin className="h-4 w-4 text-cyan-600" />
+                    {location}
+                  </h2>
+                  <span className="text-xs text-slate-400">{occupiedCount}/{allRooms.length} terisi</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
                   {visibleRooms.map((room) => {
-                    const isOwner = room.transactionUserId === user?.id;
-                    const canCheckout = room.status === 'terisi' && (canCheckoutAll || isOwner);
+                    const isOccupied = room.status === 'terisi';
+                    const hasDeposit = (room.tx?.deposit_cash || 0) + (room.tx?.deposit_transfer || 0) > 0;
+
                     return (
-                      <div
+                      <button
                         key={room.id}
-                        className={`rounded-xl border-2 p-3 text-center ${
-                          room.status === 'tersedia' ? 'border-green-300 bg-green-100' : 'border-red-300 bg-red-100'
+                        type="button"
+                        onClick={() => setSelectedRoom(room)}
+                        className={`relative rounded-xl border-2 p-2.5 text-left transition active:scale-95 ${
+                          isOccupied
+                            ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                            : 'border-green-200 bg-green-50 hover:bg-green-100'
                         }`}
                       >
-                        <p className="font-bold text-gray-800">{room.name}</p>
-                        {room.status === 'tersedia' ? (
-                          <p className="mt-1 text-xs font-semibold text-green-700">Tersedia</p>
-                        ) : (
-                          <>
-                            <p className="mt-1 truncate text-xs font-semibold text-red-700">
-                              <User className="mr-1 inline h-3 w-3" />
+                        {/* Deposit badge */}
+                        {hasDeposit && (
+                          <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            DEP
+                          </span>
+                        )}
+
+                        <p className="text-sm font-bold text-slate-800 truncate pr-8">{room.name}</p>
+
+                        {isOccupied ? (
+                          <div className="mt-1 space-y-0.5">
+                            <p className="truncate text-[11px] font-semibold text-red-700 flex items-center gap-1">
+                              <User className="inline h-2.5 w-2.5 flex-shrink-0" />
                               {room.customerName}
                             </p>
-                            <div className="mt-1 text-[10px] text-gray-600">
-                              <p>In: {formatTime(room.checkInTime)}</p>
-                              <p>Out: {formatTime(room.readyAt)} ({formatDate(room.readyAt)})</p>
-                            </div>
-                            <Button
-                              onClick={() => handleCheckOut(room)}
-                              size="sm"
-                              disabled={!canCheckout}
-                              className={`mt-2 h-6 w-full text-[10px] ${canCheckout ? 'bg-blue-500' : 'bg-slate-400'}`}
-                            >
-                              <LogOut className="mr-1 h-3 w-3" /> Check Out
-                            </Button>
-                            {!canCheckoutAll && userRole === 'karyawan' && !isOwner && (
-                              <p className="mt-1 text-[10px] text-slate-600">Hanya transaksi milik Anda</p>
-                            )}
-                          </>
+                            <p className="text-[10px] text-slate-500">
+                              In: {formatTime(room.checkInTime)}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              Out: {formatTime(room.readyAt)} ({formatDate(room.readyAt)})
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-[11px] font-semibold text-green-600">Tersedia</p>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
+
                 {hasMore && (
                   <button
                     type="button"
-                    onClick={() => toggleShowMore(location)}
-                    className="mt-3 inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700"
+                    onClick={() => setExpandedLocations((prev) => ({ ...prev, [location]: !prev[location] }))}
+                    className="mt-3 inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    {expanded ? 'Lebih sedikit' : `Tampilkan lebih banyak (${allLocationRooms.length - INITIAL_VISIBLE_ROOMS})`}
+                    {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {expanded ? 'Lebih sedikit' : `+${allRooms.length - INITIAL_VISIBLE_ROOMS} kamar lainnya`}
                   </button>
                 )}
               </motion.div>
             );
           })
         )}
-      </motion.div>
+      </div>
+
+      {/* Detail Modal */}
+      <AnimatePresence>
+        {selectedRoom && (
+          <RoomDetailModal
+            room={selectedRoom}
+            onClose={() => setSelectedRoom(null)}
+            onCheckOut={handleCheckOut}
+            canCheckout={
+              selectedRoom.status === 'terisi' &&
+              (canCheckoutAll || selectedRoom.transactionUserId === user?.id)
+            }
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

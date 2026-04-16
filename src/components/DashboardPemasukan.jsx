@@ -97,6 +97,7 @@ const DashboardPemasukan = () => {
     }
 
     const list = (filteredData || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Deposit TIDAK masuk ke omset
     const totalTunai = list.reduce((sum, t) => sum + (t.cash_amount || 0), 0);
     const totalTransfer = list.reduce((sum, t) => sum + (t.transfer_amount || 0), 0);
 
@@ -177,36 +178,43 @@ const DashboardPemasukan = () => {
   };
 
   const handleSaveEdit = async (updatedTransaksi) => {
-    const { id, ...updateData } = updatedTransaksi;
-    const isPrivilegedRole = userRole === 'admin' || userRole === 'super_admin';
-    const isOwnTransaction = String(updatedTransaksi.user_id || '') === String(user?.id || '');
-    let error = null;
+    // Hanya field yang ada di tabel transactions
+    const ALLOWED_FIELDS = [
+      'customer_name', 'apartment_location', 'room_number', 'marketing_name',
+      'rental_duration', 'shift', 'input_by', 'cash_amount', 'transfer_amount',
+      'transfer_to', 'marketing_fee', 'deposit_cash', 'deposit_transfer',
+      'ktp_image_url', 'transfer_proof_url', 'checkout_at', 'user_id', 'created_at',
+    ];
 
-    if (isPrivilegedRole && !isOwnTransaction) {
-      const { error: rpcError } = await supabase.rpc('update_transaction_by_privileged_role', {
-        p_transaction_id: id,
-        p_payload: updateData,
-      });
-      error = rpcError;
-    } else {
-      const { error: updateError } = await supabase.from('transactions').update(updateData).eq('id', id);
-      error = updateError;
-    }
+    const updateData = Object.fromEntries(
+      ALLOWED_FIELDS
+        .filter((k) => updatedTransaksi[k] !== undefined)
+        .map((k) => [k, updatedTransaksi[k]])
+    );
+
+    const { error, count } = await supabase
+      .from('transactions')
+      .update(updateData, { count: 'exact' })
+      .eq('id', updatedTransaksi.id);
 
     if (error) {
-      const rlsError = error?.message?.toLowerCase().includes('row-level security');
+      toast({ title: 'Gagal menyimpan', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    if (count === 0) {
+      // 0 rows updated = RLS menolak diam-diam
       toast({
         title: 'Gagal menyimpan',
-        description: rlsError
-          ? 'Akses edit ditolak oleh policy database. Jalankan fungsi RPC baru untuk admin/superadmin di Supabase.'
-          : error.message,
+        description: 'Akses ditolak oleh kebijakan database. Jalankan SQL migration untuk mengizinkan admin mengedit semua transaksi.',
         variant: 'destructive',
       });
-    } else {
-      toast({ title: 'Transaksi diperbarui' });
-      setEditingTransaksi(null);
-      loadTransaksi();
+      return;
     }
+
+    toast({ title: 'Transaksi diperbarui ✅' });
+    setEditingTransaksi(null);
+    loadTransaksi();
   };
 
   const handleShare = async (transaksi) => {

@@ -4,40 +4,56 @@ import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 
+const DURATION_LABELS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', 'PROMO MALAM', 'Fullday', '24 JAM'];
+const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
+const TRANSFER_TARGET_OPTIONS = ['Kakarama', 'Marketing'];
+
+const formatRupiah = (value) =>
+  value ? new Intl.NumberFormat('id-ID').format(String(value).replace(/[^0-9]/g, '')) : '';
+const deformatRupiah = (value) =>
+  value ? Number(String(value).replace(/[^0-9]/g, '')) || 0 : 0;
+
+const durationToHours = (dur) => {
+  if (!dur) return 1;
+  if (dur === 'PROMO MALAM') return 12;
+  if (dur === 'Fullday') return 24;
+  const match = String(dur).match(/\d+/);
+  return match ? Number(match[0]) : 1;
+};
+
+const hoursToDurationLabel = (hours) => {
+  if (!hours) return '3 JAM';
+  const map = { 3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM' };
+  return map[hours] || `${hours} JAM (Custom)`;
+};
+
 const AutocompleteInput = ({ table, value, onValueChange }) => {
   const [listItems, setListItems] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
-    const fetchItems = async () => {
-      const { data } = await supabase.from(table).select('name');
+    supabase.from(table).select('name').then(({ data }) => {
       if (data) setListItems(data);
-    };
-    fetchItems();
+    });
   }, [table]);
 
-  const handleInputChange = (e) => {
-    const inputValue = e.target.value;
-    onValueChange(inputValue);
-    if (inputValue) {
-      setSuggestions(listItems.filter(item => item.name.toLowerCase().includes(inputValue.toLowerCase())));
-    } else {
-      setSuggestions([]);
-    }
-  };
-
-  const handleSuggestionClick = (suggestion) => {
-    onValueChange(suggestion.name);
-    setSuggestions([]);
+  const handleChange = (e) => {
+    const v = e.target.value;
+    onValueChange(v);
+    setSuggestions(v ? listItems.filter((item) => item.name.toLowerCase().includes(v.toLowerCase())) : []);
   };
 
   return (
     <div className="relative w-full">
-      <input type="text" value={value} onChange={handleInputChange} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+      <input type="text" value={value} onChange={handleChange} className="w-full rounded-xl border-2 px-4 py-3 text-gray-900" />
       {suggestions.length > 0 && (
-        <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-          {suggestions.map((item, index) => (
-            <div key={index} className="px-4 py-2 cursor-pointer hover:bg-gray-100 text-gray-900" onMouseDown={() => handleSuggestionClick(item)}>
+        <div className="absolute z-20 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border bg-white shadow-lg">
+          {suggestions.map((item, i) => (
+            <div
+              key={i}
+              className="cursor-pointer px-4 py-2 text-gray-900 hover:bg-gray-100"
+              onMouseDown={() => { onValueChange(item.name); setSuggestions([]); }}
+            >
               {item.name}
             </div>
           ))}
@@ -47,155 +63,187 @@ const AutocompleteInput = ({ table, value, onValueChange }) => {
   );
 };
 
-
 const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
-  const [formData, setFormData] = useState(transaksi);
-  
-  const lamaSewaDurations = [
-    '3 JAM', '6 JAM', '9 JAM', '12 JAM', 'PROMO MALAM', 'Fullday', '24 JAM'
-  ];
-  const customHours = Array.from({ length: 168 }, (_, i) => `${i + 1} Jam Custom`);
-  const lamaSewaPilihan = [...lamaSewaDurations, ...customHours];
-
-  const shiftPilihan = ['Pagi', 'Malam', 'Long Shift'];
-  const transferTargetOptions = ['Kakarama', 'Marketing'];
-
-  const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
-  const formatRupiah = (value) => value ? new Intl.NumberFormat('id-ID').format(String(value).replace(/[^0-9]/g, '')) : '';
-  const deformatRupiah = (value) => value ? String(value).replace(/[^0-9]/g, '') : '0';
+  const [formData, setFormData] = useState({});
+  const [isCustom, setIsCustom] = useState(false);
+  const [customHours, setCustomHours] = useState('1');
 
   useEffect(() => {
-    // Convert integer rental_duration back to string format for display
-    const convertDurationToString = (hours) => {
-      if (!hours) return '3 JAM';
-      const durationMap = {
-        3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM'
-      };
-      return durationMap[hours] || `${hours} Jam Custom`;
-    };
-    
+    const label = hoursToDurationLabel(transaksi.rental_duration);
+    const known = DURATION_LABELS.includes(label);
+    setIsCustom(!known);
+    setCustomHours(transaksi.rental_duration || 1);
     setFormData({
       ...transaksi,
-      rental_duration: convertDurationToString(transaksi.rental_duration),
+      rental_duration_label: known ? label : label,
       cash_amount: formatRupiah(transaksi.cash_amount),
       transfer_amount: formatRupiah(transaksi.transfer_amount),
       marketing_fee: formatRupiah(transaksi.marketing_fee),
+      deposit_cash: formatRupiah(transaksi.deposit_cash),
+      deposit_transfer: formatRupiah(transaksi.deposit_transfer),
     });
   }, [transaksi]);
 
+  const set = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Extract hours from rental duration (e.g., "3 JAM" → 3)
-    const extractHours = (dur) => {
-      if (!dur) return 1;
-      if (dur.includes('Jam Custom')) {
-        const match = dur.match(/\d+/);
-        return match ? Number(match[0]) : 1;
-      }
-      const match = dur.match(/\d+/);
-      return match ? Number(match[0]) : 1;
-    };
-    
-    const rentalHours = extractHours(formData.rental_duration);
-    
+    const hours = isCustom ? Number(customHours) || 1 : durationToHours(formData.rental_duration_label);
     onSave({
       ...formData,
-      rental_duration: rentalHours,
+      rental_duration: hours,
       cash_amount: deformatRupiah(formData.cash_amount),
       transfer_amount: deformatRupiah(formData.transfer_amount),
       marketing_fee: deformatRupiah(formData.marketing_fee),
+      deposit_cash: deformatRupiah(formData.deposit_cash),
+      deposit_transfer: deformatRupiah(formData.deposit_transfer),
     });
   };
-  
-  const isCustomDuration = !lamaSewaDurations.includes(formData.rental_duration);
-
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
-      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh]">
-        <div className="flex justify-between items-center p-4 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 pb-24 pt-4">
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-md rounded-3xl bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b p-4">
           <h2 className="text-lg font-bold text-gray-900">Edit Transaksi</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-5 w-5 text-gray-900" /></Button>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-5 w-5" /></Button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-130px)]">
+
+        <form onSubmit={handleSubmit} className="max-h-[calc(90vh-130px)] space-y-4 overflow-y-auto p-5">
+          {/* Customer */}
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Nama Customer</label>
-            <input type="text" value={formData.customer_name} onChange={(e) => handleInputChange('customer_name', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" required />
+            <label className="mb-2 block text-sm font-semibold text-gray-700">Nama Customer</label>
+            <input type="text" value={formData.customer_name || ''} onChange={(e) => set('customer_name', e.target.value)} className="w-full rounded-xl border-2 px-4 py-3 text-gray-900" required />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Lokasi & Kamar */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Lokasi Apartemen</label>
-              <AutocompleteInput table="lokasi_apartemen" value={formData.apartment_location || ''} onValueChange={(val) => handleInputChange('apartment_location', val)} />
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Lokasi</label>
+              <AutocompleteInput table="lokasi_apartemen" value={formData.apartment_location || ''} onValueChange={(v) => set('apartment_location', v)} />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Nomor Kamar</label>
-              <AutocompleteInput table="nomor_kamar" value={formData.room_number || ''} onValueChange={(val) => handleInputChange('room_number', val)} />
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Kamar</label>
+              <AutocompleteInput table="nomor_kamar" value={formData.room_number || ''} onValueChange={(v) => set('room_number', v)} />
             </div>
           </div>
+
+          {/* Marketing */}
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Nama Marketing</label>
-            <AutocompleteInput table="marketing_list" value={formData.marketing_name} onValueChange={(val) => handleInputChange('marketing_name', val)} />
+            <label className="mb-2 block text-sm font-semibold text-gray-700">Marketing</label>
+            <AutocompleteInput table="marketing_list" value={formData.marketing_name || ''} onValueChange={(v) => set('marketing_name', v)} />
           </div>
+
+          {/* Durasi */}
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Lama Sewa</label>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {lamaSewaDurations.map((p) => <button key={p} type="button" onClick={() => handleInputChange('rental_duration', p)} className={`px-2 py-3 rounded-lg text-xs font-semibold ${formData.rental_duration === p ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>{p}</button>)}
-               <button type="button" onClick={() => handleInputChange('rental_duration', '1 Jam Custom')} className={`px-2 py-3 rounded-lg text-xs font-semibold ${isCustomDuration ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>Custom</button>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">Durasi Sewa</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {DURATION_LABELS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => { set('rental_duration_label', d); setIsCustom(false); }}
+                  className={`rounded-xl px-2 py-2.5 text-xs font-semibold ${!isCustom && formData.rental_duration_label === d ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}
+                >
+                  {d}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIsCustom(true)}
+                className={`rounded-xl px-2 py-2.5 text-xs font-semibold ${isCustom ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}
+              >
+                Custom
+              </button>
             </div>
-             {isCustomDuration && (
-              <select value={formData.rental_duration} onChange={(e) => handleInputChange('rental_duration', e.target.value)} className="w-full mt-2 px-4 py-3 rounded-xl border-2 text-gray-900">
-                {customHours.map(hour => <option key={hour} value={hour}>{hour}</option>)}
-              </select>
+            {isCustom && (
+              <input
+                type="number"
+                min={1}
+                max={168}
+                value={customHours}
+                onChange={(e) => setCustomHours(e.target.value)}
+                className="mt-2 w-full rounded-xl border-2 px-4 py-2.5 text-gray-900"
+                placeholder="Jumlah jam"
+              />
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Shift & Input oleh */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Shift</label>
-              <div className="grid grid-cols-3 gap-2">
-                {shiftPilihan.map((p) => <button key={p} type="button" onClick={() => handleInputChange('shift', p)} className={`px-2 py-3 rounded-lg text-sm font-semibold ${formData.shift === p ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-900'}`}>{p}</button>)}
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Shift</label>
+              <div className="flex flex-col gap-1.5">
+                {SHIFT_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => set('shift', s)}
+                    className={`rounded-xl px-3 py-2 text-xs font-semibold ${formData.shift === s ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-800'}`}
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Diinput oleh</label>
-              <AutocompleteInput table="karyawan_list" value={formData.input_by} onValueChange={(val) => handleInputChange('input_by', val)} />
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Diinput oleh</label>
+              <AutocompleteInput table="karyawan_list" value={formData.input_by || ''} onValueChange={(v) => set('input_by', v)} />
             </div>
           </div>
-          <div className="p-4 rounded-2xl space-y-3 bg-gray-50">
-            <h3 className="font-bold text-gray-900">Pembayaran</h3>
+
+          {/* Pembayaran Sewa */}
+          <div className="rounded-2xl bg-slate-50 p-4 space-y-3">
+            <h3 className="text-sm font-bold text-gray-800">💳 Pembayaran Sewa</h3>
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Tunai (Rp)</label>
-              <input type="text" value={formData.cash_amount} onChange={(e) => handleInputChange('cash_amount', formatRupiah(e.target.value))} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">Tunai (Rp)</label>
+              <input type="text" value={formData.cash_amount || ''} onChange={(e) => set('cash_amount', formatRupiah(e.target.value))} className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900" placeholder="0" />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Transfer (Rp)</label>
-              <input type="text" value={formData.transfer_amount} onChange={(e) => handleInputChange('transfer_amount', formatRupiah(e.target.value))} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">Transfer (Rp)</label>
+              <input type="text" value={formData.transfer_amount || ''} onChange={(e) => set('transfer_amount', formatRupiah(e.target.value))} className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900" placeholder="0" />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Transfer Ke</label>
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">Transfer Ke</label>
               <div className="grid grid-cols-2 gap-2">
-                {transferTargetOptions.map((item) => (
+                {TRANSFER_TARGET_OPTIONS.map((item) => (
                   <button
                     key={item}
                     type="button"
-                    onClick={() => handleInputChange('transfer_to', formData.transfer_to === item ? '' : item)}
-                    className={`px-3 py-3 rounded-lg text-sm font-semibold ${
-                      formData.transfer_to === item ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-900'
-                    }`}
+                    onClick={() => set('transfer_to', formData.transfer_to === item ? '' : item)}
+                    className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${formData.transfer_to === item ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-800'}`}
                   >
                     {item}
                   </button>
                 ))}
               </div>
             </div>
-             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Fee Marketing (Rp)</label>
-              <input type="text" value={formData.marketing_fee} onChange={(e) => handleInputChange('marketing_fee', formatRupiah(e.target.value))} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">Fee Marketing (Rp)</label>
+              <input type="text" value={formData.marketing_fee || ''} onChange={(e) => set('marketing_fee', formatRupiah(e.target.value))} className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900" placeholder="0" />
             </div>
           </div>
-          <div className="p-4 border-t">
-            <Button type="submit" className="w-full bg-green-500 text-white font-bold py-3 rounded-xl"><Save className="w-5 h-5 mr-2" /> Simpan</Button>
+
+          {/* Deposit */}
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3">
+            <h3 className="text-sm font-bold text-amber-800">💰 Apakah cs Deposit? (opsional)</h3>
+            <p className="text-xs text-amber-600">Kosongkan jika cs tidak deposit</p>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-amber-700">Tunai (Rp)</label>
+              <input type="text" value={formData.deposit_cash || ''} onChange={(e) => set('deposit_cash', formatRupiah(e.target.value))} className="w-full rounded-xl border-2 border-amber-200 bg-white px-4 py-2.5 text-gray-900" placeholder="0" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-amber-700">Transfer (Rp)</label>
+              <input type="text" value={formData.deposit_transfer || ''} onChange={(e) => set('deposit_transfer', formatRupiah(e.target.value))} className="w-full rounded-xl border-2 border-amber-200 bg-white px-4 py-2.5 text-gray-900" placeholder="0" />
+            </div>
           </div>
+
+          <Button type="submit" className="w-full rounded-xl bg-green-500 py-3 font-bold text-white hover:bg-green-600">
+            <Save className="mr-2 h-5 w-5" /> Simpan Perubahan
+          </Button>
         </form>
       </motion.div>
     </div>

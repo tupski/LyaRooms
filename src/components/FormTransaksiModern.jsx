@@ -106,6 +106,8 @@ const FormTransaksiModern = ({
     transfer: '',
     transferKe: '',
     feeMarketing: '',
+    depositCash: '',
+    depositTransfer: '',
     ktpFile: null,
     buktiTransferFile: null,
     input_by: '',
@@ -327,6 +329,8 @@ const FormTransaksiModern = ({
       transfer: '',
       transferKe: '',
       feeMarketing: '',
+      depositCash: '',
+      depositTransfer: '',
       ktpFile: null,
       buktiTransferFile: null,
     }));
@@ -359,6 +363,8 @@ const FormTransaksiModern = ({
         transfer_amount: transferAmount,
         transfer_to: formData.transferKe || null,
         marketing_fee: feeAmount,
+        deposit_cash: parseCurrency(formData.depositCash),
+        deposit_transfer: parseCurrency(formData.depositTransfer),
         ktp_image_url: ktpUrl,
         transfer_proof_url: transferProofUrl,
       };
@@ -597,6 +603,14 @@ const FormTransaksiModern = ({
               </div>
               <div><label className="mb-2 block text-sm font-medium text-slate-700">Fee Marketing (Rp)</label><input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
             </div>
+            {/* Deposit */}
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="mb-2 text-xs font-semibold text-amber-700">💰 Deposit (tidak masuk omset)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="mb-1 block text-xs font-medium text-amber-700">Tunai (Rp)</label><input inputMode="numeric" value={formData.depositCash} onChange={(e) => handleChange('depositCash', formatCurrency(e.target.value))} className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500" placeholder="0" /></div>
+                <div><label className="mb-1 block text-xs font-medium text-amber-700">Transfer (Rp)</label><input inputMode="numeric" value={formData.depositTransfer} onChange={(e) => handleChange('depositTransfer', formatCurrency(e.target.value))} className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500" placeholder="0" /></div>
+              </div>
+            </div>
           </SectionCard>
 
           <SectionCard icon={Upload} title="Unggah Berkas" subtitle="KTP dan bukti transfer (gambar dikompres otomatis)">
@@ -661,6 +675,14 @@ const FormTransaksiModern = ({
               <li><span className="font-medium text-slate-900">Transfer:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.transfer))}{' '}{formData.transferKe ? `(ke ${formData.transferKe})` : ''}</li>
               <li><span className="font-medium text-slate-900">Fee marketing:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.feeMarketing))}</li>
               <li><span className="font-medium text-slate-900">Input oleh:</span> {formData.input_by || user?.email || '-'}</li>
+              {(parseCurrency(formData.depositCash) > 0 || parseCurrency(formData.depositTransfer) > 0) && (
+                <li className="rounded-lg bg-amber-50 p-2 text-amber-800">
+                  <span className="font-medium">💰 Deposit:</span>{' '}
+                  {parseCurrency(formData.depositCash) > 0 && `Tunai ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.depositCash))} `}
+                  {parseCurrency(formData.depositTransfer) > 0 && `Transfer ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.depositTransfer))}`}
+                  {' '}(tidak masuk omset)
+                </li>
+              )}
               <li><span className="font-medium text-slate-900">Berkas:</span> KTP {formData.ktpFile ? `(${formData.ktpFile.name})` : '(tidak ada)'} — Bukti{' '}{formData.buktiTransferFile ? `(${formData.buktiTransferFile.name})` : '(tidak ada)'}</li>
             </ul>
             <DialogFooter className="gap-2 sm:gap-0">
