@@ -92,8 +92,8 @@ const DashboardPemasukan = () => {
     let query = supabase
       .from('transactions')
       .select('*')
-      .gte('created_at', fromDate.toISOString())
-      .lte('created_at', toDate.toISOString());
+      .gte('checkin_at', fromDate.toISOString())
+      .lte('checkin_at', toDate.toISOString());
 
     if (lokasi !== 'semua') query = query.eq('apartment_location', lokasi);
     if (shift !== 'semua') query = query.eq('shift', shift);
@@ -110,7 +110,7 @@ const DashboardPemasukan = () => {
       return;
     }
 
-    const list = (filteredData || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const list = (filteredData || []).sort((a, b) => new Date(b.checkin_at || b.created_at) - new Date(a.checkin_at || a.created_at));
     // Deposit TIDAK masuk ke omset
     const totalTunai = list.reduce((sum, t) => sum + (t.cash_amount || 0), 0);
     const totalTransfer = list.reduce((sum, t) => sum + (t.transfer_amount || 0), 0);
@@ -135,8 +135,8 @@ const DashboardPemasukan = () => {
     const { count, error } = await supabase
       .from('transactions')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', startOfDay(new Date()).toISOString())
-      .lt('created_at', endOfDay(new Date()).toISOString());
+      .gte('checkin_at', startOfDay(new Date()).toISOString())
+      .lt('checkin_at', endOfDay(new Date()).toISOString());
 
     if (!error) {
       setStats((prev) => ({ ...prev, transaksiHariIni: count || 0 }));
@@ -257,7 +257,7 @@ const DashboardPemasukan = () => {
 
   const handleExport = () => {
     const dataToExport = transaksiList.map((t) => ({
-      'Waktu Transaksi': formatDateTime(t.created_at),
+      'Waktu Check-in': formatDateTime(t.checkin_at || t.created_at),
       'Nama Customer': t.customer_name,
       'Nama Marketing': t.marketing_name,
       Lokasi: t.apartment_location,
