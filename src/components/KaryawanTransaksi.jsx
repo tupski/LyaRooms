@@ -55,7 +55,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
 
   const inferCheckoutTime = (transaksi) => {
     if (transaksi.checkout_at) return transaksi.checkout_at;
-    const checkInDate = new Date(transaksi.created_at);
+    const checkInDate = new Date(transaksi.checkin_at || transaksi.created_at);
     const checkoutDate = new Date(checkInDate.getTime() + (Number(transaksi.rental_duration) || 1) * 60 * 60 * 1000);
     return checkoutDate.toISOString();
   };
@@ -73,7 +73,12 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
       transferTo: t.transfer_to || null,
     });
     const komisi = Number(t.marketing_fee || 0) > 0 ? formatRupiahNumber(Number(t.marketing_fee || 0)) : 'Tanpa komisi';
-    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nKomisi: ${komisi}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nCheck-in: ${formatReportDateTime(t.created_at)}\nCheckout: ${formatReportDateTime(inferCheckoutTime(t))}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nInput oleh: ${t.input_by || '-'}`;
+    const depositCash = Number(t.deposit_cash || 0);
+    const depositTransfer = Number(t.deposit_transfer || 0);
+    const depositLine = depositCash > 0 || depositTransfer > 0
+      ? `Deposit: ${depositCash > 0 ? `Tunai ${formatRupiahNumber(depositCash)} ` : ''}${depositTransfer > 0 ? `Transfer ${formatRupiahNumber(depositTransfer)}` : ''}`.trim()
+      : null;
+    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nKomisi: ${komisi}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nCheck-in: ${formatReportDateTime(t.checkin_at || t.created_at)}\nCheckout: ${formatReportDateTime(inferCheckoutTime(t))}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}${depositLine ? `\n${depositLine}` : ''}\nInput oleh: ${t.input_by || '-'}`;
   };
 
   const sendForwardReport = (t, force = false) => {
@@ -98,6 +103,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
       transfer_amount: String(t.transfer_amount || 0),
       transfer_to: t.transfer_to || '',
       marketing_fee: String(t.marketing_fee || 0),
+      deposit_cash: String(t.deposit_cash || 0),
+      deposit_transfer: String(t.deposit_transfer || 0),
       input_by: t.input_by || user?.email || '',
       alasan: '',
     });
@@ -111,7 +118,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
       transferAmount: Number(reportDraft.transfer_amount || 0),
       transferTo: reportDraft.transfer_to || null,
     });
-    const msg = `*LAPOR KESALAHAN TRANSAKSI*\n\nAlasan: ${reportDraft.alasan || '-'}\n\nCustomer: ${reportDraft.customer_name}\nLokasi: ${reportDraft.apartment_location}\nKamar: ${reportDraft.room_number}\nMarketing: ${reportDraft.marketing_name || '-'}\nDurasi Sewa: ${reportDraft.rental_duration}\nShift: ${reportDraft.shift || '-'}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nFee Marketing: ${formatRupiahNumber(Number(reportDraft.marketing_fee || 0))}\nInput oleh: ${reportDraft.input_by || '-'}\nID Transaksi: ${reportTransaksi.id}`;
+    const msg = `*LAPOR KESALAHAN TRANSAKSI*\n\nAlasan: ${reportDraft.alasan || '-'}\n\nCustomer: ${reportDraft.customer_name}\nLokasi: ${reportDraft.apartment_location}\nKamar: ${reportDraft.room_number}\nMarketing: ${reportDraft.marketing_name || '-'}\nDurasi Sewa: ${reportDraft.rental_duration}\nShift: ${reportDraft.shift || '-'}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nFee Marketing: ${formatRupiahNumber(Number(reportDraft.marketing_fee || 0))}\nDeposit: ${Number(reportDraft.deposit_cash || 0) > 0 ? `Tunai ${formatRupiahNumber(Number(reportDraft.deposit_cash || 0))} ` : ''}${Number(reportDraft.deposit_transfer || 0) > 0 ? `Transfer ${formatRupiahNumber(Number(reportDraft.deposit_transfer || 0))}` : 'Tidak ada'}\nInput oleh: ${reportDraft.input_by || '-'}\nID Transaksi: ${reportTransaksi.id}`;
     window.open(`https://wa.me/6289613413636?text=${encodeURIComponent(msg)}`, '_blank');
     setReportTransaksi(null);
   };
@@ -122,7 +129,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     setLoading(true);
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, customer_name, apartment_location, room_number, marketing_name, rental_duration, shift, created_at, checkout_at, input_by, cash_amount, transfer_amount, transfer_to, marketing_fee, ktp_image_url, transfer_proof_url')
+      .select('id, customer_name, apartment_location, room_number, marketing_name, rental_duration, shift, created_at, checkin_at, checkout_at, input_by, cash_amount, transfer_amount, transfer_to, marketing_fee, deposit_cash, deposit_transfer, ktp_image_url, transfer_proof_url')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -199,7 +206,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
                     <div className="mb-3 space-y-1 border-y py-2 text-xs text-gray-700">
                       <p>Lokasi: {t.apartment_location} - Kamar {t.room_number}</p>
                       <p>Sewa: {formatRentalDuration(t.rental_duration)} ({t.shift || '-'})</p>
-                      <p>Check-in: {formatReportDateTime(t.created_at)}</p>
+                      <p>Check-in: {formatReportDateTime(t.checkin_at || t.created_at)}</p>
                       <p>Checkout: {formatReportDateTime(inferCheckoutTime(t))}</p>
                       <p>Marketing: {t.marketing_name || '-'}</p>
                       <p>Diinput oleh: {t.input_by || '-'}</p>
@@ -267,7 +274,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
                 onChange={(e) => setReportDraft((p) => ({ ...p, alasan: e.target.value }))}
                 placeholder="Alasan"
               />
-              {['customer_name', 'apartment_location', 'room_number', 'marketing_name', 'rental_duration', 'shift', 'cash_amount', 'transfer_amount', 'transfer_to', 'marketing_fee', 'input_by'].map((field) => (
+              {['customer_name', 'apartment_location', 'room_number', 'marketing_name', 'rental_duration', 'shift', 'cash_amount', 'transfer_amount', 'transfer_to', 'marketing_fee', 'deposit_cash', 'deposit_transfer', 'input_by'].map((field) => (
                 <input
                   key={field}
                   className="w-full rounded-xl border px-3 py-2 text-sm"

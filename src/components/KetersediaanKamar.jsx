@@ -33,14 +33,9 @@ const formatDuration = (h) => {
 };
 
 const calcEndAt = (tx) => {
-  const start = new Date(tx.created_at);
+  if (tx.checkout_at) return new Date(tx.checkout_at);
+  const start = new Date(tx.checkin_at || tx.created_at);
   const hours = Number(tx.rental_duration || 1);
-  if (hours >= 24) {
-    const end = new Date(start);
-    end.setDate(start.getDate() + 1);
-    end.setHours(12, 0, 0, 0);
-    return end;
-  }
   return new Date(start.getTime() + hours * 3600000);
 };
 
@@ -193,8 +188,8 @@ const KetersediaanKamar = () => {
     const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }] = await Promise.all([
       supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
       supabase.from('transactions')
-        .select('id, created_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at')
-        .is('checkout_at', null)
+        .select('id, created_at, checkin_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at')
+        .order('checkin_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false }),
     ]);
 
@@ -220,7 +215,7 @@ const KetersediaanKamar = () => {
             status: 'terisi',
             readyAt: endAt,
             customerName: tx.customer_name,
-            checkInTime: new Date(tx.created_at),
+            checkInTime: new Date(tx.checkin_at || tx.created_at),
           };
         }
       }

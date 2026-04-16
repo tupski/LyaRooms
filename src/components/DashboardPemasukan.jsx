@@ -44,6 +44,18 @@ const DashboardPemasukan = () => {
   const formatRupiah = (angka) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
   const formatDateTime = (iso) => new Date(iso).toLocaleString('id-ID');
+  const formatWhatsappDateTime = (iso) => {
+    const parts = new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(iso));
+    const getPart = (type) => parts.find((part) => part.type === type)?.value || '';
+    return `${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}:${getPart('minute')} WIB`;
+  };
   const getCurrentDate = () =>
     new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -185,7 +197,7 @@ const DashboardPemasukan = () => {
       'customer_name', 'apartment_location', 'room_number', 'marketing_name',
       'rental_duration', 'shift', 'input_by', 'cash_amount', 'transfer_amount',
       'transfer_to', 'marketing_fee', 'deposit_cash', 'deposit_transfer',
-      'ktp_image_url', 'transfer_proof_url', 'checkout_at', 'user_id', 'created_at',
+      'ktp_image_url', 'transfer_proof_url', 'checkin_at', 'checkout_at', 'user_id', 'created_at',
     ];
 
     const updateData = Object.fromEntries(
@@ -225,7 +237,15 @@ const DashboardPemasukan = () => {
       transferAmount: transaksi.transfer_amount || 0,
       transferTo: transaksi.transfer_to || null,
     });
-    const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Waktu:* ${formatDateTime(transaksi.created_at)}\n*Sewa:* ${formatRentalDuration(transaksi.rental_duration)} (${transaksi.shift})\n*Total Bayar:* ${formatRupiahNumber(total)}\n${lines.join('\n')}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
+    const komisi = Number(transaksi.marketing_fee || 0) > 0 ? formatRupiahNumber(Number(transaksi.marketing_fee || 0)) : 'Tanpa komisi';
+    const depositCash = Number(transaksi.deposit_cash || 0);
+    const depositTransfer = Number(transaksi.deposit_transfer || 0);
+    const depositLine = depositCash > 0 || depositTransfer > 0
+      ? `Deposit: ${depositCash > 0 ? `Tunai ${formatRupiahNumber(depositCash)} ` : ''}${depositTransfer > 0 ? `Transfer ${formatRupiahNumber(depositTransfer)}` : ''}`.trim()
+      : null;
+    const checkInAt = transaksi.checkin_at || transaksi.created_at;
+    const checkoutAt = transaksi.checkout_at || new Date(new Date(checkInAt).getTime() + (Number(transaksi.rental_duration) || 1) * 60 * 60 * 1000).toISOString();
+    const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name || '-'}\n*Komisi:* ${komisi}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Check-in:* ${formatWhatsappDateTime(checkInAt)}\n*Checkout:* ${formatWhatsappDateTime(checkoutAt)}\n*Sewa:* ${formatRentalDuration(transaksi.rental_duration)} (${transaksi.shift})\n*Total Bayar:* ${formatRupiahNumber(total)}\n${lines.join('\n')}${depositLine ? `\n${depositLine}` : ''}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
     try {
       await navigator.clipboard.writeText(message);
       toast({ title: 'Pesan disalin', description: 'Buka WhatsApp dan tempel pesan.' });
@@ -392,7 +412,7 @@ const DashboardPemasukan = () => {
                   <div className="mb-3 space-y-1 border-y py-2 text-xs text-gray-700">
                     <p>Lokasi: {transaksi.apartment_location} - Kamar {transaksi.room_number}</p>
                     <p>Sewa: {formatRentalDuration(transaksi.rental_duration)} ({transaksi.shift})</p>
-                    <p>Waktu: {formatDateTime(transaksi.created_at)}</p>
+                    <p>Check-in: {formatDateTime(transaksi.checkin_at || transaksi.created_at)}</p>
                     {transaksi.marketing_name && <p>Marketing: {transaksi.marketing_name}</p>}
                     {transaksi.marketing_fee > 0 && <p>Fee: {formatRupiah(transaksi.marketing_fee)}</p>}
                     {transaksi.input_by && <p><UserCheck className="mr-1 inline h-3 w-3" /> Diinput oleh: {transaksi.input_by}</p>}

@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 
-const DURATION_LABELS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', 'PROMO MALAM', 'Fullday', '24 JAM'];
+const RENTAL_TYPE_OPTIONS = [
+  { value: 'TRANSIT', label: 'Transit' },
+  { value: 'PER_MALAM', label: 'Per malam' },
+];
+const TRANSIT_DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM', 'Custom'];
+const OVERNIGHT_DURATION_OPTIONS = ['Promo Malam', 'Fullday', 'Custom'];
 const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
 const TRANSFER_TARGET_OPTIONS = ['Kakarama', 'Marketing'];
 
@@ -13,18 +18,39 @@ const formatRupiah = (value) =>
 const deformatRupiah = (value) =>
   value ? Number(String(value).replace(/[^0-9]/g, '')) || 0 : 0;
 
-const durationToHours = (dur) => {
-  if (!dur) return 1;
-  if (dur === 'PROMO MALAM') return 12;
-  if (dur === 'Fullday') return 24;
-  const match = String(dur).match(/\d+/);
-  return match ? Number(match[0]) : 1;
+const toDateTimeLocalValue = (dateLike) => {
+  const date = new Date(dateLike || new Date());
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-const hoursToDurationLabel = (hours) => {
-  if (!hours) return '3 JAM';
-  const map = { 3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM' };
-  return map[hours] || `${hours} JAM (Custom)`;
+const parseCheckInDate = (value) => {
+  const parsed = value ? new Date(value) : new Date();
+  if (Number.isNaN(parsed.getTime())) return new Date();
+  return parsed;
+};
+
+const getRentalConfig = (rentalType, duration, customValue, checkInDate) => {
+  if (rentalType === 'PER_MALAM') {
+    const nights = duration === 'Custom' ? Math.max(Number(customValue) || 1, 1) : 1;
+    const isBeforeNoon = checkInDate.getHours() < 12;
+    const addDays = isBeforeNoon ? Math.max(nights - 1, 0) : nights;
+    const checkoutDate = new Date(checkInDate);
+    checkoutDate.setDate(checkoutDate.getDate() + addDays);
+    checkoutDate.setHours(12, 0, 0, 0);
+    const rentalHours = Math.max(Math.ceil((checkoutDate.getTime() - checkInDate.getTime()) / 3600000), 1);
+    return { rentalHours, checkoutDate };
+  }
+  const hours = duration === 'Custom'
+    ? Math.max(Number(customValue) || 1, 1)
+    : Number(String(duration).match(/\d+/)?.[0] || 1);
+  const checkoutDate = new Date(checkInDate.getTime() + hours * 3600000);
+  return { rentalHours: hours, checkoutDate };
 };
 
 const AutocompleteInput = ({ table, value, onValueChange }) => {
@@ -65,17 +91,18 @@ const AutocompleteInput = ({ table, value, onValueChange }) => {
 
 const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
   const [formData, setFormData] = useState({});
-  const [isCustom, setIsCustom] = useState(false);
-  const [customHours, setCustomHours] = useState('1');
 
   useEffect(() => {
-    const label = hoursToDurationLabel(transaksi.rental_duration);
-    const known = DURATION_LABELS.includes(label);
-    setIsCustom(!known);
-    setCustomHours(transaksi.rental_duration || 1);
+    const isPerMalam = Number(transaksi.rental_duration || 0) >= 12 && ((transaksi.checkout_at && new Date(transaksi.checkout_at).getHours() === 12) || Number(transaksi.rental_duration || 0) > 24);
+    const rentalType = isPerMalam ? 'PER_MALAM' : 'TRANSIT';
+    const knownTransit = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM'];
+    const transitLabel = knownTransit.includes(`${transaksi.rental_duration} JAM`) ? `${transaksi.rental_duration} JAM` : 'Custom';
     setFormData({
       ...transaksi,
-      rental_duration_label: known ? label : label,
+      rental_type: rentalType,
+      rental_duration_label: rentalType === 'PER_MALAM' ? 'Promo Malam' : transitLabel,
+      custom_duration: String(transaksi.rental_duration || 1),
+      checkin_at: toDateTimeLocalValue(transaksi.checkin_at || transaksi.created_at),
       cash_amount: formatRupiah(transaksi.cash_amount),
       transfer_amount: formatRupiah(transaksi.transfer_amount),
       marketing_fee: formatRupiah(transaksi.marketing_fee),
@@ -86,12 +113,20 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
 
   const set = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
+  const durationOptions = useMemo(
+    () => (formData.rental_type === 'PER_MALAM' ? OVERNIGHT_DURATION_OPTIONS : TRANSIT_DURATION_OPTIONS),
+    [formData.rental_type]
+  );
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const hours = isCustom ? Number(customHours) || 1 : durationToHours(formData.rental_duration_label);
+    const checkInDate = parseCheckInDate(formData.checkin_at);
+    const rentalConfig = getRentalConfig(formData.rental_type, formData.rental_duration_label, formData.custom_duration, checkInDate);
     onSave({
       ...formData,
-      rental_duration: hours,
+      checkin_at: checkInDate.toISOString(),
+      checkout_at: rentalConfig.checkoutDate.toISOString(),
+      rental_duration: rentalConfig.rentalHours,
       cash_amount: deformatRupiah(formData.cash_amount),
       transfer_amount: deformatRupiah(formData.transfer_amount),
       marketing_fee: deformatRupiah(formData.marketing_fee),
@@ -137,37 +172,52 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
             <AutocompleteInput table="marketing_list" value={formData.marketing_name || ''} onValueChange={(v) => set('marketing_name', v)} />
           </div>
 
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">Waktu Check-in</label>
+            <input
+              type="datetime-local"
+              value={formData.checkin_at || ''}
+              onChange={(e) => set('checkin_at', e.target.value)}
+              className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900"
+            />
+          </div>
+
           {/* Durasi */}
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">Durasi Sewa</label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {DURATION_LABELS.map((d) => (
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              {RENTAL_TYPE_OPTIONS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, rental_type: item.value, rental_duration_label: '', custom_duration: '1' }))}
+                  className={`rounded-xl px-2 py-2.5 text-xs font-semibold ${formData.rental_type === item.value ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {durationOptions.map((d) => (
                 <button
                   key={d}
                   type="button"
-                  onClick={() => { set('rental_duration_label', d); setIsCustom(false); }}
-                  className={`rounded-xl px-2 py-2.5 text-xs font-semibold ${!isCustom && formData.rental_duration_label === d ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}
+                  onClick={() => set('rental_duration_label', d)}
+                  className={`rounded-xl px-2 py-2.5 text-xs font-semibold ${formData.rental_duration_label === d ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}
                 >
                   {d}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() => setIsCustom(true)}
-                className={`rounded-xl px-2 py-2.5 text-xs font-semibold ${isCustom ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}
-              >
-                Custom
-              </button>
             </div>
-            {isCustom && (
+            {formData.rental_duration_label === 'Custom' && (
               <input
                 type="number"
                 min={1}
-                max={168}
-                value={customHours}
-                onChange={(e) => setCustomHours(e.target.value)}
+                max={formData.rental_type === 'PER_MALAM' ? 30 : 168}
+                value={formData.custom_duration || '1'}
+                onChange={(e) => set('custom_duration', e.target.value)}
                 className="mt-2 w-full rounded-xl border-2 px-4 py-2.5 text-gray-900"
-                placeholder="Jumlah jam"
+                placeholder={formData.rental_type === 'PER_MALAM' ? 'Jumlah malam' : 'Jumlah jam'}
               />
             )}
           </div>
@@ -238,6 +288,30 @@ const EditTransaksiModal = ({ transaksi, onClose, onSave }) => {
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-amber-700">Transfer (Rp)</label>
               <input type="text" value={formData.deposit_transfer || ''} onChange={(e) => set('deposit_transfer', formatRupiah(e.target.value))} className="w-full rounded-xl border-2 border-amber-200 bg-white px-4 py-2.5 text-gray-900" placeholder="0" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 p-4 space-y-3">
+            <h3 className="text-sm font-bold text-gray-800">📎 Berkas (URL)</h3>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">KTP URL</label>
+              <input
+                type="text"
+                value={formData.ktp_image_url || ''}
+                onChange={(e) => set('ktp_image_url', e.target.value)}
+                className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900"
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">Bukti Transfer URL</label>
+              <input
+                type="text"
+                value={formData.transfer_proof_url || ''}
+                onChange={(e) => set('transfer_proof_url', e.target.value)}
+                className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900"
+                placeholder="https://..."
+              />
             </div>
           </div>
 

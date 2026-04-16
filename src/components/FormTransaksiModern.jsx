@@ -55,9 +55,27 @@ export const formatCurrency = (value) => {
 
 export const parseCurrency = (value) => Number(String(value || '').replace(/\D/g, '')) || 0;
 
+const toDateTimeLocalValue = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const parseCheckInDate = (value) => {
+  const parsed = value ? new Date(value) : new Date();
+  if (Number.isNaN(parsed.getTime())) return new Date();
+  return parsed;
+};
+
 const computeNoonCheckout = (checkInDate, nights = 1) => {
+  const safeNights = Math.max(Number(nights) || 1, 1);
+  const isBeforeNoon = checkInDate.getHours() < 12;
+  const addDays = isBeforeNoon ? Math.max(safeNights - 1, 0) : safeNights;
   const checkoutDate = new Date(checkInDate);
-  checkoutDate.setDate(checkoutDate.getDate() + Math.max(Number(nights) || 1, 1));
+  checkoutDate.setDate(checkoutDate.getDate() + addDays);
   checkoutDate.setHours(12, 0, 0, 0);
   return checkoutDate;
 };
@@ -130,6 +148,7 @@ const FormTransaksiModern = ({
     transfer: '',
     transferKe: '',
     feeMarketing: '',
+    checkinAt: toDateTimeLocalValue(new Date()),
     depositCash: '',
     depositTransfer: '',
     ktpFile: null,
@@ -150,7 +169,7 @@ const FormTransaksiModern = ({
         supabase.from('nomor_kamar').select('name, lokasi').order('name'),
         supabase.from('marketing_list').select('name').order('name'),
         supabase.from('karyawan_list').select('name').order('name'),
-        supabase.from('transactions').select('apartment_location, room_number, created_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
+        supabase.from('transactions').select('apartment_location, room_number, created_at, checkin_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
       ]);
       setRefs({
         lokasi: lokasi || [],
@@ -163,7 +182,7 @@ const FormTransaksiModern = ({
       txList.forEach((tx) => {
         const key = `${tx.apartment_location}__${tx.room_number}`;
         if (activeMap[key]) return;
-        const startedAt = new Date(tx.created_at);
+        const startedAt = new Date(tx.checkin_at || tx.created_at);
         const endAt = tx.checkout_at
           ? new Date(tx.checkout_at)
           : new Date(startedAt.getTime() + (Number(tx.rental_duration) || 1) * 60 * 60 * 1000);
@@ -315,7 +334,7 @@ const FormTransaksiModern = ({
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);
 
-    if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.jenisSewa || !formData.lamaSewa) {
+    if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.checkinAt || !formData.jenisSewa || !formData.lamaSewa) {
       toast({ title: 'Data wajib belum lengkap', description: 'Isi customer, lokasi, kamar, dan durasi sewa.', variant: 'destructive' });
       return;
     }
@@ -353,6 +372,7 @@ const FormTransaksiModern = ({
       transfer: '',
       transferKe: '',
       feeMarketing: '',
+      checkinAt: toDateTimeLocalValue(new Date()),
       depositCash: '',
       depositTransfer: '',
       ktpFile: null,
@@ -368,7 +388,7 @@ const FormTransaksiModern = ({
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);
     const feeAmount = parseCurrency(formData.feeMarketing);
-    const checkInDate = new Date();
+    const checkInDate = parseCheckInDate(formData.checkinAt);
     const rentalConfig = getRentalConfig(formData.jenisSewa, formData.lamaSewa, formData.customSewaJam, checkInDate);
 
     try {
@@ -381,6 +401,7 @@ const FormTransaksiModern = ({
         customer_name: formData.namaCustomer.trim(),
         marketing_name: formData.namaMarketing || formData.input_by || user?.email || 'sistem',
         rental_duration: rentalConfig.rentalHours,
+        checkin_at: checkInDate.toISOString(),
         checkout_at: rentalConfig.checkoutDate.toISOString(),
         shift: formData.shift || null,
         input_by: formData.input_by || user?.email || 'sistem',
@@ -455,8 +476,9 @@ const FormTransaksiModern = ({
   };
 
   const selectedDurationOptions = formData.jenisSewa === 'PER_MALAM' ? OVERNIGHT_DURATION_OPTIONS : TRANSIT_DURATION_OPTIONS;
+  const previewCheckInDate = parseCheckInDate(formData.checkinAt);
   const previewRentalConfig = formData.jenisSewa && formData.lamaSewa
-    ? getRentalConfig(formData.jenisSewa, formData.lamaSewa, formData.customSewaJam, new Date())
+    ? getRentalConfig(formData.jenisSewa, formData.lamaSewa, formData.customSewaJam, previewCheckInDate)
     : null;
 
   const content = (
@@ -565,6 +587,15 @@ const FormTransaksiModern = ({
 
             <SectionCard icon={Clock3} title="Sewa & Marketing" subtitle="Durasi sewa, shift, dan marketing">
               <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Waktu Check-in *</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.checkinAt}
+                    onChange={(e) => handleChange('checkinAt', e.target.value)}
+                    className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700"
+                  />
+                </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Durasi Sewa *</label>
                   <div className="mb-3 grid grid-cols-2 gap-2">
@@ -724,6 +755,7 @@ const FormTransaksiModern = ({
                 {formData.jenisSewa === 'TRANSIT' && formData.lamaSewa === 'Custom' && ` (${formData.customSewaJam} jam)`} / {formData.shift || '-'}
               </li>
               <li><span className="font-medium text-slate-900">Jenis sewa:</span> {formData.jenisSewa === 'PER_MALAM' ? 'Per malam' : formData.jenisSewa === 'TRANSIT' ? 'Transit' : '-'}</li>
+              <li><span className="font-medium text-slate-900">Check-in:</span> {previewCheckInDate.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</li>
               <li><span className="font-medium text-slate-900">Estimasi checkout:</span> {previewRentalConfig ? previewRentalConfig.checkoutDate.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</li>
               <li><span className="font-medium text-slate-900">Tunai:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.tunai))}</li>
               <li><span className="font-medium text-slate-900">Transfer:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.transfer))}{' '}{formData.transferKe ? `(ke ${formData.transferKe})` : ''}</li>
