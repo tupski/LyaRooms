@@ -72,7 +72,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
       transferAmount: t.transfer_amount || 0,
       transferTo: t.transfer_to || null,
     });
-    const komisi = Number(t.marketing_fee || 0) > 0 ? formatRupiahNumber(Number(t.marketing_fee || 0)) : 'Tanpa komisi';
+    const komisi = formatRupiahNumber(Number(t.marketing_fee || 0));
     const depositCash = Number(t.deposit_cash || 0);
     const depositTransfer = Number(t.deposit_transfer || 0);
     const depositLine = depositCash > 0 || depositTransfer > 0

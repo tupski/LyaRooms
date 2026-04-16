@@ -237,7 +237,7 @@ const DashboardPemasukan = () => {
       transferAmount: transaksi.transfer_amount || 0,
       transferTo: transaksi.transfer_to || null,
     });
-    const komisi = Number(transaksi.marketing_fee || 0) > 0 ? formatRupiahNumber(Number(transaksi.marketing_fee || 0)) : 'Tanpa komisi';
+    const komisi = formatRupiahNumber(Number(transaksi.marketing_fee || 0));
     const depositCash = Number(transaksi.deposit_cash || 0);
     const depositTransfer = Number(transaksi.deposit_transfer || 0);
     const depositLine = depositCash > 0 || depositTransfer > 0
