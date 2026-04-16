@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
 import EditTransaksiModal from '@/components/EditTransaksiModal';
+import ManajemenDeposit from '@/components/ManajemenDeposit';
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import * as XLSX from 'xlsx';
 import PinInput from '@/components/PinInput';
@@ -17,6 +18,7 @@ const ITEMS_PER_PAGE = 6;
 
 const DashboardPemasukan = () => {
   const { user, userRole } = useAuth();
+  const [activeMainTab, setActiveMainTab] = useState('umum'); // 'umum', 'deposit'
   const [filterType, setFilterType] = useState('harian');
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -281,12 +283,28 @@ const DashboardPemasukan = () => {
           <div className="text-center">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-3 text-white shadow-lg">
               <TrendingUp className="h-5 w-5" />
-              <h1 className="text-xl font-bold">Laporan Pemasukan</h1>
+              <h1 className="text-xl font-bold">Laporan & Deposit</h1>
             </div>
-            <p className="text-sm font-medium text-gray-700">{getCurrentDate()}</p>
           </div>
 
-          <div className="glassmorphic-card space-y-4 p-5">
+          <div className="flex gap-2 rounded-2xl bg-slate-200/50 p-1">
+            <button
+              onClick={() => setActiveMainTab('umum')}
+              className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all ${activeMainTab === 'umum' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Riwayat Transaksi
+            </button>
+            <button
+              onClick={() => setActiveMainTab('deposit')}
+              className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all ${activeMainTab === 'deposit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Manajemen Deposit
+            </button>
+          </div>
+
+          {activeMainTab === 'umum' && (
+            <>
+              <div className="glassmorphic-card space-y-4 p-5">
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-2 font-bold text-gray-800"><Calendar className="h-5 w-5 text-blue-500" /> Filter Data</h2>
               <Button onClick={handleExport} size="sm" variant="outline" className="border-green-300 bg-green-100 text-green-800 hover:bg-green-200">
@@ -411,16 +429,26 @@ const DashboardPemasukan = () => {
               )}
             </div>
 
-            <div className="mt-4 flex items-center justify-between">
-              <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}>
-                <ChevronLeft className="mr-1 h-4 w-4" /> Sebelumnya
-              </Button>
-              <p className="text-xs text-gray-600">Halaman {currentPage} dari {totalPages}</p>
-              <Button size="sm" variant="outline" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}>
-                Berikutnya <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
+            {totalPages > 1 && activeMainTab === 'umum' && (
+              <div className="mt-4 flex items-center justify-between">
+                <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}>
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Sebelumnya
+                </Button>
+                <p className="text-xs text-gray-600">Halaman {currentPage} dari {totalPages}</p>
+                <Button size="sm" variant="outline" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}>
+                  Berikutnya <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            
           </div>
+          </>
+          )}
+
+          {activeMainTab === 'deposit' && (
+            <ManajemenDeposit />
+          )}
+
         </motion.div>
       </div>
     </>

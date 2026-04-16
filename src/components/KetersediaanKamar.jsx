@@ -324,7 +324,10 @@ const KetersediaanKamar = () => {
                 <div className="grid grid-cols-2 gap-2">
                   {visibleRooms.map((room) => {
                     const isOccupied = room.status === 'terisi';
-                    const hasDeposit = (room.tx?.deposit_cash || 0) + (room.tx?.deposit_transfer || 0) > 0;
+                    const s_depCash = room.tx?.deposit_cash || 0;
+                    const s_depTrans = room.tx?.deposit_transfer || 0;
+                    const hasDeposit = s_depCash > 0 || s_depTrans > 0;
+                    const depLabel = s_depCash > 0 && s_depTrans > 0 ? 'Mix' : (s_depCash > 0 ? 'Tunai' : 'Trans');
 
                     return (
                       <button
@@ -339,8 +342,8 @@ const KetersediaanKamar = () => {
                       >
                         {/* Deposit badge */}
                         {hasDeposit && (
-                          <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                            DEP
+                          <span className="absolute right-1.5 top-1.5 rounded-md bg-yellow-400 px-1.5 py-0.5 text-[9px] font-extrabold text-red-700 shadow-sm border border-yellow-500">
+                            DEP: {depLabel}
                           </span>
                         )}
 
