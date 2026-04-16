@@ -136,13 +136,17 @@ const RoomDetailModal = ({ room, onClose, onCheckOut, canCheckout }) => {
 
             {/* Deposit info */}
             {((room.tx?.deposit_cash || 0) > 0 || (room.tx?.deposit_transfer || 0) > 0) && (
-              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">💰 Deposit</p>
+              <div className={`rounded-2xl border p-4 space-y-1.5 ${room.tx?.deposit_returned_at ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex justify-between items-center">
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${room.tx?.deposit_returned_at ? 'text-green-700' : 'text-amber-600'}`}>
+                    💰 Deposit {room.tx?.deposit_returned_at && '(Sudah Dikembalikan)'}
+                  </p>
+                </div>
                 {(room.tx?.deposit_cash || 0) > 0 && (
-                  <p className="text-sm text-amber-800">Tunai: <span className="font-semibold">{formatRupiah(room.tx.deposit_cash)}</span></p>
+                  <p className={`text-sm ${room.tx?.deposit_returned_at ? 'text-green-800' : 'text-amber-800'}`}>Tunai: <span className="font-semibold">{formatRupiah(room.tx.deposit_cash)}</span></p>
                 )}
                 {(room.tx?.deposit_transfer || 0) > 0 && (
-                  <p className="text-sm text-amber-800">Transfer: <span className="font-semibold">{formatRupiah(room.tx.deposit_transfer)}</span></p>
+                  <p className={`text-sm ${room.tx?.deposit_returned_at ? 'text-green-800' : 'text-amber-800'}`}>Transfer: <span className="font-semibold">{formatRupiah(room.tx.deposit_transfer)}</span></p>
                 )}
               </div>
             )}
@@ -180,6 +184,7 @@ const KetersediaanKamar = () => {
   const [expandedLocations, setExpandedLocations] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('ALL'); // 'ALL', 'OCCUPIED', 'AVAILABLE'
 
   const canCheckoutAll = isAdmin || isSuperAdmin;
 
@@ -188,7 +193,7 @@ const KetersediaanKamar = () => {
     const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }] = await Promise.all([
       supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
       supabase.from('transactions')
-        .select('id, created_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer')
+        .select('id, created_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at')
         .is('checkout_at', null)
         .order('created_at', { ascending: false }),
     ]);
@@ -284,18 +289,33 @@ const KetersediaanKamar = () => {
         {/* Stats bar */}
         {!loading && (
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-white p-3 text-center shadow-sm border">
-              <p className="text-xl font-bold text-slate-800">{stats.total}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Total</p>
-            </div>
-            <div className="rounded-2xl bg-red-50 p-3 text-center shadow-sm border border-red-100">
-              <p className="text-xl font-bold text-red-600">{stats.occupied}</p>
-              <p className="text-[10px] text-red-500 mt-0.5">Terisi</p>
-            </div>
-            <div className="rounded-2xl bg-green-50 p-3 text-center shadow-sm border border-green-100">
-              <p className="text-xl font-bold text-green-600">{stats.available}</p>
-              <p className="text-[10px] text-green-500 mt-0.5">Tersedia</p>
-            </div>
+            <button
+              onClick={() => setFilterStatus('ALL')}
+              className={`rounded-2xl p-3 text-center transition shadow-sm border ${
+                filterStatus === 'ALL' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <p className="text-xl font-bold">{stats.total}</p>
+              <p className={`text-[10px] mt-0.5 ${filterStatus === 'ALL' ? 'text-slate-300' : 'text-slate-500'}`}>Total</p>
+            </button>
+            <button
+              onClick={() => setFilterStatus('OCCUPIED')}
+              className={`rounded-2xl p-3 text-center transition shadow-sm border ${
+                filterStatus === 'OCCUPIED' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+              }`}
+            >
+              <p className="text-xl font-bold">{stats.occupied}</p>
+              <p className={`text-[10px] mt-0.5 ${filterStatus === 'OCCUPIED' ? 'text-red-200' : 'text-red-500'}`}>Terisi</p>
+            </button>
+            <button
+              onClick={() => setFilterStatus('AVAILABLE')}
+              className={`rounded-2xl p-3 text-center transition shadow-sm border ${
+                filterStatus === 'AVAILABLE' ? 'bg-green-600 text-white border-green-600' : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'
+              }`}
+            >
+              <p className="text-xl font-bold">{stats.available}</p>
+              <p className={`text-[10px] mt-0.5 ${filterStatus === 'AVAILABLE' ? 'text-green-200' : 'text-green-500'}`}>Tersedia</p>
+            </button>
           </div>
         )}
 
@@ -306,9 +326,16 @@ const KetersediaanKamar = () => {
         ) : (
           Object.keys(groupedRooms).sort().map((location) => {
             const allRooms = groupedRooms[location];
+            const allFilteredRooms = allRooms.filter(room => {
+              if (filterStatus === 'OCCUPIED') return room.status === 'terisi';
+              if (filterStatus === 'AVAILABLE') return room.status === 'tersedia';
+              return true;
+            });
+            if (allFilteredRooms.length === 0) return null;
+
             const expanded = !!expandedLocations[location];
-            const visibleRooms = expanded ? allRooms : allRooms.slice(0, INITIAL_VISIBLE_ROOMS);
-            const hasMore = allRooms.length > INITIAL_VISIBLE_ROOMS;
+            const visibleRooms = expanded ? allFilteredRooms : allFilteredRooms.slice(0, INITIAL_VISIBLE_ROOMS);
+            const hasMore = allFilteredRooms.length > INITIAL_VISIBLE_ROOMS;
             const occupiedCount = allRooms.filter((r) => r.status === 'terisi').length;
 
             return (
@@ -318,7 +345,7 @@ const KetersediaanKamar = () => {
                     <MapPin className="h-4 w-4 text-cyan-600" />
                     {location}
                   </h2>
-                  <span className="text-xs text-slate-400">{occupiedCount}/{allRooms.length} terisi</span>
+                  <span className="text-xs text-slate-400">{occupiedCount}/{allRooms.length} terisi total</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -342,7 +369,11 @@ const KetersediaanKamar = () => {
                       >
                         {/* Deposit badge */}
                         {hasDeposit && (
-                          <span className="absolute right-1.5 top-1.5 rounded-md bg-yellow-400 px-1.5 py-0.5 text-[9px] font-extrabold text-red-700 shadow-sm border border-yellow-500">
+                          <span className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold shadow-sm border ${
+                            room.tx?.deposit_returned_at 
+                              ? 'bg-green-500 text-white border-green-600'
+                              : 'bg-yellow-400 text-red-700 border-yellow-500'
+                          }`}>
                             DEP: {depLabel}
                           </span>
                         )}
