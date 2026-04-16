@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Camera, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
+import { Bell, Camera, Megaphone, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
 import FormTransaksi from '@/components/FormTransaksiModern';
 import KaryawanTransaksi from '@/components/KaryawanTransaksi';
 import DashboardPemasukan from '@/components/DashboardPemasukan';
@@ -17,6 +17,8 @@ import { toast } from '@/components/ui/use-toast';
 import PinInput from '@/components/PinInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import NotificationsInbox from '@/components/NotificationsInbox';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
+import ComposeAnnouncement from '@/components/ComposeAnnouncement';
 import { supabase } from '@/lib/customSupabaseClient';
 import AccountSettings from '@/components/AccountSettings';
 import {
@@ -53,6 +55,7 @@ function App() {
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const [showMoreMenus, setShowMoreMenus] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
   const correctPin = '232325';
 
   useEffect(() => {
@@ -249,6 +252,17 @@ function App() {
             <span className="text-sm font-bold tracking-wide text-white sm:text-base">Kakarama Room</span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Megaphone: hanya admin/superadmin */}
+            {(userRole === 'admin' || userRole === 'super_admin') && (
+              <button
+                type="button"
+                onClick={() => setShowCompose(true)}
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-400/20 ring-offset-2 transition hover:bg-amber-400/30 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                aria-label="Buat Pengumuman"
+              >
+                <Megaphone className="h-4 w-4 text-amber-300" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowInbox(true)}
@@ -305,8 +319,14 @@ function App() {
         </div>
       </header>
 
+      {/* Announcement banner — below sticky header, visible to all */}
+      <div className="sticky top-[57px] z-40">
+        <AnnouncementBanner />
+      </div>
+
       <NotificationsInbox open={showInbox} onOpenChange={setShowInbox} />
       <AccountSettings open={showAccountSettings} onOpenChange={setShowAccountSettings} />
+      <ComposeAnnouncement open={showCompose} onOpenChange={setShowCompose} />
 
       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
         <AlertDialogContent>

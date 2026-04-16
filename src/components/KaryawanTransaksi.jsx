@@ -130,20 +130,38 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
   }, [previewTransaksi]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
-      {/* Form transaksi — menggunakan FormTransaksiModern dengan config karyawan */}
-      <FormTransaksiModern
-        roleMode="karyawan"
-        requireMarketing={true}
-        allowReferenceManagement={false}
-        defaultInputBy={user?.user_metadata?.full_name || user?.email || ''}
-        onSuccess={loadTransactions}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 px-3 py-6 pb-28 sm:px-6">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-6 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white">Input & Riwayat Transaksi</h1>
+              <p className="text-sm text-blue-100">Catat transaksi dan pantau riwayat input Anda.</p>
+            </div>
+            <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
+              <div className="font-medium">{user?.user_metadata?.full_name || user?.email}</div>
+              <div className="text-xs uppercase tracking-wide text-blue-100">Karyawan</div>
+            </div>
+          </div>
+        </header>
 
-      {/* Panel riwayat transaksi */}
-      <div className="mx-auto max-w-md px-2 pb-4">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Riwayat Transaksi</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+          {/* Kolom Form */}
+          <div className="lg:col-span-7">
+            <FormTransaksiModern
+              roleMode="karyawan"
+              requireMarketing={true}
+              allowReferenceManagement={false}
+              defaultInputBy={user?.user_metadata?.full_name || user?.email || ''}
+              onSuccess={loadTransactions}
+              embedded={true}
+            />
+          </div>
+
+          {/* Kolom Riwayat */}
+          <div className="lg:col-span-5">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Riwayat Transaksi</h2>
           {loading ? (
             <p className="text-sm text-slate-500">Memuat transaksi...</p>
           ) : transactions.length === 0 ? (
@@ -200,6 +218,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
               })}
             </div>
           )}
+            </div>
+          </div>
         </div>
       </div>
 

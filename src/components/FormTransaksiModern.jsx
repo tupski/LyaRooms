@@ -68,14 +68,16 @@ export const getRentalHours = (duration, customHours) => {
  *  requireMarketing        – paksa marketing harus diisi (default: false)
  *  allowReferenceManagement – izinkan create/delete lokasi, kamar, marketing (default: isAdmin||isSuperAdmin)
  *  defaultInputBy          – nilai awal field input_by
+ *  embedded                – jika true, tidak menampilkan wrapper halaman
  */
 const FormTransaksiModern = ({
   onDataUpdate,
   onSuccess,
-  roleMode,
+  roleMode = 'admin',
   requireMarketing = false,
-  allowReferenceManagement,
-  defaultInputBy,
+  allowReferenceManagement = true,
+  defaultInputBy = '',
+  embedded = false,
 }) => {
   const { user, userRole, isAdmin, isSuperAdmin } = useAuth();
 
@@ -231,7 +233,6 @@ const FormTransaksiModern = ({
     }
   };
 
-  // Karyawan bisa buat marketing baru tapi tidak bisa delete
   const handleCreateMarketingKaryawan = async (value) => {
     const trimmed = String(value || '').trim();
     if (!trimmed) return;
@@ -373,7 +374,6 @@ const FormTransaksiModern = ({
 
       setShowConfirmModal(false);
       toast({ title: 'Transaksi berhasil disimpan' });
-      window.alert('Transaksi berhasil disimpan.');
       resetForm();
       onDataUpdate?.();
       onSuccess?.();
@@ -428,30 +428,31 @@ const FormTransaksiModern = ({
     );
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 px-2 py-4 pb-28">
-      <div className="mx-auto max-w-md space-y-6">
-        <header className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Form Input Transaksi</h1>
-              <p className="text-sm text-blue-100">Catat transaksi apartemen dengan alur cepat dan rapi.</p>
+  const content = (
+    <div className={`mx-auto max-w-2xl space-y-5 ${embedded ? 'w-full' : ''}`}>
+        {!embedded && (
+          <header className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white">Form Input Transaksi</h1>
+                <p className="text-sm text-blue-100">Catat transaksi apartemen dengan alur cepat dan rapi.</p>
+              </div>
+              <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
+                <div className="font-medium">{user?.user_metadata?.full_name || user?.email}</div>
+                <div className="text-xs uppercase tracking-wide text-blue-100">{userRole || 'karyawan'}</div>
+              </div>
             </div>
-            <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
-              <div className="font-medium">{user?.user_metadata?.full_name || user?.email}</div>
-              <div className="text-xs uppercase tracking-wide text-blue-100">{userRole || 'karyawan'}</div>
-            </div>
-          </div>
-        </header>
+          </header>
+        )}
 
         <form
           onSubmit={(e) => {
             e.preventDefault();
             validateAndOpenConfirm();
           }}
-          className="space-y-6"
+          className="space-y-5"
         >
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <SectionCard icon={UserCircle2} title="Data Penyewa" subtitle="Identitas customer dan unit apartemen">
               <div className="space-y-4">
                 <div>
@@ -590,7 +591,7 @@ const FormTransaksiModern = ({
           </div>
 
           <SectionCard icon={Wallet} title="Detail Pembayaran" subtitle="Tunai, transfer, bank tujuan, dan fee marketing">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div><label className="mb-2 block text-sm font-medium text-slate-700">Tunai (Rp)</label><input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
               <div><label className="mb-2 block text-sm font-medium text-slate-700">Transfer (Rp)</label><input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
               <div>
@@ -603,7 +604,6 @@ const FormTransaksiModern = ({
               </div>
               <div><label className="mb-2 block text-sm font-medium text-slate-700">Fee Marketing (Rp)</label><input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
             </div>
-            {/* Deposit */}
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
               <p className="mb-2 text-xs font-semibold text-amber-700">💰 Deposit (tidak masuk omset)</p>
               <div className="grid grid-cols-2 gap-3">
@@ -694,6 +694,15 @@ const FormTransaksiModern = ({
 
         <ImageViewerModal open={viewerOpen} onOpenChange={setViewerOpen} items={viewerItems} />
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 px-3 py-4 pb-28 sm:px-6">
+      {content}
     </div>
   );
 };
