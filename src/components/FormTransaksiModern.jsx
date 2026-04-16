@@ -11,7 +11,12 @@ import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
 import { compressImageFile } from '@/lib/compressImage';
 import ImageViewerModal from '@/components/ImageViewerModal';
 
-const DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM', 'PROMO MALAM', 'Fullday', 'Custom'];
+const RENTAL_TYPE_OPTIONS = [
+  { value: 'TRANSIT', label: 'Transit' },
+  { value: 'PER_MALAM', label: 'Per malam' },
+];
+const TRANSIT_DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM', 'Custom'];
+const OVERNIGHT_DURATION_OPTIONS = ['Promo Malam', 'Fullday', 'Custom'];
 const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
 const TRANSFER_TARGET_OPTIONS = ['Kakarama', 'Marketing'];
 
@@ -50,12 +55,28 @@ export const formatCurrency = (value) => {
 
 export const parseCurrency = (value) => Number(String(value || '').replace(/\D/g, '')) || 0;
 
-export const getRentalHours = (duration, customHours) => {
-  if (duration === 'Custom') return Number(customHours) || 1;
-  if (duration === 'PROMO MALAM') return 12;
-  if (duration === 'Fullday') return 24;
-  const matched = duration.match(/\d+/);
-  return matched ? Number(matched[0]) : 1;
+const computeNoonCheckout = (checkInDate, nights = 1) => {
+  const checkoutDate = new Date(checkInDate);
+  checkoutDate.setDate(checkoutDate.getDate() + Math.max(Number(nights) || 1, 1));
+  checkoutDate.setHours(12, 0, 0, 0);
+  return checkoutDate;
+};
+
+const computeTransitCheckout = (checkInDate, duration, customHours) => {
+  const hours = duration === 'Custom' ? Math.max(Number(customHours) || 1, 1) : Number(duration.match(/\d+/)?.[0] || 1);
+  const checkoutDate = new Date(checkInDate.getTime() + hours * 60 * 60 * 1000);
+  return { rentalHours: hours, checkoutDate };
+};
+
+export const getRentalConfig = (rentalType, duration, customHours, checkInDate = new Date()) => {
+  if (rentalType === 'PER_MALAM') {
+    const nights = duration === 'Custom' ? Math.max(Number(customHours) || 1, 1) : 1;
+    const checkoutDate = computeNoonCheckout(checkInDate, nights);
+    const durationMs = checkoutDate.getTime() - checkInDate.getTime();
+    const rentalHours = Math.max(Math.ceil(durationMs / (60 * 60 * 1000)), 1);
+    return { rentalHours, checkoutDate };
+  }
+  return computeTransitCheckout(checkInDate, duration, customHours);
 };
 
 /**
@@ -101,6 +122,7 @@ const FormTransaksiModern = ({
     lokasiApartemen: '',
     nomorKamar: '',
     namaMarketing: '',
+    jenisSewa: '',
     lamaSewa: '',
     customSewaJam: '1',
     shift: '',
@@ -139,12 +161,12 @@ const FormTransaksiModern = ({
       const activeMap = {};
       const txList = roomTransactions || [];
       txList.forEach((tx) => {
-        if (tx.checkout_at) return;
         const key = `${tx.apartment_location}__${tx.room_number}`;
         if (activeMap[key]) return;
         const startedAt = new Date(tx.created_at);
-        const rentalHours = Number(tx.rental_duration) || 1;
-        const endAt = new Date(startedAt.getTime() + rentalHours * 60 * 60 * 1000);
+        const endAt = tx.checkout_at
+          ? new Date(tx.checkout_at)
+          : new Date(startedAt.getTime() + (Number(tx.rental_duration) || 1) * 60 * 60 * 1000);
         if (new Date() < endAt) {
           activeMap[key] = true;
         }
@@ -293,7 +315,7 @@ const FormTransaksiModern = ({
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);
 
-    if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.lamaSewa) {
+    if (!formData.namaCustomer || !formData.lokasiApartemen || !formData.nomorKamar || !formData.jenisSewa || !formData.lamaSewa) {
       toast({ title: 'Data wajib belum lengkap', description: 'Isi customer, lokasi, kamar, dan durasi sewa.', variant: 'destructive' });
       return;
     }
@@ -302,7 +324,7 @@ const FormTransaksiModern = ({
       return;
     }
     if (formData.lamaSewa === 'Custom' && !formData.customSewaJam) {
-      toast({ title: 'Jam custom belum diisi', variant: 'destructive' });
+      toast({ title: 'Durasi custom belum diisi', variant: 'destructive' });
       return;
     }
     if (cashAmount <= 0 && transferAmount <= 0) {
@@ -323,6 +345,7 @@ const FormTransaksiModern = ({
       lokasiApartemen: '',
       nomorKamar: '',
       namaMarketing: '',
+      jenisSewa: '',
       lamaSewa: '',
       customSewaJam: '1',
       shift: '',
@@ -345,6 +368,8 @@ const FormTransaksiModern = ({
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);
     const feeAmount = parseCurrency(formData.feeMarketing);
+    const checkInDate = new Date();
+    const rentalConfig = getRentalConfig(formData.jenisSewa, formData.lamaSewa, formData.customSewaJam, checkInDate);
 
     try {
       const [ktpUrl, transferProofUrl] = await Promise.all([
@@ -355,7 +380,8 @@ const FormTransaksiModern = ({
         user_id: user.id,
         customer_name: formData.namaCustomer.trim(),
         marketing_name: formData.namaMarketing || formData.input_by || user?.email || 'sistem',
-        rental_duration: getRentalHours(formData.lamaSewa, formData.customSewaJam),
+        rental_duration: rentalConfig.rentalHours,
+        checkout_at: rentalConfig.checkoutDate.toISOString(),
         shift: formData.shift || null,
         input_by: formData.input_by || user?.email || 'sistem',
         apartment_location: formData.lokasiApartemen,
@@ -427,6 +453,11 @@ const FormTransaksiModern = ({
       </div>
     );
   };
+
+  const selectedDurationOptions = formData.jenisSewa === 'PER_MALAM' ? OVERNIGHT_DURATION_OPTIONS : TRANSIT_DURATION_OPTIONS;
+  const previewRentalConfig = formData.jenisSewa && formData.lamaSewa
+    ? getRentalConfig(formData.jenisSewa, formData.lamaSewa, formData.customSewaJam, new Date())
+    : null;
 
   const content = (
     <div className={`mx-auto max-w-2xl space-y-5 ${embedded ? 'w-full' : ''}`}>
@@ -536,12 +567,33 @@ const FormTransaksiModern = ({
               <div className="space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Durasi Sewa *</label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {DURATION_OPTIONS.map((item) => (
-                      <button key={item} type="button" onClick={() => handleChange('lamaSewa', item)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${formData.lamaSewa === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{item}</button>
+                  <div className="mb-3 grid grid-cols-2 gap-2">
+                    {RENTAL_TYPE_OPTIONS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, jenisSewa: item.value, lamaSewa: '', customSewaJam: '1' }))}
+                        className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                          formData.jenisSewa === item.value ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
                     ))}
                   </div>
-                  {formData.lamaSewa === 'Custom' && <input type="number" min={1} max={168} value={formData.customSewaJam} onChange={(e) => handleChange('customSewaJam', e.target.value)} className="mt-3 h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="Jumlah jam custom" />}
+                  {!formData.jenisSewa && <p className="mb-2 text-xs text-slate-500">Pilih jenis sewa terlebih dahulu.</p>}
+                  {formData.jenisSewa && (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {selectedDurationOptions.map((item) => (
+                        <button key={item} type="button" onClick={() => handleChange('lamaSewa', item)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${formData.lamaSewa === item ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{item}</button>
+                      ))}
+                    </div>
+                  )}
+                  {formData.jenisSewa === 'TRANSIT' && formData.lamaSewa === 'Custom' && <input type="number" min={1} max={168} value={formData.customSewaJam} onChange={(e) => handleChange('customSewaJam', e.target.value)} className="mt-3 h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="Jumlah jam custom" />}
+                  {formData.jenisSewa === 'PER_MALAM' && formData.lamaSewa === 'Custom' && <input type="number" min={1} max={30} value={formData.customSewaJam} onChange={(e) => handleChange('customSewaJam', e.target.value)} className="mt-3 h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="Jumlah malam custom" />}
+                  {formData.jenisSewa === 'PER_MALAM' && formData.lamaSewa && (
+                    <p className="mt-2 text-xs text-slate-600">Checkout maksimal pukul 12:00 WIB sesuai jumlah malam.</p>
+                  )}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Shift</label>
@@ -669,8 +721,10 @@ const FormTransaksiModern = ({
               <li><span className="font-medium text-slate-900">Marketing:</span> {formData.namaMarketing || formData.input_by || user?.email || '-'}</li>
               <li>
                 <span className="font-medium text-slate-900">Durasi / Shift:</span> {formData.lamaSewa || '-'}
-                {formData.lamaSewa === 'Custom' && ` (${formData.customSewaJam} jam)`} / {formData.shift || '-'}
+                {formData.jenisSewa === 'TRANSIT' && formData.lamaSewa === 'Custom' && ` (${formData.customSewaJam} jam)`} / {formData.shift || '-'}
               </li>
+              <li><span className="font-medium text-slate-900">Jenis sewa:</span> {formData.jenisSewa === 'PER_MALAM' ? 'Per malam' : formData.jenisSewa === 'TRANSIT' ? 'Transit' : '-'}</li>
+              <li><span className="font-medium text-slate-900">Estimasi checkout:</span> {previewRentalConfig ? previewRentalConfig.checkoutDate.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</li>
               <li><span className="font-medium text-slate-900">Tunai:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.tunai))}</li>
               <li><span className="font-medium text-slate-900">Transfer:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.transfer))}{' '}{formData.transferKe ? `(ke ${formData.transferKe})` : ''}</li>
               <li><span className="font-medium text-slate-900">Fee marketing:</span>{' '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(parseCurrency(formData.feeMarketing))}</li>

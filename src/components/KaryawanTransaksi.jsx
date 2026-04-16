@@ -40,8 +40,25 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     localStorage.setItem('kr_report_sent_map', JSON.stringify(map));
   };
 
-  const formatDateTime = (iso) =>
-    new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatReportDateTime = (iso) => {
+    const parts = new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(iso));
+    const getPart = (type) => parts.find((part) => part.type === type)?.value || '';
+    return `${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}:${getPart('minute')} WIB`;
+  };
+
+  const inferCheckoutTime = (transaksi) => {
+    if (transaksi.checkout_at) return transaksi.checkout_at;
+    const checkInDate = new Date(transaksi.created_at);
+    const checkoutDate = new Date(checkInDate.getTime() + (Number(transaksi.rental_duration) || 1) * 60 * 60 * 1000);
+    return checkoutDate.toISOString();
+  };
 
   const formatRentalDuration = (hours) => {
     if (!hours) return '1 JAM';
@@ -55,7 +72,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
       transferAmount: t.transfer_amount || 0,
       transferTo: t.transfer_to || null,
     });
-    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nInput oleh: ${t.input_by || '-'}\nWaktu: ${formatDateTime(t.created_at)}`;
+    const komisi = Number(t.marketing_fee || 0) > 0 ? formatRupiahNumber(Number(t.marketing_fee || 0)) : 'Tanpa komisi';
+    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nKomisi: ${komisi}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nCheck-in: ${formatReportDateTime(t.created_at)}\nCheckout: ${formatReportDateTime(inferCheckoutTime(t))}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}\nInput oleh: ${t.input_by || '-'}`;
   };
 
   const sendForwardReport = (t, force = false) => {
@@ -104,7 +122,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     setLoading(true);
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, customer_name, apartment_location, room_number, marketing_name, rental_duration, shift, created_at, input_by, cash_amount, transfer_amount, transfer_to, marketing_fee, ktp_image_url, transfer_proof_url')
+      .select('id, customer_name, apartment_location, room_number, marketing_name, rental_duration, shift, created_at, checkout_at, input_by, cash_amount, transfer_amount, transfer_to, marketing_fee, ktp_image_url, transfer_proof_url')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -181,7 +199,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
                     <div className="mb-3 space-y-1 border-y py-2 text-xs text-gray-700">
                       <p>Lokasi: {t.apartment_location} - Kamar {t.room_number}</p>
                       <p>Sewa: {formatRentalDuration(t.rental_duration)} ({t.shift || '-'})</p>
-                      <p>Waktu: {formatDateTime(t.created_at)}</p>
+                      <p>Check-in: {formatReportDateTime(t.created_at)}</p>
+                      <p>Checkout: {formatReportDateTime(inferCheckoutTime(t))}</p>
                       <p>Marketing: {t.marketing_name || '-'}</p>
                       <p>Diinput oleh: {t.input_by || '-'}</p>
                     </div>
