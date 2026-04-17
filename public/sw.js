@@ -5,8 +5,8 @@ const APP_SHELL = [
   '/manifest.webmanifest',
   '/favicon.svg',
   '/logo-kr-transparent-square.png',
-  '/kr-icon-192.svg',
-  '/kr-icon-512.svg',
+  '/pwa-icon-192.svg',
+  '/pwa-icon-512.svg',
   '/pwa-splash.svg',
 ];
 
@@ -47,8 +47,8 @@ self.addEventListener('push', (event) => {
     const title = payload.title || 'Kakarama Room';
     const body = payload.body || '';
     const url = payload.url || '/';
-    const icon = payload.icon || '/kr-icon-192.svg';
-    const badge = payload.badge || '/kr-icon-192.svg';
+    const icon = payload.icon || '/pwa-icon-192.svg';
+    const badge = payload.badge || '/pwa-icon-192.svg';
 
     event.waitUntil(
       self.registration.showNotification(title, {

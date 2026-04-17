@@ -58,6 +58,30 @@ function App() {
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
+  const [lastNotifiedCount, setLastNotifiedCount] = useState(0);
+
+  // Request notification permission and show browser notifications
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (unreadCount > lastNotifiedCount) {
+      if (Notification.permission === 'granted') {
+        new Notification('Kakarama Room', {
+          body: `Anda memiliki ${unreadCount} notifikasi baru.`,
+          icon: '/logo-kr-transparent-square.png'
+        });
+      }
+      setLastNotifiedCount(unreadCount);
+    } else if (unreadCount < lastNotifiedCount) {
+      setLastNotifiedCount(unreadCount);
+    }
+  }, [unreadCount, lastNotifiedCount]);
   const correctPin = '232325';
 
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -272,29 +296,6 @@ function App() {
       </div>
     );
   }
-  const [lastNotifiedCount, setLastNotifiedCount] = useState(0);
-
-  // Request notification permission and show browser notifications
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (unreadCount > lastNotifiedCount) {
-      if (Notification.permission === 'granted') {
-        new Notification('Kakarama Room', {
-          body: `Anda memiliki ${unreadCount} notifikasi baru.`,
-          icon: '/logo-kr-transparent-square.png'
-        });
-      }
-      setLastNotifiedCount(unreadCount);
-    } else if (unreadCount < lastNotifiedCount) {
-      setLastNotifiedCount(unreadCount);
-    }
   }, [unreadCount, lastNotifiedCount]);
 
   if (!session) return <Auth />;
