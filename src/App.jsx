@@ -56,29 +56,39 @@ function App() {
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [lastNotifiedCount, setLastNotifiedCount] = useState(0);
+  const canUseNotifications = typeof window !== 'undefined' && 'Notification' in window;
 
   // Request notification permission and show browser notifications
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (!canUseNotifications) return;
+    try {
       if (Notification.permission === 'default') {
-        Notification.requestPermission();
+        // Fire and forget: beberapa browser mobile bisa reject promise ini.
+        Notification.requestPermission().catch(() => {});
       }
+    } catch (error) {
+      console.warn('[Notif] requestPermission gagal:', error);
     }
-  }, []);
+  }, [canUseNotifications]);
 
   useEffect(() => {
+    if (!canUseNotifications) return;
     if (unreadCount > lastNotifiedCount) {
-      if (Notification.permission === 'granted') {
-        new Notification('Kakarama Room', {
-          body: `Anda memiliki ${unreadCount} notifikasi baru.`,
-          icon: '/logo-kr-transparent-square.png'
-        });
+      try {
+        if (Notification.permission === 'granted') {
+          new Notification('Kakarama Room', {
+            body: `Anda memiliki ${unreadCount} notifikasi baru.`,
+            icon: '/logo-kr-transparent-square.png'
+          });
+        }
+      } catch (error) {
+        console.warn('[Notif] gagal menampilkan notifikasi:', error);
       }
       setLastNotifiedCount(unreadCount);
     } else if (unreadCount < lastNotifiedCount) {
       setLastNotifiedCount(unreadCount);
     }
-  }, [unreadCount, lastNotifiedCount]);
+  }, [canUseNotifications, unreadCount, lastNotifiedCount]);
   const correctPin = '232325';
 
   const [isMaintenance, setIsMaintenance] = useState(false);

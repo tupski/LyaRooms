@@ -5,7 +5,7 @@ import { AlertTriangle, Building2, Clock3, DoorOpen, Eye, Landmark, MapPin, Save
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/lib/customSupabaseClient';
+import { supabase, supabaseProjectRef } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
 import { compressImageFile } from '@/lib/compressImage';
@@ -395,6 +395,15 @@ const FormTransaksiModern = ({
         .single();
       if (insertError) throw insertError;
 
+      const { data: verifiedTx, error: verifyError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('id', insertedTx.id)
+        .maybeSingle();
+      if (verifyError) {
+        console.warn('[Transaksi] verifikasi insert gagal:', verifyError);
+      }
+
       // Log activity
       const { error: logError } = await supabase.rpc('log_activity', {
         p_action: 'Input Transaksi',
@@ -410,7 +419,12 @@ const FormTransaksiModern = ({
       }
 
       setShowConfirmModal(false);
-      toast({ title: 'Transaksi berhasil disimpan', description: insertedTx?.id ? `ID: ${insertedTx.id}` : undefined });
+      toast({
+        title: verifiedTx?.id ? 'Transaksi berhasil disimpan' : 'Transaksi tersimpan, verifikasi ulang dibutuhkan',
+        description: insertedTx?.id
+          ? `ID: ${insertedTx.id} • Project: ${supabaseProjectRef}`
+          : `Project: ${supabaseProjectRef}`,
+      });
       resetForm();
       onDataUpdate?.();
       onSuccess?.();
