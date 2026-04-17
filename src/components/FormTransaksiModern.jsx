@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
-import { Building2, Clock3, DoorOpen, Eye, Landmark, MapPin, Save, Upload, UserCircle2, UserSquare2, Wallet } from 'lucide-react';
+import { AlertTriangle, Building2, Clock3, DoorOpen, Eye, Landmark, MapPin, Save, Upload, UserCircle2, UserSquare2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -86,7 +86,7 @@ const parseCheckInDate = (value) => {
 const FormTransaksiModern = ({
   onDataUpdate,
   onSuccess,
-  roleMode = 'admin',
+  roleMode,
   requireMarketing = false,
   allowReferenceManagement = true,
   defaultInputBy = '',
@@ -105,6 +105,7 @@ const FormTransaksiModern = ({
   const ktpInputRef = useRef(null);
   const transferInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refsLoading, setRefsLoading] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerItems, setViewerItems] = useState([]);
@@ -139,54 +140,61 @@ const FormTransaksiModern = ({
 
   useEffect(() => {
     const fetchRefs = async () => {
-      const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: karyawan }, { data: roomTransactions }, { data: assignments }] = await Promise.all([
-        supabase.from('lokasi_apartemen').select('name').order('name'),
-        supabase.from('nomor_kamar').select('name, lokasi').order('name'),
-        supabase.from('marketing_list').select('name').order('name'),
-        supabase.from('karyawan_list').select('name').order('name'),
-        supabase.from('transactions').select('apartment_location, room_number, created_at, checkin_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
-        supabase.from('user_location_assignments').select('location_name').eq('user_id', user?.id)
-      ]);
+      setRefsLoading(true);
+      try {
+        const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: karyawan }, { data: roomTransactions }, { data: assignments }] = await Promise.all([
+          supabase.from('lokasi_apartemen').select('name').order('name'),
+          supabase.from('nomor_kamar').select('name, lokasi').order('name'),
+          supabase.from('marketing_list').select('name').order('name'),
+          supabase.from('karyawan_list').select('name').order('name'),
+          supabase.from('transactions').select('apartment_location, room_number, created_at, checkin_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
+          supabase.from('user_location_assignments').select('location_name').eq('user_id', user?.id)
+        ]);
 
-      let filteredLokasi = lokasi || [];
-      let filteredKamar = kamar || [];
+        let filteredLokasi = lokasi || [];
+        let filteredKamar = kamar || [];
 
-      if (effectiveRole === 'karyawan') {
-        if (assignments && assignments.length > 0) {
-          const assignedNames = assignments.map(a => a.location_name);
-          filteredLokasi = filteredLokasi.filter(l => assignedNames.includes(l.name));
-          filteredKamar = filteredKamar.filter(k => assignedNames.includes(k.lokasi));
-        } else {
-          // Jika karyawan belum diassign kemanapun, kosongkan data (akan memicu blocking UI)
-          filteredLokasi = [];
-          filteredKamar = [];
+        if (effectiveRole === 'karyawan') {
+          if (assignments && assignments.length > 0) {
+            const assignedNames = assignments.map(a => a.location_name);
+            filteredLokasi = filteredLokasi.filter(l => assignedNames.includes(l.name));
+            filteredKamar = filteredKamar.filter(k => assignedNames.includes(k.lokasi));
+          } else {
+            // Jika karyawan belum diassign kemanapun, kosongkan data (akan memicu blocking UI)
+            filteredLokasi = [];
+            filteredKamar = [];
+          }
         }
+        // Untuk admin/super_admin, biarkan filteredLokasi dan filteredKamar berisi semua data.
+
+        setRefs({
+          lokasi: filteredLokasi,
+          kamar: filteredKamar,
+          marketing: marketing || [],
+          karyawan: karyawan || [],
+        });
+        const activeMap = {};
+        const txList = roomTransactions || [];
+        const now = new Date();
+        
+        // Ambil daftar kamar unik dari refs.kamar (atau fetch terbaru)
+        const allKamar = kamar || [];
+        allKamar.forEach(room => {
+          const key = `${room.lokasi}__${room.name}`;
+          const activeTx = getActiveTransaction(room.lokasi, room.name, txList, now);
+          if (activeTx) {
+            activeMap[key] = true;
+          }
+        });
+        setOccupiedMap(activeMap);
+      } catch (error) {
+        toast({ title: 'Gagal memuat data referensi', description: error.message, variant: 'destructive' });
+      } finally {
+        setRefsLoading(false);
       }
-      // Untuk admin/super_admin, biarkan filteredLokasi dan filteredKamar berisi semua data.
-
-      setRefs({
-        lokasi: filteredLokasi,
-        kamar: filteredKamar,
-        marketing: marketing || [],
-        karyawan: karyawan || [],
-      });
-      const activeMap = {};
-      const txList = roomTransactions || [];
-      const now = new Date();
-      
-      // Ambil daftar kamar unik dari refs.kamar (atau fetch terbaru)
-      const allKamar = kamar || [];
-      allKamar.forEach(room => {
-        const key = `${room.lokasi}__${room.name}`;
-        const activeTx = getActiveTransaction(room.lokasi, room.name, txList, now);
-        if (activeTx) {
-          activeMap[key] = true;
-        }
-      });
-      setOccupiedMap(activeMap);
     };
     fetchRefs();
-  }, []);
+  }, [effectiveRole, user?.id]);
 
   const lokasiOptions = useMemo(
     () =>
@@ -380,18 +388,29 @@ const FormTransaksiModern = ({
         ktp_image_url: ktpUrl,
         transfer_proof_url: transferProofUrl,
       };
-      const { error } = await supabase.from('transactions').insert(payload);
-      if (error) throw error;
+      const { data: insertedTx, error: insertError } = await supabase
+        .from('transactions')
+        .insert(payload)
+        .select('id, created_at')
+        .single();
+      if (insertError) throw insertError;
 
       // Log activity
-      await supabase.rpc('log_activity', {
+      const { error: logError } = await supabase.rpc('log_activity', {
         p_action: 'Input Transaksi',
         p_details: `Customer: ${payload.customer_name}, Lokasi: ${payload.apartment_location} - ${payload.room_number}`,
-        p_metadata: { transaction_id: payload.id }
+        p_metadata: { transaction_id: insertedTx?.id ?? null }
       });
+      if (logError) {
+        toast({
+          title: 'Transaksi tersimpan, log aktivitas gagal',
+          description: logError.message,
+          variant: 'destructive',
+        });
+      }
 
       setShowConfirmModal(false);
-      toast({ title: 'Transaksi berhasil disimpan' });
+      toast({ title: 'Transaksi berhasil disimpan', description: insertedTx?.id ? `ID: ${insertedTx.id}` : undefined });
       resetForm();
       onDataUpdate?.();
       onSuccess?.();
@@ -453,7 +472,7 @@ const FormTransaksiModern = ({
     : null;
 
   // Blocking UI for employees with no assignments
-  if (roleMode === 'karyawan' && !loading && refs.lokasi.length === 0) {
+  if (effectiveRole === 'karyawan' && !refsLoading && refs.lokasi.length === 0) {
     return (
       <div className="bg-white rounded-[2rem] p-10 border-2 border-orange-100 shadow-xl text-center space-y-6">
         <div className="h-24 w-24 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">

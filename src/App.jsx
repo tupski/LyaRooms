@@ -43,10 +43,7 @@ import {
 
 function App() {
   const currentYear = new Date().getFullYear();
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window === 'undefined') return 'form';
-    return localStorage.getItem('kr_active_tab') || 'form';
-  });
+  const [activeTab, setActiveTab] = useState('form');
   const [refreshKey, setRefreshKey] = useState(0);
   const { session, loading, signOut, userRole, isSuperAdmin } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
@@ -215,6 +212,10 @@ function App() {
 
   const visibleTabIds = allowedTabsByRole[userRole] || allTabs.map((tab) => tab.id);
   const visibleTabs = allTabs.filter((tab) => visibleTabIds.includes(tab.id));
+  const activeTabStorageKey = useMemo(() => {
+    const userId = session?.user?.id;
+    return userId ? `kr_active_tab_${userId}` : 'kr_active_tab_guest';
+  }, [session?.user?.id]);
 
   const primaryTabs = useMemo(() => {
     if (userRole === 'karyawan') {
@@ -235,6 +236,16 @@ function App() {
   }, [userRole, visibleTabs, primaryTabs]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedTab = localStorage.getItem(activeTabStorageKey);
+    if (storedTab) {
+      setActiveTab(storedTab);
+      return;
+    }
+    setActiveTab('form');
+  }, [activeTabStorageKey]);
+
+  useEffect(() => {
     if (!visibleTabIds.includes(activeTab)) {
       setActiveTab('form');
     }
@@ -242,9 +253,9 @@ function App() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('kr_active_tab', activeTab);
+      localStorage.setItem(activeTabStorageKey, activeTab);
     }
-  }, [activeTab]);
+  }, [activeTab, activeTabStorageKey]);
 
   const renderContent = () => {
     const key = `${activeTab}-${refreshKey}`;

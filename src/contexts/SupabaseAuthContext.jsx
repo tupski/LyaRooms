@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null);
 
   const handleSession = useCallback(async (session) => {
+    setLoading(true);
     setSession(session);
     setUser(session?.user ?? null);
 
