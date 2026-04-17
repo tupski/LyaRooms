@@ -1,395 +1,190 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/customSupabaseClient';
 import {
-  Shield,
-  Users,
-  Settings,
-  Activity,
-  Database,
-  AlertTriangle,
-  CheckCircle,
-  TrendingUp,
-  Server,
-  UserCheck,
-  Menu,
-  BarChart3
+  Shield, Users, Settings, Activity, Building2, 
+  History, BarChart3, DoorOpen, LayoutGrid, Server
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import UserManagement from './UserManagement';
-import MenuControls from './MenuControls';
-import GlobalSettings from './GlobalSettings';
 import { toast } from 'sonner';
+
+// Admin Components
+import UserManagementModern from './admin/UserManagementModern';
+import LocationRoomManager from './admin/LocationRoomManager';
+import ActivityLogViewer from './admin/ActivityLogViewer';
+import GlobalSettings from './GlobalSettings';
 
 const SuperAdminDashboard = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
-    activeUsers: 0,
-    systemHealth: 100,
-    recentActivity: [],
-    menuVisibilityStats: {},
-    systemSettings: {}
+    totalLocations: 0,
+    totalRooms: 0,
+    recentLogs: []
   });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    fetchDashboardStats();
-  }, []);
-
-  const fetchDashboardStats = async () => {
+  const fetchStats = async () => {
     try {
       setLoading(true);
-
-      // Ambil statistik karyawan
-      const { data: users, error: usersError } = await supabase
-        .from('user_profiles')
-        .select('*');
-
-      if (usersError) throw usersError;
-
-      // Hitung akun aktif dari user_profiles agar tidak perlu endpoint admin
-      const activeUsersCount = users.filter((u) => !!u.last_sign_in_at).length;
-
-      // Ambil statistik visibilitas menu
-      const { data: menuVisibility, error: menuError } = await supabase
-        .from('role_menu_visibility')
-        .select('*');
-
-      if (menuError) throw menuError;
-
-      // Ambil pengaturan sistem
-      const { data: systemSettings, error: settingsError } = await supabase
-        .from('system_settings')
-        .select('*');
-
-      if (settingsError) throw settingsError;
-
-      // Aktivitas terbaru (sementara masih data contoh)
-      const recentActivity = [
-        { id: 1, action: 'Karyawan ditambahkan', user: 'admin', timestamp: new Date().toISOString(), type: 'user' },
-        { id: 2, action: 'Visibilitas menu diperbarui', user: 'super_admin', timestamp: new Date().toISOString(), type: 'menu' },
-        { id: 3, action: 'Pengaturan sistem diubah', user: 'super_admin', timestamp: new Date().toISOString(), type: 'settings' }
-      ];
-
-      // Hitung statistik visibilitas menu per peran
-      const menuStats = {};
-      menuVisibility.forEach(item => {
-        if (!menuStats[item.role]) {
-          menuStats[item.role] = { visible: 0, hidden: 0 };
-        }
-        if (item.is_visible) {
-          menuStats[item.role].visible++;
-        } else {
-          menuStats[item.role].hidden++;
-        }
-      });
-
-      // Ubah pengaturan sistem ke object
-      const settingsObj = {};
-      systemSettings.forEach(setting => {
-        settingsObj[setting.key] = setting.value;
-      });
+      const { data: users } = await supabase.from('user_profiles').select('id');
+      const { data: locations } = await supabase.from('lokasi_apartemen').select('id');
+      const { data: rooms } = await supabase.from('nomor_kamar').select('id');
+      const { data: logs } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
 
       setStats({
-        totalUsers: users.length,
-        activeUsers: activeUsersCount,
-        systemHealth: 95, // Mock health score
-        recentActivity,
-        menuVisibilityStats: menuStats,
-        systemSettings: settingsObj
+        totalUsers: users?.length || 0,
+        totalLocations: locations?.length || 0,
+        totalRooms: rooms?.length || 0,
+        recentLogs: logs || []
       });
-
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      toast.error('Gagal memuat statistik dasbor');
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getHealthStatus = (health) => {
-    if (health >= 90) return { status: 'Sangat Baik', color: 'text-green-600', bg: 'bg-green-100' };
-    if (health >= 70) return { status: 'Baik', color: 'text-yellow-600', bg: 'bg-yellow-100' };
-    return { status: 'Perlu Perhatian', color: 'text-red-600', bg: 'bg-red-100' };
-  };
-
-  const healthInfo = getHealthStatus(stats.systemHealth);
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dasbor Super Admin</h1>
-          <p className="text-gray-600">Pusat kendali sistem, menu, dan akses pengguna</p>
+    <div className="space-y-6 pb-24">
+      {/* Header Premium */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Shield className="h-32 w-32" />
         </div>
-        <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
-          <Shield className="h-4 w-4 mr-1" />
-          Akses Super Admin
-        </Badge>
+        <div className="relative z-10 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Pusat Kendali Kakarama</h1>
+            <p className="text-slate-400 text-sm mt-1">Kelola akses, unit, dan pantau operasional secara terpusat.</p>
+          </div>
+          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 px-4 py-1.5 rounded-full backdrop-blur-md">
+            <Shield className="h-4 w-4 mr-2" /> Super Admin
+          </Badge>
+        </div>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Karyawan</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.activeUsers} akun aktif
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Kesehatan Sistem</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${healthInfo.color}`}>
-              {stats.systemHealth}%
-            </div>
-            <Badge variant="outline" className={`${healthInfo.bg} ${healthInfo.color} border-current`}>
-              {healthInfo.status}
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Konfigurasi Menu</CardTitle>
-            <Menu className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Object.keys(stats.menuVisibilityStats).length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Konfigurasi peran aktif
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pengaturan Sistem</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Object.keys(stats.systemSettings).length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Parameter terkonfigurasi
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tab utama super admin */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center space-x-2">
-            <BarChart3 className="h-4 w-4" />
-            <span>Ringkasan</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center space-x-2">
-            <Users className="h-4 w-4" />
-            <span>Karyawan</span>
-          </TabsTrigger>
-          <TabsTrigger value="menu" className="flex items-center space-x-2">
-            <Menu className="h-4 w-4" />
-            <span>Kontrol Menu</span>
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center space-x-2">
-            <Settings className="h-4 w-4" />
-            <span>Pengaturan</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2 scrollbar-hide">
+          <TabsList className="inline-flex w-auto p-1 bg-slate-100 rounded-2xl h-12">
+            <TabsTrigger value="overview" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <BarChart3 className="h-4 w-4 mr-2" /> Ringkasan
+            </TabsTrigger>
+            <TabsTrigger value="users" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Users className="h-4 w-4 mr-2" /> Karyawan
+            </TabsTrigger>
+            <TabsTrigger value="inventory" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Building2 className="h-4 w-4 mr-2" /> Lokasi & Kamar
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <History className="h-4 w-4 mr-2" /> Log Aktivitas
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Settings className="h-4 w-4 mr-2" /> Pengaturan
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        {/* Tab ringkasan */}
+        {/* --- Overview Tab --- */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6">
-            {/* Detail kesehatan sistem */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Ringkasan Kesehatan Sistem
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Performa Database</span>
-                    <span>98%</span>
-                  </div>
-                  <Progress value={98} className="h-2" />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-blue-200 transition-colors">
+              <CardContent className="p-6">
+                <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <Users className="h-5 w-5" />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Respons API</span>
-                    <span>95%</span>
-                  </div>
-                  <Progress value={95} className="h-2" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Autentikasi Pengguna</span>
-                    <span>100%</span>
-                  </div>
-                  <Progress value={100} className="h-2" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Sistem Menu</span>
-                    <span>97%</span>
-                  </div>
-                  <Progress value={97} className="h-2" />
-                </div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total User</p>
+                <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.totalUsers}</h3>
               </CardContent>
             </Card>
 
-            {/* Statistik visibilitas menu */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Menu className="h-5 w-5 mr-2" />
-                  Visibilitas Menu per Peran
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {Object.entries(stats.menuVisibilityStats).map(([role, stats]) => (
-                    <div key={role} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <UserCheck className="h-4 w-4" />
-                        <span className="capitalize font-medium">{role}</span>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm">
-                        <div className="flex items-center space-x-1 text-green-600">
-                          <CheckCircle className="h-3 w-3" />
-                          <span>{stats.visible} tampil</span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-red-600">
-                          <AlertTriangle className="h-3 w-3" />
-                          <span>{stats.hidden} disembunyikan</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-blue-200 transition-colors">
+              <CardContent className="p-6">
+                <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <Building2 className="h-5 w-5" />
                 </div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Lokasi</p>
+                <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.totalLocations}</h3>
               </CardContent>
             </Card>
 
-            {/* Aktivitas terbaru */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Aktivitas Terbaru
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {stats.recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className={`p-2 rounded-full ${
-                          activity.type === 'user' ? 'bg-blue-100' :
-                          activity.type === 'menu' ? 'bg-green-100' : 'bg-purple-100'
-                        }`}>
-                          {activity.type === 'user' && <Users className="h-4 w-4 text-blue-600" />}
-                          {activity.type === 'menu' && <Menu className="h-4 w-4 text-green-600" />}
-                          {activity.type === 'settings' && <Settings className="h-4 w-4 text-purple-600" />}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">
-                          {activity.action}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          oleh {activity.user} • {new Date(activity.timestamp).toLocaleString('id-ID')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-blue-200 transition-colors col-span-2 md:col-span-1">
+              <CardContent className="p-6">
+                <div className="h-10 w-10 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <DoorOpen className="h-5 w-5" />
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Aksi cepat */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Aksi Cepat</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab('users')}
-                  >
-                    <Users className="h-6 w-6" />
-                    <span className="text-sm">Kelola Karyawan</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab('menu')}
-                  >
-                    <Menu className="h-6 w-6" />
-                    <span className="text-sm">Kontrol Menu</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab('settings')}
-                  >
-                    <Settings className="h-6 w-6" />
-                    <span className="text-sm">Pengaturan Sistem</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center space-y-2"
-                    onClick={fetchDashboardStats}
-                  >
-                    <TrendingUp className="h-6 w-6" />
-                    <span className="text-sm">Muat Ulang Statistik</span>
-                  </Button>
-                </div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Unit</p>
+                <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.totalRooms}</h3>
               </CardContent>
             </Card>
           </div>
+
+          <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white">
+            <CardHeader className="border-b border-slate-50 bg-slate-50/50">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Activity className="h-4 w-4 text-blue-600" /> Aktivitas Terakhir
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {stats.recentLogs.length > 0 ? (
+                <div className="divide-y divide-slate-50">
+                  {stats.recentLogs.map((log) => (
+                    <div key={log.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">
+                          {log.user_name?.[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{log.action}</p>
+                          <p className="text-[10px] text-slate-400">{log.user_name} • {new Date(log.created_at).toLocaleString('id-ID')}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-slate-400 text-sm italic">
+                  Belum ada aktivitas tercatat.
+                </div>
+              )}
+              <div className="p-3 bg-slate-50 text-center border-t border-slate-100">
+                <button onClick={() => setActiveTab('logs')} className="text-xs font-bold text-blue-600 hover:underline">
+                  Lihat Semua Log
+                </button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* Tab manajemen karyawan */}
+        {/* --- User Management Tab --- */}
         <TabsContent value="users">
-          <UserManagement />
+          <UserManagementModern />
         </TabsContent>
 
-        {/* Tab kontrol menu */}
-        <TabsContent value="menu">
-          <MenuControls />
+        {/* --- Inventory Tab --- */}
+        <TabsContent value="inventory">
+          <LocationRoomManager />
         </TabsContent>
 
-        {/* Tab pengaturan global */}
+        {/* --- Logs Tab --- */}
+        <TabsContent value="logs">
+          <ActivityLogViewer />
+        </TabsContent>
+
+        {/* --- Settings Tab --- */}
         <TabsContent value="settings">
           <GlobalSettings />
         </TabsContent>
@@ -397,5 +192,11 @@ const SuperAdminDashboard = () => {
     </div>
   );
 };
+
+const ChevronRight = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="9 5l7 7-7 7" />
+  </svg>
+);
 
 export default SuperAdminDashboard;

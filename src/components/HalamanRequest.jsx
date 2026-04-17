@@ -89,6 +89,13 @@ const HalamanRequest = () => {
         if (error) {
             toast({ title: "Gagal mengirim request", description: error.message, variant: "destructive" });
         } else {
+            // Log activity
+            await supabase.rpc('log_activity', {
+                p_action: 'Kirim Request',
+                p_details: `${request_type} oleh ${employee_name} untuk lokasi ${apartment_location}`,
+                p_metadata: { request_type, apartment_location }
+            });
+
             toast({ title: "✅ Request berhasil dikirim!" });
             setIsFormOpen(false);
             setNewRequest({ employee_name: '', apartment_location: '', request_type: '', description: '', amount: '', desired_date: '' });
@@ -109,6 +116,13 @@ const HalamanRequest = () => {
         } else if (!data || data.length === 0) {
             toast({ title: "Request tidak berubah", description: "Kemungkinan dibatasi RLS. Jalankan update policy SQL terbaru.", variant: "destructive" });
         } else {
+            // Log activity
+            await supabase.rpc('log_activity', {
+                p_action: 'Update Status Request',
+                p_details: `Request ID ${id} diubah statusnya menjadi ${status}`,
+                p_metadata: { request_id: id, new_status: status }
+            });
+
             toast({ title: `Request ${status === 'Approved' ? 'disetujui' : 'ditolak'}!`, className: status === 'Approved' ? 'bg-green-500 text-white' : 'bg-red-500 text-white' });
             loadRequests();
         }

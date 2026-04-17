@@ -138,16 +138,31 @@ const FormTransaksiModern = ({
 
   useEffect(() => {
     const fetchRefs = async () => {
-      const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: karyawan }, { data: roomTransactions }] = await Promise.all([
+      const [{ data: lokasi }, { data: kamar }, { data: marketing }, { data: karyawan }, { data: roomTransactions }, { data: assignments }] = await Promise.all([
         supabase.from('lokasi_apartemen').select('name').order('name'),
         supabase.from('nomor_kamar').select('name, lokasi').order('name'),
         supabase.from('marketing_list').select('name').order('name'),
         supabase.from('karyawan_list').select('name').order('name'),
         supabase.from('transactions').select('apartment_location, room_number, created_at, checkin_at, rental_duration, checkout_at').order('created_at', { ascending: false }),
+        supabase.from('user_location_assignments').select('location_name').eq('user_id', user?.id)
       ]);
+
+      let filteredLokasi = lokasi || [];
+      let filteredKamar = kamar || [];
+
+      if (effectiveRole === 'karyawan' && assignments && assignments.length > 0) {
+        const assignedNames = assignments.map(a => a.location_name);
+        filteredLokasi = filteredLokasi.filter(l => assignedNames.includes(l.name));
+        filteredKamar = filteredKamar.filter(k => assignedNames.includes(k.lokasi));
+      } else if (effectiveRole === 'karyawan' && assignments && assignments.length === 0) {
+        // Jika karyawan belum diassign kemanapun, batasi (opsional: tampilkan kosong)
+        filteredLokasi = [];
+        filteredKamar = [];
+      }
+
       setRefs({
-        lokasi: lokasi || [],
-        kamar: kamar || [],
+        lokasi: filteredLokasi,
+        kamar: filteredKamar,
         marketing: marketing || [],
         karyawan: karyawan || [],
       });
@@ -392,6 +407,13 @@ const FormTransaksiModern = ({
       };
       const { error } = await supabase.from('transactions').insert(payload);
       if (error) throw error;
+
+      // Log activity
+      await supabase.rpc('log_activity', {
+        p_action: 'Input Transaksi',
+        p_details: `Customer: ${payload.customer_name}, Lokasi: ${payload.apartment_location} - ${payload.room_number}`,
+        p_metadata: { transaction_id: payload.id }
+      });
 
       setShowConfirmModal(false);
       toast({ title: 'Transaksi berhasil disimpan' });

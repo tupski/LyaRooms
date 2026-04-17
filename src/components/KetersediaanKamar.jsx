@@ -205,7 +205,7 @@ const KetersediaanKamar = () => {
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-    const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }, { data: paidFees, error: paidError }] = await Promise.all([
+    const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }, { data: paidFees, error: paidError }, { data: assignments }] = await Promise.all([
       supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
       supabase.from('transactions')
         .select('id, created_at, checkin_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at, marketing_fee')
@@ -213,6 +213,7 @@ const KetersediaanKamar = () => {
         .order('checkin_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false }),
       supabase.from('tagihan_fee_lunas').select('marketing_name, paid_at'),
+      supabase.from('user_location_assignments').select('location_name').eq('user_id', user?.id)
     ]);
 
     if (roomsError || transError) {
@@ -222,7 +223,18 @@ const KetersediaanKamar = () => {
     }
 
     const now = new Date();
-    const roomStatus = (allRooms || []).map((room) => {
+    
+    // Filter rooms based on assignments for karyawan
+    let filteredRooms = allRooms || [];
+    if (userRole === 'karyawan' && assignments && assignments.length > 0) {
+      const assignedNames = assignments.map(a => a.location_name);
+      filteredRooms = filteredRooms.filter(r => assignedNames.includes(r.lokasi));
+    } else if (userRole === 'karyawan' && assignments && assignments.length === 0) {
+      // Jika karyawan belum diassign kemanapun, jangan tampilkan apa-apa atau batasi
+      filteredRooms = [];
+    }
+
+    const roomStatus = filteredRooms.map((room) => {
       const activeTx = getActiveTransaction(room.lokasi, room.name, transactions, now);
       
       if (activeTx) {
@@ -281,6 +293,13 @@ const KetersediaanKamar = () => {
     if (error) {
       toast({ title: 'Gagal Check Out', description: error.message, variant: 'destructive' });
     } else {
+      // Log activity
+      await supabase.rpc('log_activity', {
+        p_action: 'Checkout Manual',
+        p_details: `Customer: ${room.customerName}, Unit: ${room.lokasi} - ${room.name}`,
+        p_metadata: { transaction_id: room.transactionId }
+      });
+
       toast({ title: 'Check Out Berhasil ✅' });
       fetchRoomStatus();
     }

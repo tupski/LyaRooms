@@ -359,6 +359,9 @@ import React, { useState, useEffect, useCallback } from 'react';
         const [modalMarketing, setModalMarketing] = useState(null);
         const [pendingPayAction, setPendingPayAction] = useState(null); // { type: 'single'|'all', marketingName, transactions: [], totalFee }
         const [confirmOpen, setConfirmOpen] = useState(false);
+        const [isSubmitting, setIsSubmitting] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
+        const [sortOrder, setSortOrder] = useState('highest'); // 'highest' | 'lowest' | 'name'
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
         
@@ -407,7 +410,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                 return acc;
             }, {});
     
-            const unpaidFeeArray = Object.values(marketingSummary);
+            const unpaidFeeArray = Object.values(marketingSummary).filter(fee => fee.count > 0);
             setUnpaidFees(unpaidFeeArray);
         }, [selectedDate]);
     
@@ -433,9 +436,10 @@ import React, { useState, useEffect, useCallback } from 'react';
         };
 
         const executePay = async () => {
-          if (!pendingPayAction) return;
+          if (!pendingPayAction || isSubmitting) return;
           const { marketingName, transactions, totalFee } = pendingPayAction;
 
+          setIsSubmitting(true);
           let proof_url = null;
           if (uploadFile) {
             try {
@@ -466,6 +470,7 @@ import React, { useState, useEffect, useCallback } from 'react';
           setUploadFile(null);
           setIsPayModalOpen(false);
           setModalMarketing(null);
+          setIsSubmitting(false);
           onDataUpdate();
         };
         
@@ -481,9 +486,9 @@ import React, { useState, useEffect, useCallback } from 'react';
     
         const handleShare = async (item) => {
             let details = (item.transactions_detail || item.transactions || []).map((t, i) => `${i + 1}. ${t.customer} - ${t.location}`).join('\n');
-            const totalFee = item.total_fee || item.totalFee;
-            const customerCount = item.customer_count || item.count;
-            const marketingName = item.marketing_name || item.nama;
+            const totalFee = item.total_fee ?? item.totalFee ?? 0;
+            const customerCount = item.customer_count ?? item.count ?? 0;
+            const marketingName = item.marketing_name ?? item.nama ?? 'Unknown';
             const paidAt = item.paid_at ? `\n\nLunas pada: ${new Date(item.paid_at).toLocaleString('id-ID')}` : '';
     
             const message = `*Rincian Fee*\n-------------------\n*Marketing:* ${marketingName}\n*Total Fee:* ${formatRupiah(totalFee)}\n*Jumlah Customer:* ${customerCount} orang\n\n*Detail Customer:*\n${details}${paidAt}`;
@@ -500,6 +505,25 @@ import React, { useState, useEffect, useCallback } from 'react';
             }
         };
     
+        const processedFees = useMemo(() => {
+          let result = [...unpaidFees];
+          
+          // Filter search
+          if (searchTerm) {
+            result = result.filter(f => f.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+          }
+          
+          // Sort
+          result.sort((a, b) => {
+            if (sortOrder === 'highest') return b.totalFee - a.totalFee;
+            if (sortOrder === 'lowest') return a.totalFee - b.totalFee;
+            if (sortOrder === 'name') return a.nama.localeCompare(b.nama);
+            return 0;
+          });
+          
+          return result;
+        }, [unpaidFees, searchTerm, sortOrder]);
+
         return (
             <div className="space-y-5">
                 <div className="glassmorphic-card p-5 space-y-4">
@@ -507,8 +531,35 @@ import React, { useState, useEffect, useCallback } from 'react';
                         <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Coins className="text-blue-500"/> Tagihan Fee</h2>
                         <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-white/50 border-gray-300 border-2 rounded-lg px-2 py-1 text-gray-800 text-sm"/>
                     </div>
-                    {unpaidFees.length === 0 ? (<p className="text-center text-gray-500 py-8">Semua fee pada tanggal ini sudah lunas! 🎉</p>) : (
-                        unpaidFees.map((fee) => (
+                    
+                    {/* Search & Sort UI */}
+                    <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-100">
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          placeholder="Cari marketing..." 
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full text-xs bg-slate-50 border-2 border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-blue-400"
+                        />
+                      </div>
+                      <select 
+                        value={sortOrder} 
+                        onChange={(e) => setSortOrder(e.target.value)}
+                        className="text-xs bg-slate-50 border-2 border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-blue-400"
+                      >
+                        <option value="highest">Fee Tertinggi</option>
+                        <option value="lowest">Fee Terendah</option>
+                        <option value="name">Nama (A-Z)</option>
+                      </select>
+                    </div>
+
+                    {processedFees.length === 0 ? (
+                      <p className="text-center text-gray-500 py-8">
+                        {searchTerm ? 'Marketing tidak ditemukan.' : 'Semua fee pada tanggal ini sudah lunas! 🎉'}
+                      </p>
+                    ) : (
+                        processedFees.map((fee) => (
                         <motion.div key={fee.nama} layout className="bg-white/50 border p-4 rounded-2xl">
                             <h3 className="font-bold text-gray-900 text-lg">{fee.nama}</h3>
                             <p className="text-gray-700">Jumlah Customer: <span className="font-semibold text-gray-900">{fee.count} orang</span></p>
@@ -596,8 +647,10 @@ import React, { useState, useEffect, useCallback } from 'react';
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => { setConfirmOpen(false); setPendingPayAction(null); }}>Batal</AlertDialogCancel>
-                      <AlertDialogAction onClick={executePay} className="bg-green-600">Bayar</AlertDialogAction>
+                      <AlertDialogCancel disabled={isSubmitting} onClick={() => { setConfirmOpen(false); setPendingPayAction(null); }}>Batal</AlertDialogCancel>
+                      <AlertDialogAction onClick={executePay} disabled={isSubmitting} className="bg-green-600">
+                        {isSubmitting ? 'Memproses...' : 'Bayar'}
+                      </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
