@@ -42,7 +42,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             const endDate = endOfMonth(new Date(selectedMonth));
     
             const { data: transactions, error: transError } = await supabase.from('transactions').select('cash_amount, transfer_amount')
-                .gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+                .gte('checkin_at', startDate.toISOString()).lte('checkin_at', endDate.toISOString());
             if (transError) console.error("Error fetching transactions for summary:", transError);
             
             const pemasukan = (transactions || []).reduce((sum, t) => sum + (t.cash_amount || 0) + (t.transfer_amount || 0), 0);
@@ -377,7 +377,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             const endTime = endOfDay(targetDate);
     
             const { data: transactions, error: transError } = await supabase.from('transactions').select('*')
-                .gte('created_at', startTime.toISOString()).lt('created_at', endTime.toISOString());
+                .gte('checkin_at', startTime.toISOString()).lt('checkin_at', endTime.toISOString());
             if (transError) console.error(transError);
     
             const { data: storedPaidFees, error: paidError } = await supabase.from('tagihan_fee_lunas').select('*')
