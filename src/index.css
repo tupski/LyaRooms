@@ -53,3 +53,16 @@ input[type="date"], input[type="time"] {
 .glassmorphic-card {
   @apply bg-white/30 backdrop-blur-lg border border-white/40 rounded-3xl shadow-lg;
 }
+
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

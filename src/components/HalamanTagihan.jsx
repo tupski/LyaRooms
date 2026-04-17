@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
     import { motion, AnimatePresence } from 'framer-motion';
-    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins } from 'lucide-react';
+    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search, ArrowUpAZ } from 'lucide-react';
     import { Button } from '@/components/ui/button';
     import { toast } from '@/components/ui/use-toast';
     import { supabase } from '@/lib/customSupabaseClient';
@@ -534,13 +534,14 @@ import React, { useState, useEffect, useCallback } from 'react';
                     
                     {/* Search & Sort UI */}
                     <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-100">
-                      <div className="relative">
+                      <div className="relative group">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                         <input 
                           type="text" 
                           placeholder="Cari marketing..." 
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full text-xs bg-slate-50 border-2 border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-blue-400"
+                          className="w-full text-xs bg-slate-50 border-2 border-slate-200 rounded-xl pl-8 pr-2 py-2.5 outline-none focus:border-blue-400 focus:bg-white transition-all shadow-sm"
                         />
                       </div>
                       <select 

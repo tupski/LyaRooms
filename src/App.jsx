@@ -60,8 +60,31 @@ function App() {
   const [showCompose, setShowCompose] = useState(false);
   const correctPin = '232325';
 
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [appName, setAppName] = useState('Kakarama Room');
+
   useEffect(() => {
-    document.title = 'Laporan Transaksi KAKARAMA GROUP';
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('system_settings').select('*');
+      if (data) {
+        const m = data.find(s => s.key === 'maintenance_mode');
+        const n = data.find(s => s.key === 'app_name');
+        if (m) setIsMaintenance(m.value === true);
+        if (n) {
+          setAppName(n.value);
+          document.title = n.value;
+        }
+      }
+    };
+    fetchSettings();
+    
+    // Realtime settings
+    const channel = supabase
+      .channel('system_settings_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, fetchSettings)
+      .subscribe();
+      
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const audienceFilter = useMemo(() => {
@@ -251,6 +274,23 @@ function App() {
   }
   if (!session) return <Auth />;
 
+  if (isMaintenance && !isSuperAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 p-6">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="bg-amber-500/20 text-amber-500 p-4 rounded-3xl inline-block mb-2">
+            <Settings className="h-12 w-12 animate-spin-slow" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Sedang Pemeliharaan</h1>
+          <p className="text-slate-400 text-sm">Aplikasi sedang dalam proses update rutin untuk meningkatkan performa. Silakan coba lagi beberapa saat lagi.</p>
+          <Button variant="outline" className="text-white border-slate-700 hover:bg-slate-800" onClick={() => signOut()}>
+            <LogOut className="mr-2 h-4 w-4" /> Keluar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const displayRole = userRole === 'super_admin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : 'Karyawan';
 
   return (
@@ -261,7 +301,7 @@ function App() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-white/40">
               <img src="/logo-kr-transparent-square.png" alt="KR" className="h-full w-full object-contain" />
             </span>
-            <span className="text-sm font-bold tracking-wide text-white sm:text-base">Kakarama Room</span>
+            <span className="text-sm font-bold tracking-wide text-white sm:text-base">{appName}</span>
           </div>
           <div className="flex items-center gap-2">
             {/* Megaphone: hanya admin/superadmin */}
