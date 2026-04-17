@@ -17,6 +17,7 @@ import { toast } from '@/components/ui/use-toast';
 import PinInput from '@/components/PinInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import NotificationsInbox from '@/components/NotificationsInbox';
+import AllNotifications from '@/components/AllNotifications';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import ComposeAnnouncement from '@/components/ComposeAnnouncement';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -51,6 +52,7 @@ function App() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
@@ -88,15 +90,25 @@ function App() {
         return;
       }
 
-      const { data: reads, error: rErr } = await supabase
-        .from('notification_reads')
-        .select('notification_id')
-        .eq('user_id', userId)
-        .in('notification_id', ids);
+      const [{ data: reads, error: rErr }, { data: hidden, error: hErr }] = await Promise.all([
+        supabase
+          .from('notification_reads')
+          .select('notification_id')
+          .eq('user_id', userId)
+          .in('notification_id', ids),
+        supabase
+          .from('notification_hidden')
+          .select('notification_id')
+          .eq('user_id', userId)
+          .in('notification_id', ids),
+      ]);
       if (rErr) throw rErr;
+      if (hErr) throw hErr;
 
       const readSet = new Set((reads || []).map((r) => r.notification_id));
-      setUnreadCount(ids.filter((id) => !readSet.has(id)).length);
+      const hiddenSet = new Set((hidden || []).map((h) => h.notification_id));
+      const visibleIds = ids.filter((id) => !hiddenSet.has(id));
+      setUnreadCount(visibleIds.filter((id) => !readSet.has(id)).length);
     } catch (_error) {
       setUnreadCount(0);
     }
@@ -324,7 +336,12 @@ function App() {
         <AnnouncementBanner />
       </div>
 
-      <NotificationsInbox open={showInbox} onOpenChange={setShowInbox} />
+      <NotificationsInbox
+        open={showInbox}
+        onOpenChange={setShowInbox}
+        onOpenAll={() => setShowAllNotifications(true)}
+      />
+      <AllNotifications open={showAllNotifications} onOpenChange={setShowAllNotifications} />
       <AccountSettings open={showAccountSettings} onOpenChange={setShowAccountSettings} />
       <ComposeAnnouncement open={showCompose} onOpenChange={setShowCompose} />
 

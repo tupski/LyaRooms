@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, CheckCheck, Bell, Filter } from 'lucide-react';
+import { Check, CheckCheck, Bell, Filter, ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -17,7 +18,24 @@ function buildAudienceFilter(userId, userRole) {
   return `audience_user_id.eq.${userId},audience_role.eq.all`;
 }
 
-export default function NotificationsInbox({ open, onOpenChange }) {
+function typeToCategory(type) {
+  switch (type) {
+    case 'announcement':
+      return { label: 'Pengumuman', variant: 'secondary', className: 'bg-amber-100 text-amber-800 border-amber-200' };
+    case 'checkout_due':
+      return { label: 'Checkout', variant: 'destructive', className: 'bg-red-100 text-red-800 border-red-200' };
+    case 'checkout_soon':
+      return { label: 'Pengingat', variant: 'default', className: 'bg-blue-100 text-blue-800 border-blue-200' };
+    case 'rooms_low':
+      return { label: 'Kamar Hampir Habis', variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    case 'rooms_sold_out':
+      return { label: 'Kamar Habis', variant: 'destructive', className: 'bg-red-100 text-red-800 border-red-200' };
+    default:
+      return { label: 'Lainnya', variant: 'outline', className: 'border-slate-200 text-slate-700' };
+  }
+}
+
+export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
   const { user, userRole } = useAuth();
   const userId = user?.id;
   const [items, setItems] = useState([]);
@@ -44,17 +62,27 @@ export default function NotificationsInbox({ open, onOpenChange }) {
       if (notifErr) throw notifErr;
 
       const ids = (notif || []).map((n) => n.id);
-      const { data: reads, error: readsErr } = await supabase
-        .from('notification_reads')
-        .select('notification_id')
-        .eq('user_id', userId)
-        .in('notification_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      const [{ data: reads, error: readsErr }, { data: hidden, error: hiddenErr }] = await Promise.all([
+        supabase
+          .from('notification_reads')
+          .select('notification_id')
+          .eq('user_id', userId)
+          .in('notification_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
+        supabase
+          .from('notification_hidden')
+          .select('notification_id')
+          .eq('user_id', userId)
+          .in('notification_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
+      ]);
       if (readsErr) throw readsErr;
+      if (hiddenErr) throw hiddenErr;
 
       const readIds = new Set((reads || []).map((r) => r.notification_id));
-      const unread = new Set(ids.filter((id) => !readIds.has(id)));
+      const hiddenIds = new Set((hidden || []).map((h) => h.notification_id));
+      const filtered = (notif || []).filter((n) => !hiddenIds.has(n.id));
+      const unread = new Set(filtered.map((n) => n.id).filter((id) => !readIds.has(id)));
 
-      setItems(notif || []);
+      setItems(filtered);
       setUnreadSet(unread);
     } catch (error) {
       toast({
@@ -146,10 +174,23 @@ export default function NotificationsInbox({ open, onOpenChange }) {
             <Filter className="mr-2 h-4 w-4" />
             {onlyUnread ? 'Belum dibaca' : 'Semua'}
           </Button>
-          <Button variant="outline" size="sm" onClick={markAllRead} disabled={unreadSet.size === 0}>
-            <CheckCheck className="mr-2 h-4 w-4" />
-            Tandai semua dibaca
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={markAllRead} disabled={unreadSet.size === 0}>
+              <CheckCheck className="mr-2 h-4 w-4" />
+              Tandai semua dibaca
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                onOpenAll?.();
+              }}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Lihat Semua
+            </Button>
+          </div>
         </div>
 
         <ScrollArea className="mt-3 h-[55vh] rounded-lg border">
@@ -158,6 +199,7 @@ export default function NotificationsInbox({ open, onOpenChange }) {
             {!loading && displayed.length === 0 && <div className="p-4 text-sm text-slate-500">Belum ada notifikasi.</div>}
             {displayed.map((n) => {
               const unread = unreadSet.has(n.id);
+              const cat = typeToCategory(n.type);
               return (
                 <button
                   key={n.id}
@@ -167,6 +209,11 @@ export default function NotificationsInbox({ open, onOpenChange }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
+                      <div className="mb-1">
+                        <Badge variant={cat.variant} className={cat.className}>
+                          {cat.label}
+                        </Badge>
+                      </div>
                       <p className={`truncate text-sm font-semibold ${unread ? 'text-slate-900' : 'text-slate-700'}`}>{n.title}</p>
                       <p className="mt-1 line-clamp-2 text-xs text-slate-600">{n.body}</p>
                       <p className="mt-2 text-[11px] text-slate-500">{formatWibDateTime(n.created_at)}</p>
