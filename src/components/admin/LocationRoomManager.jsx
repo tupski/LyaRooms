@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { 
   Building2, DoorOpen, Plus, Search, Edit2, Trash2, 
-  MapPin, Check, X, ChevronRight, LayoutGrid
+  MapPin, Check, X, ChevronRight, LayoutGrid, ArrowLeft,
+  Users, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -26,23 +27,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 const LocationRoomManager = () => {
-  const [activeSubTab, setActiveSubTab] = useState('locations');
+  const [currentView, setCurrentView] = useState('apartments'); // 'apartments' | 'rooms'
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  
   const [locations, setLocations] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [activeTransactions, setActiveTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Search
-  const [locSearch, setLocSearch] = useState('');
-  const [roomSearch, setRoomSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Dialogs
   const [isLocDialogOpen, setIsLocDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'location'|'room', id, name }
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [locForm, setLocForm] = useState({ id: null, name: '' });
   const [roomForm, setRoomForm] = useState({ id: null, name: '', lokasi: '' });
@@ -50,10 +52,19 @@ const LocationRoomManager = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { data: locData } = await supabase.from('lokasi_apartemen').select('*').order('name');
-      const { data: roomData } = await supabase.from('nomor_kamar').select('*').order('name');
-      setLocations(locData || []);
-      setRooms(roomData || []);
+      const today = new Date().toISOString().split('T')[0];
+
+      const [locRes, roomRes, transRes] = await Promise.all([
+        supabase.from('lokasi_apartemen').select('*').order('name'),
+        supabase.from('nomor_kamar').select('*').order('name'),
+        supabase.from('transactions')
+          .select('id, nomor_kamar, apartment_location, status, check_in, check_out')
+          .or(`status.eq.Checked-In,status.eq.Booked`)
+      ]);
+
+      setLocations(locRes.data || []);
+      setRooms(roomRes.data || []);
+      setActiveTransactions(transRes.data || []);
     } catch (error) {
       toast({ title: "Gagal memuat data", description: error.message, variant: "destructive" });
     } finally {
@@ -65,7 +76,28 @@ const LocationRoomManager = () => {
     fetchData();
   }, []);
 
-  // --- Location Handlers ---
+  const apartmentStats = useMemo(() => {
+    return locations.map(loc => {
+      const locRooms = rooms.filter(r => r.lokasi === loc.name);
+      const total = locRooms.length;
+      
+      const filledRooms = activeTransactions.filter(t => 
+        t.apartment_location === loc.name && 
+        (t.status === 'Checked-In' || t.status === 'Booked')
+      ).map(t => t.nomor_kamar);
+      
+      const uniqueFilled = new Set(filledRooms).size;
+      const remaining = Math.max(0, total - uniqueFilled);
+
+      return {
+        ...loc,
+        total,
+        filled: uniqueFilled,
+        remaining
+      };
+    });
+  }, [locations, rooms, activeTransactions]);
+
   const handleSaveLocation = async () => {
     if (!locForm.name) return;
     try {
@@ -76,20 +108,16 @@ const LocationRoomManager = () => {
         const { error } = await supabase.from('lokasi_apartemen').insert({ name: locForm.name });
         if (error) throw error;
       }
-      toast({ title: "Lokasi berhasil disimpan ✅" });
+      toast({ title: "Apartemen berhasil disimpan ✅" });
       setIsLocDialogOpen(false);
       fetchData();
     } catch (error) {
-      toast({ title: "Gagal menyimpan lokasi", description: error.message, variant: "destructive" });
+      toast({ title: "Gagal menyimpan", description: error.message, variant: "destructive" });
     }
   };
 
-  // --- Room Handlers ---
   const handleSaveRoom = async () => {
-    if (!roomForm.name || !roomForm.lokasi) {
-      toast({ title: "Data tidak lengkap", variant: "destructive" });
-      return;
-    }
+    if (!roomForm.name || !roomForm.lokasi) return;
     try {
       if (roomForm.id) {
         const { error } = await supabase.from('nomor_kamar').update({ name: roomForm.name, lokasi: roomForm.lokasi }).eq('id', roomForm.id);
@@ -102,7 +130,7 @@ const LocationRoomManager = () => {
       setIsRoomDialogOpen(false);
       fetchData();
     } catch (error) {
-      toast({ title: "Gagal menyimpan kamar", description: error.message, variant: "destructive" });
+      toast({ title: "Gagal menyimpan", description: error.message, variant: "destructive" });
     }
   };
 
@@ -114,117 +142,191 @@ const LocationRoomManager = () => {
       if (error) throw error;
       toast({ title: "Berhasil dihapus" });
       setIsDeleting(false);
+      if (deleteTarget.type === 'location' && selectedLocation?.id === deleteTarget.id) {
+        setCurrentView('apartments');
+      }
       fetchData();
     } catch (error) {
       toast({ title: "Gagal menghapus", description: error.message, variant: "destructive" });
     }
   };
 
-  const filteredLocations = locations.filter(l => l.name.toLowerCase().includes(locSearch.toLowerCase()));
+  const filteredApartments = apartmentStats.filter(a => a.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredRooms = rooms.filter(r => 
-    r.name.toLowerCase().includes(roomSearch.toLowerCase()) || 
-    r.lokasi.toLowerCase().includes(roomSearch.toLowerCase())
+    r.lokasi === selectedLocation?.name && 
+    r.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 rounded-2xl h-12">
-          <TabsTrigger value="locations" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <Building2 className="h-4 w-4 mr-2" /> Lokasi Apartemen
-          </TabsTrigger>
-          <TabsTrigger value="rooms" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <DoorOpen className="h-4 w-4 mr-2" /> Nomor Kamar
-          </TabsTrigger>
-        </TabsList>
-
-        {/* --- Locations Sub-tab --- */}
-        <TabsContent value="locations" className="space-y-4 pt-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input 
-                placeholder="Cari lokasi..." 
-                value={locSearch}
-                onChange={(e) => setLocSearch(e.target.value)}
-                className="pl-10 rounded-xl"
-              />
+      <AnimatePresence mode="wait">
+        {currentView === 'apartments' ? (
+          <motion.div 
+            key="apartments"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-6"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input 
+                  placeholder="Cari apartemen..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 rounded-2xl border-slate-200"
+                />
+              </div>
+              <Button onClick={() => { setLocForm({ id: null, name: '' }); setIsLocDialogOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-100 px-6">
+                <Plus className="h-4 w-4 mr-2" /> Tambah Lokasi
+              </Button>
             </div>
-            <Button onClick={() => { setLocForm({ id: null, name: '' }); setIsLocDialogOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
-              <Plus className="h-4 w-4 mr-2" /> Tambah Lokasi
-            </Button>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredLocations.map(loc => (
-              <motion.div key={loc.id} layout className="bg-white border p-4 rounded-2xl shadow-sm flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                    <MapPin className="h-5 w-5" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredApartments.map(apt => (
+                <motion.div 
+                  key={apt.id}
+                  whileHover={{ y: -5 }}
+                  className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all cursor-pointer"
+                  onClick={() => { setSelectedLocation(apt); setCurrentView('rooms'); setSearchTerm(''); }}
+                >
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="h-14 w-14 bg-blue-50 text-blue-600 rounded-[1.5rem] flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <Building2 className="h-7 w-7" />
+                      </div>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-10 w-10 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={(e) => { e.stopPropagation(); setLocForm(apt); setIsLocDialogOpen(true); }}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <h3 className="text-xl font-black text-slate-900 mb-4">{apt.name}</h3>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-50 p-3 rounded-2xl text-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Total</p>
+                        <p className="text-lg font-black text-slate-900">{apt.total}</p>
+                      </div>
+                      <div className="bg-emerald-50 p-3 rounded-2xl text-center">
+                        <p className="text-[10px] font-bold text-emerald-400 uppercase">Terisi</p>
+                        <p className="text-lg font-black text-emerald-700">{apt.filled}</p>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded-2xl text-center">
+                        <p className="text-[10px] font-bold text-blue-400 uppercase">Sisa</p>
+                        <p className="text-lg font-black text-blue-700">{apt.remaining}</p>
+                      </div>
+                    </div>
                   </div>
-                  <span className="font-bold text-slate-800">{loc.name}</span>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="ghost" onClick={() => { setLocForm(loc); setIsLocDialogOpen(true); }} className="h-8 w-8 text-blue-600">
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => { setDeleteTarget({ type: 'location', id: loc.id, name: loc.name }); setIsDeleting(true); }} className="h-8 w-8 text-red-600">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* --- Rooms Sub-tab --- */}
-        <TabsContent value="rooms" className="space-y-4 pt-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input 
-                placeholder="Cari kamar atau lokasi..." 
-                value={roomSearch}
-                onChange={(e) => setRoomSearch(e.target.value)}
-                className="pl-10 rounded-xl"
-              />
+                  
+                  <div className="px-6 py-4 bg-slate-50 border-t border-slate-50 flex items-center justify-between group-hover:bg-blue-600 transition-colors">
+                    <span className="text-xs font-bold text-slate-500 group-hover:text-white transition-colors">Lihat Daftar Kamar</span>
+                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-white transition-colors" />
+                  </div>
+                </motion.div>
+              ))}
             </div>
-            <Button onClick={() => { setRoomForm({ id: null, name: '', lokasi: locations[0]?.name || '' }); setIsRoomDialogOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
-              <Plus className="h-4 w-4 mr-2" /> Tambah Kamar
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredRooms.map(room => (
-              <motion.div key={room.id} layout className="bg-white border p-4 rounded-2xl shadow-sm group relative">
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <Button size="icon" variant="ghost" onClick={() => { setRoomForm(room); setIsRoomDialogOpen(true); }} className="h-7 w-7 text-blue-600 bg-white shadow-sm">
-                    <Edit2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => { setDeleteTarget({ type: 'room', id: room.id, name: room.name }); setIsDeleting(true); }} className="h-7 w-7 text-red-600 bg-white shadow-sm">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="rooms"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" onClick={() => setCurrentView('apartments')} className="rounded-xl h-10 w-10 p-0 hover:bg-slate-100">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">{selectedLocation?.name}</h2>
+                  <p className="text-sm text-slate-500">Kelola nomor kamar untuk lokasi ini.</p>
                 </div>
-                <div className="text-center py-2">
-                  <h3 className="font-black text-xl text-slate-900">{room.name}</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
-                    <MapPin className="h-2.5 w-2.5" /> {room.lokasi}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+              </div>
+              <div className="flex gap-2">
+                 <Button 
+                  variant="outline"
+                  onClick={() => { setLocForm(selectedLocation); setIsLocDialogOpen(true); }}
+                  className="rounded-2xl border-slate-200"
+                >
+                  <Edit2 className="h-4 w-4 mr-2" /> Edit Apartemen
+                </Button>
+                <Button onClick={() => { setRoomForm({ id: null, name: '', lokasi: selectedLocation.name }); setIsRoomDialogOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-6">
+                  <Plus className="h-4 w-4 mr-2" /> Tambah Kamar
+                </Button>
+              </div>
+            </div>
 
-      {/* --- Location Dialog --- */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input 
+                  placeholder="Cari nomor kamar..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 rounded-xl border-slate-100 bg-slate-50/50"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {filteredRooms.map(room => (
+                  <motion.div 
+                    key={room.id} 
+                    className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group relative hover:bg-white hover:border-blue-200 hover:shadow-md transition-all"
+                  >
+                    <div className="text-center py-2">
+                      <span className="text-xl font-black text-slate-900">{room.name}</span>
+                    </div>
+                    <div className="absolute inset-0 bg-white/95 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                      <Button size="icon" variant="ghost" onClick={() => { setRoomForm(room); setIsRoomDialogOpen(true); }} className="h-9 w-9 text-blue-600 rounded-xl hover:bg-blue-50">
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => { setDeleteTarget({ type: 'room', id: room.id, name: room.name }); setIsDeleting(true); }} className="h-9 w-9 text-red-600 rounded-xl hover:bg-red-50">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              
+              {filteredRooms.length === 0 && (
+                <div className="py-20 text-center">
+                  <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <DoorOpen className="h-8 w-8 text-slate-300" />
+                  </div>
+                  <p className="text-slate-400 text-sm">Belum ada kamar yang terdaftar.</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-center">
+              <Button 
+                variant="ghost" 
+                onClick={() => { setDeleteTarget({ type: 'location', id: selectedLocation.id, name: selectedLocation.name }); setIsDeleting(true); }}
+                className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Hapus Apartemen Ini
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- Dialogs & Alerts (Same as before but with Loc/Room distinction) --- */}
       <Dialog open={isLocDialogOpen} onOpenChange={setIsLocDialogOpen}>
         <DialogContent className="bg-white rounded-3xl">
           <DialogHeader>
-            <DialogTitle>{locForm.id ? 'Edit Lokasi' : 'Tambah Lokasi'}</DialogTitle>
+            <DialogTitle>{locForm.id ? 'Edit Apartemen' : 'Tambah Apartemen'}</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Nama Lokasi Apartemen</label>
+            <label className="text-sm font-semibold text-slate-700">Nama Apartemen</label>
             <Input 
               placeholder="Misal: Sky House BSD" 
               value={locForm.name} 
@@ -234,12 +336,11 @@ const LocationRoomManager = () => {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsLocDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleSaveLocation} className="bg-blue-600 text-white rounded-xl">Simpan</Button>
+            <Button onClick={handleSaveLocation} className="bg-blue-600 text-white rounded-xl px-6">Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* --- Room Dialog --- */}
       <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
         <DialogContent className="bg-white rounded-3xl">
           <DialogHeader>
@@ -255,38 +356,26 @@ const LocationRoomManager = () => {
                 className="rounded-xl"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">Lokasi</label>
-              <select 
-                value={roomForm.lokasi} 
-                onChange={(e) => setRoomForm({...roomForm, lokasi: e.target.value})}
-                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Pilih Lokasi</option>
-                {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-              </select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsRoomDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleSaveRoom} className="bg-blue-600 text-white rounded-xl">Simpan</Button>
+            <Button onClick={handleSaveRoom} className="bg-blue-600 text-white rounded-xl px-6">Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* --- Delete Confirmation --- */}
       <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
-        <AlertDialogContent className="bg-white rounded-3xl">
+        <AlertDialogContent className="bg-white rounded-[2rem]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus {deleteTarget?.type === 'location' ? 'Lokasi' : 'Kamar'}?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus {deleteTarget?.type === 'location' ? 'Apartemen' : 'Kamar'}?</AlertDialogTitle>
             <AlertDialogDescription>
               Apakah Anda yakin ingin menghapus <strong>{deleteTarget?.name}</strong>? 
-              {deleteTarget?.type === 'location' && " Semua kamar di lokasi ini juga akan terhapus."}
+              {deleteTarget?.type === 'location' && " Tindakan ini akan menghapus semua data kamar di dalamnya secara permanen."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={executeDelete} className="bg-red-600 text-white">Ya, Hapus</AlertDialogAction>
+            <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete} className="bg-red-600 text-white rounded-xl">Ya, Hapus</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -90,7 +90,7 @@ const GlobalSettings = () => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-4xl mx-auto space-y-6"
+      className="max-w-4xl mx-auto space-y-8 px-4 py-8 sm:px-0"
     >
       <div className="flex items-center justify-between bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
         <div>

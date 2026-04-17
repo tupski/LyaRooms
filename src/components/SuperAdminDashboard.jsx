@@ -59,20 +59,17 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Header Premium */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden mt-4">
         <div className="absolute top-0 right-0 p-8 opacity-10">
-          <Shield className="h-32 w-32" />
+          <Settings className="h-32 w-32" />
         </div>
         <div className="relative z-10 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Pusat Kendali Kakarama</h1>
-            <p className="text-slate-400 text-sm mt-1">Kelola akses, unit, dan pantau operasional secara terpusat.</p>
+            <h1 className="text-2xl font-black tracking-tight uppercase">Pengaturan Aplikasi</h1>
+            <p className="text-slate-400 text-sm mt-1">Kelola akses, unit apartemen, dan pantau operasional sistem.</p>
           </div>
-          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 px-4 py-1.5 rounded-full backdrop-blur-md">
-            <Shield className="h-4 w-4 mr-2" /> Super Admin
-          </Badge>
         </div>
       </div>
 
@@ -86,7 +83,7 @@ const SuperAdminDashboard = () => {
               <Users className="h-4 w-4 mr-2" /> Karyawan
             </TabsTrigger>
             <TabsTrigger value="inventory" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <Building2 className="h-4 w-4 mr-2" /> Lokasi & Kamar
+              <Building2 className="h-4 w-4 mr-2" /> Apartemen
             </TabsTrigger>
             <TabsTrigger value="logs" className="rounded-xl px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <History className="h-4 w-4 mr-2" /> Log Aktivitas
