@@ -279,16 +279,16 @@ const LocationRoomManager = () => {
                 {filteredRooms.map(room => (
                   <motion.div 
                     key={room.id} 
-                    className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group relative hover:bg-white hover:border-blue-200 hover:shadow-md transition-all"
+                    className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group relative flex flex-col items-center justify-between gap-3 hover:bg-white hover:border-blue-200 hover:shadow-md transition-all"
                   >
-                    <div className="text-center py-2">
+                    <div className="text-center py-1">
                       <span className="text-xl font-black text-slate-900">{room.name}</span>
                     </div>
-                    <div className="absolute inset-0 bg-white/95 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                      <Button size="icon" variant="ghost" onClick={() => { setRoomForm(room); setIsRoomDialogOpen(true); }} className="h-9 w-9 text-blue-600 rounded-xl hover:bg-blue-50">
+                    <div className="flex items-center justify-center gap-2 w-full pt-2 border-t border-slate-200/50">
+                      <Button size="icon" variant="ghost" onClick={() => { setRoomForm(room); setIsRoomDialogOpen(true); }} className="h-8 w-8 text-blue-600 rounded-lg hover:bg-blue-50">
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => { setDeleteTarget({ type: 'room', id: room.id, name: room.name }); setIsDeleting(true); }} className="h-9 w-9 text-red-600 rounded-xl hover:bg-red-50">
+                      <Button size="icon" variant="ghost" onClick={() => { setDeleteTarget({ type: 'room', id: room.id, name: room.name }); setIsDeleting(true); }} className="h-8 w-8 text-red-600 rounded-lg hover:bg-red-50">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

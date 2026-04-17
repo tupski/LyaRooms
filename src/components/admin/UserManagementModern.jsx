@@ -179,25 +179,37 @@ const UserManagementModern = () => {
   };
 
   const handleToggleAssignment = async (locationName) => {
+    if (!selectedUser) return;
     const isAssigned = userAssignments.some(a => a.user_id === selectedUser.id && a.location_name === locationName);
     
+    // UI optimistic update
+    const previousAssignments = [...userAssignments];
+    if (isAssigned) {
+      setUserAssignments(prev => prev.filter(a => !(a.user_id === selectedUser.id && a.location_name === locationName)));
+    } else {
+      setUserAssignments(prev => [...prev, { id: 'temp-' + Date.now(), user_id: selectedUser.id, location_name: locationName }]);
+    }
+
     try {
       if (isAssigned) {
-        await supabase
+        const { error } = await supabase
           .from('user_location_assignments')
           .delete()
           .eq('user_id', selectedUser.id)
           .eq('location_name', locationName);
+        if (error) throw error;
       } else {
-        await supabase
+        const { error } = await supabase
           .from('user_location_assignments')
           .insert({ user_id: selectedUser.id, location_name: locationName });
+        if (error) throw error;
       }
       
-      // Refresh assignments
+      // Refresh assignments from server
       const { data } = await supabase.from('user_location_assignments').select('*');
-      setUserAssignments(data || []);
+      if (data) setUserAssignments(data);
     } catch (error) {
+      setUserAssignments(previousAssignments); // Rollback
       toast({ title: "Gagal mengubah assignment", description: error.message, variant: "destructive" });
     }
   };

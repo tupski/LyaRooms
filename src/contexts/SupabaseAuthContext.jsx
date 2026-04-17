@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = tidak ada baris
         console.error('Error checking user role:', error);
@@ -79,21 +79,25 @@ export const AuthProvider = ({ children }) => {
 
     // Realtime role listener
     let roleChannel = null;
-    if (session?.user?.id) {
+    const userId = session?.user?.id;
+    
+    if (userId) {
       roleChannel = supabase
-        .channel(`role_sync_${session.user.id}`)
+        .channel(`role_sync_${userId}`)
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'user_roles', 
-          filter: `user_id=eq.${session.user.id}` 
-        }, () => checkUserRole(session.user.id))
+          filter: `user_id=eq.${userId}` 
+        }, () => checkUserRole(userId))
         .subscribe();
     }
 
     return () => {
       subscription.unsubscribe();
-      if (roleChannel) supabase.removeChannel(roleChannel);
+      if (roleChannel) {
+        supabase.removeChannel(roleChannel);
+      }
     };
   }, [handleSession, session?.user?.id, checkUserRole]);
 
@@ -133,25 +137,22 @@ export const AuthProvider = ({ children }) => {
   }, [toast]);
 
   const signOut = useCallback(async () => {
-    // Clear all persistent states to prevent role pollution
-    localStorage.clear();
-    if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Signout error:", e);
+    } finally {
+      // Clear persistent states AFTER signout attempt
+      localStorage.clear();
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        } catch (e) {}
+      }
+      window.location.reload(); // Hard reload to clear all in-memory state
     }
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Sign out Failed",
-        description: error.message || "Something went wrong",
-      });
-    }
-
-    return { error };
-  }, [toast]);
+  }, []);
 
   const refreshSession = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -177,7 +178,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return { loading: true, user: null, session: null, userRole: null, isSuperAdmin: false, isAdmin: false };
   }
   return context;
 };
