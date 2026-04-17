@@ -61,14 +61,14 @@ const SuperAdminDashboard = () => {
   return (
     <div className="space-y-6 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Header Premium */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden mt-4">
+      <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden mt-4">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Settings className="h-32 w-32" />
         </div>
         <div className="relative z-10 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">Pengaturan Aplikasi</h1>
-            <p className="text-slate-400 text-sm mt-1">Kelola akses, unit apartemen, dan pantau operasional sistem.</p>
+            <h1 className="text-2xl font-black tracking-tight">Pengaturan Aplikasi</h1>
+            <p className="text-blue-100 text-sm mt-1">Kelola karyawan, unit apartemen, dan pantau operasional sistem.</p>
           </div>
         </div>
       </div>

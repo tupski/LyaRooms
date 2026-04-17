@@ -484,12 +484,12 @@ const FormTransaksiModern = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-white">Form Input Transaksi</h1>
-                <p className="text-sm text-blue-100">Catat transaksi apartemen dengan alur cepat dan rapi.</p>
+                {/* <p className="text-sm text-blue-100">Catat transaksi apartemen dengan alur cepat dan rapi.</p> */}
               </div>
-              <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
+              {/* <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
                 <div className="font-medium">{user?.user_metadata?.full_name || user?.email}</div>
                 <div className="text-xs uppercase tracking-wide text-blue-100">{userRole || 'karyawan'}</div>
-              </div>
+              </div> */}
             </div>
           </header>
         )}
@@ -684,7 +684,7 @@ const FormTransaksiModern = ({
               <div><label className="mb-2 block text-sm font-medium text-slate-700">Fee Marketing (Rp)</label><input inputMode="numeric" value={formData.feeMarketing} onChange={(e) => handleChange('feeMarketing', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
             </div>
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-              <p className="mb-2 text-xs font-semibold text-amber-700">💰 Deposit (tidak masuk omset)</p>
+              <p className="mb-2 text-xs font-semibold text-amber-700">Deposit Tamu</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="mb-1 block text-xs font-medium text-amber-700">Tunai (Rp)</label><input inputMode="numeric" value={formData.depositCash} onChange={(e) => handleChange('depositCash', formatCurrency(e.target.value))} className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500" placeholder="0" /></div>
                 <div><label className="mb-1 block text-xs font-medium text-amber-700">Transfer (Rp)</label><input inputMode="numeric" value={formData.depositTransfer} onChange={(e) => handleChange('depositTransfer', formatCurrency(e.target.value))} className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500" placeholder="0" /></div>
