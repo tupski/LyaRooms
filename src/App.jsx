@@ -296,7 +296,6 @@ function App() {
       </div>
     );
   }
-  }, [unreadCount, lastNotifiedCount]);
 
   if (!session) return <Auth />;
 
