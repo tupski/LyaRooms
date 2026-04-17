@@ -155,10 +155,10 @@ const HalamanRequest = () => {
     return (
         <div className="min-h-screen p-4 pt-6 pb-28">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto space-y-5">
-                <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-full shadow-lg">
-                        <Send className="w-6 h-6" />
-                        <h1 className="text-xl font-bold">Halaman Request</h1>
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
+                    <div className="relative z-10">
+                        <h1 className="text-xl font-black tracking-tight uppercase">Request & Permintaan</h1>
+                        <p className="text-blue-100 text-xs mt-1">Kirim permintaan kebutuhan unit atau kasbon di sini.</p>
                     </div>
                 </div>
 

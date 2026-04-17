@@ -13,7 +13,7 @@ const PAGE_SIZE = 20;
 
 function buildAudienceFilter(userId, userRole) {
   if (!userId) return null;
-  if (userRole === 'super_admin') return `audience_user_id.eq.${userId},audience_role.eq.super_admin,audience_role.eq.all`;
+  if (userRole === 'super_admin') return `audience_user_id.eq.${userId},audience_role.eq.super_admin,audience_role.eq.admin,audience_role.eq.all`;
   if (userRole === 'admin') return `audience_user_id.eq.${userId},audience_role.eq.admin,audience_role.eq.all`;
   return `audience_user_id.eq.${userId},audience_role.eq.all`;
 }
@@ -30,6 +30,8 @@ function typeToCategory(type) {
       return { label: 'Kamar Hampir Habis', variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     case 'rooms_sold_out':
       return { label: 'Kamar Habis', variant: 'destructive', className: 'bg-red-100 text-red-800 border-red-200' };
+    case 'new_transaction':
+      return { label: 'Transaksi', variant: 'default', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
     default:
       return { label: 'Lainnya', variant: 'outline', className: 'border-slate-200 text-slate-700' };
   }

@@ -90,7 +90,7 @@ function App() {
   const audienceFilter = useMemo(() => {
     const userId = session?.user?.id;
     if (!userId) return null;
-    if (userRole === 'super_admin') return `audience_user_id.eq.${userId},audience_role.eq.super_admin,audience_role.eq.all`;
+    if (userRole === 'super_admin') return `audience_user_id.eq.${userId},audience_role.eq.super_admin,audience_role.eq.admin,audience_role.eq.all`;
     if (userRole === 'admin') return `audience_user_id.eq.${userId},audience_role.eq.admin,audience_role.eq.all`;
     return `audience_user_id.eq.${userId},audience_role.eq.all`;
   }, [session?.user?.id, userRole]);
@@ -272,6 +272,31 @@ function App() {
       </div>
     );
   }
+  const [lastNotifiedCount, setLastNotifiedCount] = useState(0);
+
+  // Request notification permission and show browser notifications
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (unreadCount > lastNotifiedCount) {
+      if (Notification.permission === 'granted') {
+        new Notification('Kakarama Room', {
+          body: `Anda memiliki ${unreadCount} notifikasi baru.`,
+          icon: '/logo-kr-transparent-square.png'
+        });
+      }
+      setLastNotifiedCount(unreadCount);
+    } else if (unreadCount < lastNotifiedCount) {
+      setLastNotifiedCount(unreadCount);
+    }
+  }, [unreadCount, lastNotifiedCount]);
+
   if (!session) return <Auth />;
 
   if (isMaintenance && !isSuperAdmin) {
@@ -295,7 +320,7 @@ function App() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-blue-300 bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 px-4 py-3 text-white shadow-md backdrop-blur">
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-4 text-white shadow-lg">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-white/40">

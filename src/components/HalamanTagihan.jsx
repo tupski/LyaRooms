@@ -525,7 +525,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
         }, [unpaidFees, searchTerm, sortOrder]);
 
         return (
-            <div className="space-y-5">
+            <div className="space-y-6">
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
+                    <div className="relative z-10">
+                        <h1 className="text-xl font-black tracking-tight uppercase">Tagihan Fee Marketing</h1>
+                        <p className="text-blue-100 text-xs mt-1">Kelola dan bayar komisi marketing secara kolektif.</p>
+                    </div>
+                </div>
+
                 <div className="glassmorphic-card p-5 space-y-4">
                      <div className="flex justify-between items-center">
                         <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Coins className="text-blue-500"/> Tagihan Fee</h2>

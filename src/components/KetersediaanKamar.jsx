@@ -316,10 +316,10 @@ const KetersediaanKamar = () => {
     <div className="min-h-screen p-3 pb-28 pt-5">
       <div className="mx-auto max-w-md space-y-4">
         {/* Header */}
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-green-500 to-cyan-500 px-6 py-3 text-white shadow-lg">
-            <DoorOpen className="h-5 w-5" />
-            <h1 className="text-xl font-bold">Ketersediaan Kamar</h1>
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
+          <div className="relative z-10">
+            <h1 className="text-xl font-black tracking-tight uppercase">Ketersediaan Kamar</h1>
+            <p className="text-blue-100 text-xs mt-1">Pantau status unit dan kelola checkout tamu.</p>
           </div>
         </div>
 
