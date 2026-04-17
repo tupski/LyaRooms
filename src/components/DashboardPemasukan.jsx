@@ -35,6 +35,7 @@ const DashboardPemasukan = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
+  const monthInputValue = /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate.slice(0, 7) : format(new Date(), 'yyyy-MM');
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedKeyword(searchKeyword), 300);
@@ -92,65 +93,69 @@ const DashboardPemasukan = () => {
   };
 
   const loadTransaksi = useCallback(async () => {
-    let fromDate;
-    let toDate;
+    try {
+      let fromDate;
+      let toDate;
 
-    switch (filterType) {
-      case 'harian':
-        fromDate = startOfDay(parseLocalDateInput(startDate));
-        toDate = addDays(fromDate, 1);
-        break;
-      case 'bulanan': {
-        const monthDate = parseLocalDateInput(startDate);
-        fromDate = startOfMonth(monthDate);
-        toDate = addMonths(fromDate, 1);
-        break;
+      switch (filterType) {
+        case 'harian':
+          fromDate = startOfDay(parseLocalDateInput(startDate));
+          toDate = addDays(fromDate, 1);
+          break;
+        case 'bulanan': {
+          const monthDate = parseLocalDateInput(startDate);
+          fromDate = startOfMonth(monthDate);
+          toDate = addMonths(fromDate, 1);
+          break;
+        }
+        case 'rentang':
+          fromDate = new Date(`${startDate}T${startTime || '00:00'}:00`);
+          // Pakai batas akhir eksklusif untuk menghindari edge-case detik/ms.
+          toDate = new Date(new Date(`${endDate}T${endTime || '23:59'}:59`).getTime() + 1000);
+          break;
+        default:
+          fromDate = startOfDay(new Date());
+          toDate = addDays(fromDate, 1);
       }
-      case 'rentang':
-        fromDate = new Date(`${startDate}T${startTime || '00:00'}:00`);
-        // Pakai batas akhir eksklusif untuk menghindari edge-case detik/ms.
-        toDate = new Date(new Date(`${endDate}T${endTime || '23:59'}:59`).getTime() + 1000);
-        break;
-      default:
-        fromDate = startOfDay(new Date());
-        toDate = addDays(fromDate, 1);
-    }
 
-    let query = supabase
-      .from('transactions')
-      .select('*')
-      .gte('checkin_at', fromDate.toISOString())
-      .lt('checkin_at', toDate.toISOString());
+      const fromIso = fromDate.toISOString();
+      const toIso = toDate.toISOString();
+      let query = supabase
+        .from('transactions')
+        .select('*')
+        .or(`and(checkin_at.gte.${fromIso},checkin_at.lt.${toIso}),and(checkin_at.is.null,created_at.gte.${fromIso},created_at.lt.${toIso})`);
 
-    if (lokasi !== 'semua') query = query.eq('apartment_location', lokasi);
-    if (shift !== 'semua') query = query.eq('shift', shift);
-    const keyword = debouncedKeyword.trim();
-    if (keyword) {
-      query = query.or(
-        `customer_name.ilike.%${keyword}%,marketing_name.ilike.%${keyword}%,input_by.ilike.%${keyword}%,apartment_location.ilike.%${keyword}%,room_number.ilike.%${keyword}%`
-      );
-    }
+      if (lokasi !== 'semua') query = query.eq('apartment_location', lokasi);
+      if (shift !== 'semua') query = query.eq('shift', shift);
+      const keyword = debouncedKeyword.trim();
+      if (keyword) {
+        query = query.or(
+          `customer_name.ilike.%${keyword}%,marketing_name.ilike.%${keyword}%,input_by.ilike.%${keyword}%,apartment_location.ilike.%${keyword}%,room_number.ilike.%${keyword}%`
+        );
+      }
 
-    const { data: filteredData, error } = await query;
-    if (error) {
+      const { data: filteredData, error } = await query;
+      if (error) throw error;
+
+      const list = (filteredData || []).sort((a, b) => new Date(b.checkin_at || b.created_at) - new Date(a.checkin_at || a.created_at));
+      // Deposit TIDAK masuk ke omset
+      const totalTunai = list.reduce((sum, t) => sum + (t.cash_amount || 0), 0);
+      const totalTransfer = list.reduce((sum, t) => sum + (t.transfer_amount || 0), 0);
+
+      setStats((prev) => ({
+        ...prev,
+        tunai: totalTunai,
+        transfer: totalTransfer,
+        total: totalTunai + totalTransfer,
+        jumlahTransaksi: list.length,
+      }));
+      setTransaksiList(list);
+      setCurrentPage(1);
+    } catch (error) {
+      setTransaksiList([]);
+      setStats((prev) => ({ ...prev, tunai: 0, transfer: 0, total: 0, jumlahTransaksi: 0 }));
       toast({ title: 'Gagal memuat transaksi', description: error.message, variant: 'destructive' });
-      return;
     }
-
-    const list = (filteredData || []).sort((a, b) => new Date(b.checkin_at || b.created_at) - new Date(a.checkin_at || a.created_at));
-    // Deposit TIDAK masuk ke omset
-    const totalTunai = list.reduce((sum, t) => sum + (t.cash_amount || 0), 0);
-    const totalTransfer = list.reduce((sum, t) => sum + (t.transfer_amount || 0), 0);
-
-    setStats((prev) => ({
-      ...prev,
-      tunai: totalTunai,
-      transfer: totalTransfer,
-      total: totalTunai + totalTransfer,
-      jumlahTransaksi: list.length,
-    }));
-    setTransaksiList(list);
-    setCurrentPage(1);
   }, [filterType, startDate, endDate, startTime, endTime, lokasi, shift, debouncedKeyword]);
 
   const loadInitialData = useCallback(async () => {
@@ -411,7 +416,7 @@ Diinput oleh: ${transaksi.input_by || '-'} (Shift: ${transaksi.shift || '-'})`;
             </div>
 
             {filterType === 'harian' && <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900" />}
-            {filterType === 'bulanan' && <input type="month" value={format(new Date(startDate), 'yyyy-MM')} onChange={(e) => setStartDate(`${e.target.value}-01`)} className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900" />}
+            {filterType === 'bulanan' && <input type="month" value={monthInputValue} onChange={(e) => setStartDate(`${e.target.value}-01`)} className="w-full rounded-xl border-2 px-4 py-2.5 text-gray-900" />}
             {filterType === 'rentang' && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
