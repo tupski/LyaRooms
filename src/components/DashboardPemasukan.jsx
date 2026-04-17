@@ -456,7 +456,7 @@ Diinput oleh: ${transaksi.input_by || '-'} (Shift: ${transaksi.shift || '-'})`;
                   <div className="mb-3 space-y-1 border-y py-2 text-xs text-gray-700">
                     <p>Lokasi: {transaksi.apartment_location} - Kamar {transaksi.room_number}</p>
                     <p>Sewa: {getSewaDisplay(transaksi)}</p>
-                    <p>Check-in: {formatDateTime(transaksi.checkin_at || transaksi.created_at)}</p>
+                    <p>Check-in: {formatWhatsappDateTime(transaksi.checkin_at || transaksi.created_at)}</p>
                     {transaksi.marketing_name && <p>Marketing: {transaksi.marketing_name}</p>}
                     {transaksi.marketing_fee > 0 && <p>Fee: {formatRupiah(transaksi.marketing_fee)}</p>}
                     {transaksi.input_by && (

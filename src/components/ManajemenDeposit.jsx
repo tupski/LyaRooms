@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Download, CheckCircle, Clock, Upload, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
+import { resolveStorageUrl } from '@/lib/storageUrl';
+import { Image as ImageIcon } from 'lucide-react';
 
 const ManajemenDeposit = () => {
   const [tabDeposit, setTabDeposit] = useState('belum'); // 'belum', 'sudah'
@@ -141,7 +143,24 @@ const ManajemenDeposit = () => {
                   <div className="mt-4 rounded-xl bg-green-50 px-3 py-2 text-xs text-green-800 border border-green-100 flex justify-between items-center">
                     <span>Dikembalikan: {formatTime(tx.deposit_returned_at)}</span>
                     {tx.deposit_refund_proof_url && (
-                      <span className="font-semibold text-green-700 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Ada Bukti</span>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-green-700 hover:text-green-800 hover:bg-green-100 flex items-center gap-1">
+                            <ImageIcon className="h-3 w-3" /> Lihat Bukti
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-sm rounded-3xl bg-black/90">
+                          <DialogHeader>
+                            <DialogTitle className="text-white">Bukti Pengembalian</DialogTitle>
+                            <DialogDescription className="text-slate-300">Bukti refund deposit customer {tx.customer_name}.</DialogDescription>
+                          </DialogHeader>
+                          <img 
+                            src={resolveStorageUrl(tx.deposit_refund_proof_url)} 
+                            alt="Bukti Refund" 
+                            className="w-full rounded-2xl border border-white/20" 
+                          />
+                        </DialogContent>
+                      </Dialog>
                     )}
                   </div>
                 )}

@@ -20,16 +20,49 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const INITIAL_VISIBLE_ROOMS = 8;
 
+const formatTimeWIB = (date) => {
+  if (!date) return '-';
+  const d = new Date(date);
+  const parts = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const getPart = (type) => parts.find((part) => part.type === type)?.value || '';
+  return `${getPart('weekday')}, ${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}:${getPart('minute')} WIB`;
+};
+
 const formatTime = (date) =>
   date ? date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '';
 const formatDate = (date) =>
   date ? date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '';
+
 const formatRupiah = (v) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v || 0);
-const formatDuration = (h) => {
-  if (!h) return '-';
+
+const getSewaDisplay = (tx) => {
+  if (!tx) return '-';
+  const hours = Number(tx.rental_duration || 0);
+  const start = new Date(tx.checkin_at || tx.created_at);
+  const end = tx.checkout_at ? new Date(tx.checkout_at) : new Date(start.getTime() + hours * 3600000);
+  const isPerMalam = hours >= 12 && (end.getHours() === 12 || hours > 24);
+
+  if (isPerMalam) {
+    const nights = Math.max(Math.ceil(hours / 24), 1);
+    const label = hours <= 15 ? 'Promo Malam' : 'Fullday';
+    return `${nights} Malam (${label})`;
+  }
   const map = { 3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM' };
-  return map[h] || `${h} JAM`;
+  return map[hours] || `${hours} JAM`;
+};
+
+const capitalizeWords = (str) => {
+  if (!str) return '-';
+  return str.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 };
 
 const calcEndAt = (tx) => {
@@ -81,30 +114,38 @@ const RoomDetailModal = ({ room, onClose, onCheckOut, canCheckout }) => {
             <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-700">
                 <User className="h-4 w-4 text-slate-400" />
-                <span className="font-semibold text-slate-900">{room.customerName}</span>
+                <span className="font-semibold text-slate-900">{capitalizeWords(room.customerName)}</span>
               </div>
               {room.tx?.marketing_name && (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Phone className="h-4 w-4 text-slate-400" />
-                  <span>Marketing: {room.tx.marketing_name}</span>
+                <div className="space-y-1 pl-6">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <span>Marketing: <span className="font-medium">{room.tx.marketing_name}</span></span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-slate-500">Komisi: </span>
+                    <span className={`font-semibold ${room.feePaid ? 'text-green-600' : 'text-amber-600'}`}>
+                      {room.tx.marketing_fee > 0 
+                        ? `${formatRupiah(room.tx.marketing_fee)} (${room.feePaid ? 'Sudah dibayar' : 'Belum dibayar'})`
+                        : 'Rp 0 (Tanpa komisi)'}
+                    </span>
+                  </div>
                 </div>
               )}
               {room.tx?.input_by && (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <User className="h-4 w-4 text-slate-400" />
-                  <span>Diinput oleh: {room.tx.input_by}</span>
+                <div className="flex items-center gap-2 text-xs text-slate-500 pl-6 italic">
+                  <span>Diinput oleh: {room.tx.input_by} (shift: {room.tx.shift?.toLowerCase() || '-'})</span>
                 </div>
               )}
             </div>
 
             {/* Time info */}
             <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm text-slate-700">
+              <div className="flex items-center gap-2 text-xs text-slate-700">
                 <Clock className="h-4 w-4 text-slate-400" />
-                <div>
-                  <p>Check-in: <span className="font-semibold">{formatTime(room.checkInTime)} ({formatDate(room.checkInTime)})</span></p>
-                  <p>Check-out: <span className="font-semibold">{formatTime(room.readyAt)} ({formatDate(room.readyAt)})</span></p>
-                  <p>Durasi: <span className="font-semibold">{formatDuration(room.tx?.rental_duration)}</span> {room.tx?.shift ? `· ${room.tx.shift}` : ''}</p>
+                <div className="space-y-1">
+                  <p>Check-in: <span className="font-semibold">{formatTimeWIB(room.checkInTime)}</span></p>
+                  <p>Check-out: <span className="font-semibold">{formatTimeWIB(room.readyAt)}</span></p>
+                  <p>Durasi: <span className="font-semibold">{getSewaDisplay(room.tx)}</span></p>
                 </div>
               </div>
             </div>
@@ -185,12 +226,13 @@ const KetersediaanKamar = () => {
 
   const fetchRoomStatus = useCallback(async () => {
     setLoading(true);
-    const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }] = await Promise.all([
+    const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }, { data: paidFees, error: paidError }] = await Promise.all([
       supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
       supabase.from('transactions')
-        .select('id, created_at, checkin_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at')
+        .select('id, created_at, checkin_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at, marketing_fee')
         .order('checkin_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false }),
+      supabase.from('tagihan_fee_lunas').select('marketing_name, paid_at'),
     ]);
 
     if (roomsError || transError) {
@@ -216,6 +258,10 @@ const KetersediaanKamar = () => {
             readyAt: endAt,
             customerName: tx.customer_name,
             checkInTime: new Date(tx.checkin_at || tx.created_at),
+            feePaid: (paidFees || []).some(pf => 
+              pf.marketing_name === tx.marketing_name && 
+              new Date(pf.paid_at).toDateString() === new Date(tx.checkin_at || tx.created_at).toDateString()
+            ),
           };
         }
       }
