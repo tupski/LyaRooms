@@ -302,6 +302,34 @@ const UserManagementModern = () => {
                   <Phone className="h-3.5 w-3.5" /> {user.phone || '-'}
                 </div>
               </div>
+
+              {/* Assignment Tags */}
+              <div className="mt-4 pt-4 border-t border-slate-50">
+                <div className="flex flex-wrap gap-1.5">
+                  {(() => {
+                    const assigned = userAssignments.filter(a => a.user_id === user.id);
+                    if (assigned.length === 0) {
+                      return <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg font-medium">Semua Lokasi</span>;
+                    }
+                    const visible = assigned.slice(0, 2);
+                    const remaining = assigned.length - visible.length;
+                    return (
+                      <>
+                        {visible.map(a => (
+                          <span key={a.id} className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-100 font-medium">
+                            {a.location_name}
+                          </span>
+                        ))}
+                        {remaining > 0 && (
+                          <button onClick={() => handleOpenAssignment(user)} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-lg border border-blue-100 font-bold hover:bg-blue-100">
+                            +{remaining}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
             </motion.div>
           ))
         )}
@@ -414,7 +442,9 @@ const UserManagementModern = () => {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Assign Lokasi</DialogTitle>
             <DialogDescription>
-              Tugaskan <strong>{selectedUser?.full_name}</strong> ke lokasi tertentu.
+              Tugaskan <strong>{selectedUser?.full_name}</strong> ke lokasi tertentu. 
+              <br />
+              <span className="text-emerald-600 font-bold">💡 Tips: Jika tidak ada yang dipilih, karyawan bisa akses semua lokasi.</span>
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2 max-h-[300px] overflow-y-auto pr-2">

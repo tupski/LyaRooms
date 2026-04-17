@@ -77,8 +77,25 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
-    return () => subscription.unsubscribe();
-  }, [handleSession]);
+    // Realtime role listener
+    let roleChannel = null;
+    if (session?.user?.id) {
+      roleChannel = supabase
+        .channel(`role_sync_${session.user.id}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'user_roles', 
+          filter: `user_id=eq.${session.user.id}` 
+        }, () => checkUserRole(session.user.id))
+        .subscribe();
+    }
+
+    return () => {
+      subscription.unsubscribe();
+      if (roleChannel) supabase.removeChannel(roleChannel);
+    };
+  }, [handleSession, session?.user?.id, checkUserRole]);
 
   const signUp = useCallback(async (email, password, options) => {
     const { error } = await supabase.auth.signUp({

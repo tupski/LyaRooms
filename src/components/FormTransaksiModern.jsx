@@ -154,11 +154,8 @@ const FormTransaksiModern = ({
         const assignedNames = assignments.map(a => a.location_name);
         filteredLokasi = filteredLokasi.filter(l => assignedNames.includes(l.name));
         filteredKamar = filteredKamar.filter(k => assignedNames.includes(k.lokasi));
-      } else if (effectiveRole === 'karyawan' && assignments && assignments.length === 0) {
-        // Jika karyawan belum diassign kemanapun, batasi (opsional: tampilkan kosong)
-        filteredLokasi = [];
-        filteredKamar = [];
       }
+      // Jika assignments.length === 0, biarkan filteredLokasi dan filteredKamar berisi semua data.
 
       setRefs({
         lokasi: filteredLokasi,
