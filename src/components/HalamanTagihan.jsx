@@ -354,7 +354,6 @@ import React, { useState, useEffect, useCallback } from 'react';
         const [paidFees, setPaidFees] = useState([]);
         const [showHistory, setShowHistory] = useState(true);
         const [uploadFile, setUploadFile] = useState(null);
-        const [selectedMarketing, setSelectedMarketing] = useState(null);
         const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
         const [isPayModalOpen, setIsPayModalOpen] = useState(false);
         const [modalMarketing, setModalMarketing] = useState(null);
@@ -421,54 +420,6 @@ import React, { useState, useEffect, useCallback } from 'react';
             return () => supabase.removeChannel(channel);
         }, [loadData]);
     
-        const handleFeeDone = async () => {
-            if (!selectedMarketing) return;
-            
-            let proof_url = null;
-            if (uploadFile) {
-                try {
-                    proof_url = await uploadToVercelBlob(uploadFile, 'fee-proofs');
-                } catch (uploadError) {
-                    toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
-                    return;
-                }
-            }
-    
-            const { error: insertError } = await supabase.from('tagihan_fee_lunas').insert({
-                marketing_name: selectedMarketing.nama,
-                customer_count: selectedMarketing.count,
-                total_fee: selectedMarketing.totalFee,
-                transactions_detail: selectedMarketing.transactions,
-                proof_url: proof_url,
-                user_id: user.id,
-                paid_at: new Date().toISOString(),
-            });
-            
-            if (insertError) {
-                toast({ title: "Gagal menyimpan", description: insertError.message, variant: "destructive" });
-            } else {
-                if (selectedMarketing.totalFee > 0) { // Only log to expenses if there's a fee
-                    const { error: expenseError } = await supabase.from('pengeluaran').insert({
-                        nama_pengeluaran: `Bayar Fee Marketing ${selectedMarketing.nama}`,
-                        jumlah: selectedMarketing.totalFee,
-                        tanggal: format(new Date(selectedDate), 'yyyy-MM-dd'),
-                        keterangan: `${selectedMarketing.count} customer.`
-                    });
-    
-                    if (expenseError) {
-                        toast({ title: `Fee lunas, tapi gagal mencatat ke pengeluaran.`, variant: "destructive" });
-                    } else {
-                        toast({ title: `Fee untuk ${selectedMarketing.nama} lunas dan dicatat di pengeluaran.` });
-                    }
-                } else {
-                    toast({ title: `Fee untuk ${selectedMarketing.nama} ditandai lunas (tanpa nominal).` });
-                }
-                setUploadFile(null);
-                setSelectedMarketing(null);
-                onDataUpdate();
-            }
-        };
-
         const openPayModal = (fee) => {
           setModalMarketing(fee);
           setIsPayModalOpen(true);
@@ -562,15 +513,14 @@ import React, { useState, useEffect, useCallback } from 'react';
                             <h3 className="font-bold text-gray-900 text-lg">{fee.nama}</h3>
                             <p className="text-gray-700">Jumlah Customer: <span className="font-semibold text-gray-900">{fee.count} orang</span></p>
                             <p className="text-gray-700">Total Fee: <span className="font-bold text-xl text-blue-600">{formatRupiah(fee.totalFee)}</span></p>
-                            <div className="flex gap-2 mt-4 border-t pt-4">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild><Button size="sm" className="flex-1 bg-green-500" onClick={() => setSelectedMarketing(fee)}><CheckCircle className="mr-2 h-4 w-4" /> Done</Button></AlertDialogTrigger>
-                                <AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Konfirmasi Pembayaran</AlertDialogTitle><AlertDialogDescription>Unggah bukti pembayaran jika tersedia, lalu tandai sebagai lunas.</AlertDialogDescription></AlertDialogHeader>
-                                <input type="file" accept="image/*" onChange={(e) => setUploadFile(e.target.files[0])} className="w-full text-sm text-gray-700 file:text-blue-600"/>
-                                <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleFeeDone} className="bg-green-600">Tandai Lunas</AlertDialogAction></AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                            <Button size="sm" variant="outline" className="flex-1" onClick={() => openPayModal(fee)}><CheckCircle className="mr-2 h-4 w-4" /> Bayar</Button>
+                            <div className="mt-4 border-t pt-4">
+                              <Button
+                                size="sm"
+                                className="w-full bg-blue-600 hover:bg-blue-700"
+                                onClick={() => openPayModal(fee)}
+                              >
+                                Bayar Fee {fee.nama}
+                              </Button>
                             </div>
                         </motion.div>
                         ))
