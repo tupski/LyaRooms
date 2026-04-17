@@ -286,7 +286,7 @@ const DashboardPemasukan = () => {
 *Sewa:* ${sewaDisplay}
 -------------------
 *Total Bayar:* ${formatRupiahNumber(total)}
-*Pembayaran:* ${lines.join('\n')}
+${lines.join('\n')}
 ${depositLine ? `*Deposit:* ${depositLine}\n` : ''}-------------------
 Diinput oleh: ${transaksi.input_by || '-'} (Shift: ${transaksi.shift || '-'})`;
 

@@ -399,7 +399,7 @@ const FormTransaksiModern = ({
       const payload = {
         user_id: user.id,
         customer_name: formData.namaCustomer.trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-        marketing_name: formData.namaMarketing || formData.input_by || user?.email || 'sistem',
+        marketing_name: formData.namaMarketing || '-',
         rental_duration: rentalConfig.rentalHours,
         checkin_at: checkInDate.toISOString(),
         checkout_at: rentalConfig.checkoutDate.toISOString(),
@@ -749,7 +749,7 @@ const FormTransaksiModern = ({
             <ul className="space-y-1.5 text-sm text-slate-700">
               <li><span className="font-medium text-slate-900">Customer:</span> {formData.namaCustomer || '-'}</li>
               <li><span className="font-medium text-slate-900">Lokasi / Kamar:</span> {formData.lokasiApartemen || '-'} — {formData.nomorKamar || '-'}</li>
-              <li><span className="font-medium text-slate-900">Marketing:</span> {formData.namaMarketing || formData.input_by || user?.email || '-'}</li>
+              <li><span className="font-medium text-slate-900">Marketing:</span> {formData.namaMarketing || '-'}</li>
               <li>
                 <span className="font-medium text-slate-900">Durasi / Shift:</span> {formData.lamaSewa || '-'}
                 {formData.jenisSewa === 'TRANSIT' && formData.lamaSewa === 'Custom' && ` (${formData.customSewaJam} jam)`} / {formData.shift || '-'}
