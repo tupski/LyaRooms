@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, BarChart, Target, Edit } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
+import { format, startOfMonth, addMonths } from 'date-fns';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1943'];
 
@@ -15,6 +16,7 @@ const OmsetChart = () => {
   const [target, setTarget] = useState(0);
   const [newTarget, setNewTarget] = useState('');
   const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
   const getTargetFromLocal = () => {
     const localTarget = localStorage.getItem('omset_target');
@@ -22,7 +24,13 @@ const OmsetChart = () => {
   };
 
   const fetchData = async () => {
-    const { data: transactions, error: transactionsError } = await supabase.from('transactions').select('apartment_location, cash_amount, transfer_amount');
+    const monthStart = startOfMonth(new Date(`${selectedMonth}-01`));
+    const monthEndExclusive = addMonths(monthStart, 1);
+    const { data: transactions, error: transactionsError } = await supabase
+      .from('transactions')
+      .select('apartment_location, cash_amount, transfer_amount, checkin_at, created_at')
+      .gte('checkin_at', monthStart.toISOString())
+      .lt('checkin_at', monthEndExclusive.toISOString());
     if (transactionsError) {
       console.error("Error fetching transactions:", transactionsError);
       return;
@@ -55,7 +63,7 @@ const OmsetChart = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [selectedMonth]);
 
   const formatRupiah = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   const formatAngka = (angka) => new Intl.NumberFormat('id-ID').format(angka);
@@ -85,8 +93,17 @@ const OmsetChart = () => {
           </div>
         </div>
 
-        <motion.div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl p-5 text-center">
+        <motion.div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl p-5 text-center space-y-2">
           <h2 className="font-bold text-lg text-gray-600">Total Omset</h2>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xs font-semibold text-slate-600">Periode</span>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800"
+            />
+          </div>
           <p className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600 my-2">{formatRupiah(totalOmset)}</p>
         </motion.div>
 

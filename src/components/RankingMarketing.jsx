@@ -37,7 +37,7 @@ const RankingMarketing = () => {
   const loadRankings = async () => {
     const { data, error } = await supabase
       .from('transactions')
-      .select('marketing_name, cash_amount, transfer_amount, created_at');
+      .select('marketing_name, cash_amount, transfer_amount, checkin_at, created_at');
     if (error) {
       console.error('Error fetching rankings:', error);
       return;
@@ -54,7 +54,7 @@ const RankingMarketing = () => {
   const monthKeys = useMemo(() => {
     const set = new Set();
     (rows || []).forEach((t) => {
-      const k = toMonthKey(t.created_at);
+      const k = toMonthKey(t.checkin_at || t.created_at);
       if (k) set.add(k);
     });
     return ['all', ...[...set].sort().reverse()];
@@ -79,7 +79,7 @@ const RankingMarketing = () => {
   const filteredRows = useMemo(() => {
     if (!selectedMonth) return [];
     if (selectedMonth === 'all') return rows || [];
-    return (rows || []).filter((t) => toMonthKey(t.created_at) === selectedMonth);
+    return (rows || []).filter((t) => toMonthKey(t.checkin_at || t.created_at) === selectedMonth);
   }, [rows, selectedMonth]);
 
   const rankings = useMemo(() => {

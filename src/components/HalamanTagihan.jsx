@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
     import { resolveStorageUrl } from '@/lib/storageUrl';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
-    import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+    import { addDays, addMonths, format, endOfMonth, startOfDay, startOfMonth } from 'date-fns';
     import {
       Dialog,
       DialogContent,
@@ -39,16 +39,16 @@ import React, { useState, useEffect, useCallback } from 'react';
     
         const calculateSummary = useCallback(async () => {
             const startDate = startOfMonth(new Date(selectedMonth));
-            const endDate = endOfMonth(new Date(selectedMonth));
+            const endDateExclusive = addMonths(startDate, 1);
     
             const { data: transactions, error: transError } = await supabase.from('transactions').select('cash_amount, transfer_amount')
-                .gte('checkin_at', startDate.toISOString()).lte('checkin_at', endDate.toISOString());
+                .gte('checkin_at', startDate.toISOString()).lt('checkin_at', endDateExclusive.toISOString());
             if (transError) console.error("Error fetching transactions for summary:", transError);
             
             const pemasukan = (transactions || []).reduce((sum, t) => sum + (t.cash_amount || 0) + (t.transfer_amount || 0), 0);
     
             const { data: expenses, error: expenseError } = await supabase.from('pengeluaran').select('jumlah')
-                .gte('tanggal', format(startDate, 'yyyy-MM-dd')).lte('tanggal', format(endDate, 'yyyy-MM-dd'));
+                .gte('tanggal', format(startDate, 'yyyy-MM-dd')).lt('tanggal', format(endDateExclusive, 'yyyy-MM-dd'));
             if (expenseError) console.error("Error fetching expenses for summary:", expenseError);
     
             const pengeluaran = (expenses || []).reduce((sum, e) => sum + (e.jumlah || 0), 0);
@@ -227,27 +227,15 @@ import React, { useState, useEffect, useCallback } from 'react';
           }
         }
         
-        const { error: updateError } = await supabase.from('tagihan_bulanan').update({
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          proof_url: proof_url,
-        }).eq('id', selectedTagihan.id);
-        
-        if (updateError) {
-          toast({ title: "Gagal update status", description: updateError.message, variant: "destructive" });
+        const { error: rpcError } = await supabase.rpc('pay_tagihan_bulanan', {
+          p_tagihan_id: selectedTagihan.id,
+          p_proof_url: proof_url,
+        });
+
+        if (rpcError) {
+          toast({ title: "Gagal menandai lunas", description: rpcError.message, variant: "destructive" });
         } else {
-          const { error: expenseError } = await supabase.from('pengeluaran').insert({
-              nama_pengeluaran: `Bayar Tagihan Unit ${selectedTagihan.apartment_location} - ${selectedTagihan.room_number}`,
-              jumlah: selectedTagihan.amount,
-              tanggal: format(new Date(), 'yyyy-MM-dd'),
-              keterangan: `Tagihan lunas pada ${new Date().toLocaleString('id-ID')}`
-          });
-    
-          if(expenseError) {
-            toast({ title: "Tagihan lunas, tapi gagal mencatat ke pengeluaran.", description: expenseError.message, variant: "destructive" });
-          } else {
-            toast({ title: "🎉 Lunas!", description: "Tagihan telah dipindahkan ke riwayat dan dicatat di pengeluaran." });
-          }
+          toast({ title: "🎉 Lunas!", description: "Tagihan telah dipindahkan ke riwayat dan dicatat di pengeluaran." });
           setSelectedTagihan(null);
           setBuktiBayarFile(null);
           onDataUpdate();
@@ -368,24 +356,34 @@ import React, { useState, useEffect, useCallback } from 'react';
         const [uploadFile, setUploadFile] = useState(null);
         const [selectedMarketing, setSelectedMarketing] = useState(null);
         const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+        const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+        const [modalMarketing, setModalMarketing] = useState(null);
+        const [pendingPayAction, setPendingPayAction] = useState(null); // { type: 'single'|'all', marketingName, transactions: [], totalFee }
+        const [confirmOpen, setConfirmOpen] = useState(false);
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
         
         const loadData = useCallback(async () => {
             const targetDate = new Date(selectedDate);
             const startTime = startOfDay(targetDate);
-            const endTime = endOfDay(targetDate);
+            const endTimeExclusive = addDays(startTime, 1);
     
             const { data: transactions, error: transError } = await supabase.from('transactions').select('*')
-                .gte('checkin_at', startTime.toISOString()).lt('checkin_at', endTime.toISOString());
+                .gte('checkin_at', startTime.toISOString()).lt('checkin_at', endTimeExclusive.toISOString());
             if (transError) console.error(transError);
     
             const { data: storedPaidFees, error: paidError } = await supabase.from('tagihan_fee_lunas').select('*')
-                .gte('paid_at', startTime.toISOString()).lt('paid_at', endTime.toISOString());
+                .eq('paid_date', selectedDate);
             if (paidError) console.error(paidError);
             
             if (storedPaidFees) setPaidFees(storedPaidFees);
-            const paidMarketingNames = new Set(storedPaidFees?.map(p => p.marketing_name));
+            // paid items (per transaksi) untuk mendukung pembayaran parsial
+            const { data: paidItems, error: paidItemsError } = await supabase
+              .from('tagihan_fee_lunas_items')
+              .select('transaction_id, marketing_name')
+              .eq('paid_date', selectedDate);
+            if (paidItemsError) console.error(paidItemsError);
+            const paidTransactionIds = new Set((paidItems || []).map((p) => p.transaction_id));
     
             const marketingSummary = (transactions || []).reduce((acc, curr) => {
                 if (!curr.marketing_name || !curr.marketing_fee || curr.marketing_fee <= 0) {
@@ -396,13 +394,21 @@ import React, { useState, useEffect, useCallback } from 'react';
                 if (!acc[curr.marketing_name]) {
                     acc[curr.marketing_name] = { nama: curr.marketing_name, count: 0, totalFee: 0, transactions: [] };
                 }
+                if (paidTransactionIds.has(curr.id)) {
+                  return acc;
+                }
                 acc[curr.marketing_name].count += 1;
                 acc[curr.marketing_name].totalFee += feeAmount;
-                acc[curr.marketing_name].transactions.push({ customer: curr.customer_name, location: curr.apartment_location });
+                acc[curr.marketing_name].transactions.push({
+                  transaction_id: curr.id,
+                  customer: curr.customer_name,
+                  location: curr.apartment_location,
+                  fee: feeAmount,
+                });
                 return acc;
             }, {});
     
-            const unpaidFeeArray = Object.values(marketingSummary).filter(marketing => !paidMarketingNames.has(marketing.nama));
+            const unpaidFeeArray = Object.values(marketingSummary);
             setUnpaidFees(unpaidFeeArray);
         }, [selectedDate]);
     
@@ -435,7 +441,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                 transactions_detail: selectedMarketing.transactions,
                 proof_url: proof_url,
                 user_id: user.id,
-                paid_at: new Date(selectedDate).toISOString(),
+                paid_at: new Date().toISOString(),
             });
             
             if (insertError) {
@@ -461,6 +467,55 @@ import React, { useState, useEffect, useCallback } from 'react';
                 setSelectedMarketing(null);
                 onDataUpdate();
             }
+        };
+
+        const openPayModal = (fee) => {
+          setModalMarketing(fee);
+          setIsPayModalOpen(true);
+          setUploadFile(null);
+        };
+
+        const requestConfirmPay = ({ type, marketingName, transactions }) => {
+          const totalFee = (transactions || []).reduce((sum, t) => sum + Number(t.fee || 0), 0);
+          setPendingPayAction({ type, marketingName, transactions, totalFee });
+          setConfirmOpen(true);
+        };
+
+        const executePay = async () => {
+          if (!pendingPayAction) return;
+          const { marketingName, transactions, totalFee } = pendingPayAction;
+
+          let proof_url = null;
+          if (uploadFile) {
+            try {
+              proof_url = await uploadToVercelBlob(uploadFile, 'fee-proofs');
+            } catch (uploadError) {
+              toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
+              return;
+            }
+          }
+
+          const transactionIds = (transactions || []).map((t) => t.transaction_id);
+          const { data: rpcData, error: rpcError } = await supabase.rpc('pay_fee_items', {
+            p_marketing_name: marketingName,
+            p_transaction_ids: transactionIds,
+            p_proof_url: proof_url,
+          });
+
+          if (rpcError) {
+            toast({ title: "Gagal menyimpan pembayaran", description: rpcError.message, variant: "destructive" });
+            return;
+          }
+
+          const inserted = rpcData?.items_inserted ?? transactions.length;
+          toast({ title: "Pembayaran fee berhasil ✅", description: `${marketingName} • ${inserted} customer` });
+
+          setConfirmOpen(false);
+          setPendingPayAction(null);
+          setUploadFile(null);
+          setIsPayModalOpen(false);
+          setModalMarketing(null);
+          onDataUpdate();
         };
         
         const handleDelete = async (id) => {
@@ -515,12 +570,87 @@ import React, { useState, useEffect, useCallback } from 'react';
                                 <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleFeeDone} className="bg-green-600">Tandai Lunas</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
-                            <Button size="sm" variant="outline" className="flex-1" onClick={() => handleShare(fee)}><Share2 className="mr-2 h-4 w-4"/> Bagikan</Button>
+                            <Button size="sm" variant="outline" className="flex-1" onClick={() => openPayModal(fee)}><CheckCircle className="mr-2 h-4 w-4" /> Bayar</Button>
                             </div>
                         </motion.div>
                         ))
                     )}
                 </div>
+
+                {/* Modal pembayaran per customer */}
+                <Dialog open={isPayModalOpen} onOpenChange={(open) => { setIsPayModalOpen(open); if (!open) { setModalMarketing(null); setUploadFile(null); } }}>
+                  <DialogContent className="bg-white">
+                    <DialogHeader>
+                      <DialogTitle>Bayar Fee Marketing</DialogTitle>
+                      <DialogDescription>
+                        {modalMarketing?.nama ? `Marketing: ${modalMarketing.nama} • Tanggal: ${selectedDate}` : 'Pilih marketing untuk membayar fee.'}
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    {modalMarketing?.transactions?.length ? (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border bg-slate-50 p-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-700">Sisa customer</span>
+                            <span className="font-bold text-slate-900">{modalMarketing.transactions.length}</span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between">
+                            <span className="text-slate-700">Total sisa fee</span>
+                            <span className="font-bold text-blue-700">{formatRupiah(modalMarketing.totalFee)}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {modalMarketing.transactions.map((t) => (
+                            <div key={t.transaction_id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-slate-900">{t.customer}</p>
+                                <p className="truncate text-xs text-slate-600">{t.location}</p>
+                                <p className="text-xs font-semibold text-blue-700">{formatRupiah(t.fee)}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="shrink-0 bg-green-600 hover:bg-green-700"
+                                onClick={() => requestConfirmPay({ type: 'single', marketingName: modalMarketing.nama, transactions: [t] })}
+                              >
+                                Bayar
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="space-y-2 border-t pt-3">
+                          <label className="block text-sm font-semibold text-slate-700">Bukti bayar (opsional)</label>
+                          <input type="file" accept="image/*" onChange={(e) => setUploadFile(e.target.files[0])} className="w-full text-sm text-gray-700 file:text-blue-600"/>
+                          <Button
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                            onClick={() => requestConfirmPay({ type: 'all', marketingName: modalMarketing.nama, transactions: modalMarketing.transactions })}
+                          >
+                            Bayar Semua
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="py-6 text-center text-sm text-slate-600">Tidak ada customer yang belum dibayar.</p>
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                {/* Konfirmasi pembayaran */}
+                <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                  <AlertDialogContent className="bg-white">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Konfirmasi Pembayaran</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Apakah Anda sudah bayar fee untuk marketing {pendingPayAction?.marketingName || '-'}?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => { setConfirmOpen(false); setPendingPayAction(null); }}>Batal</AlertDialogCancel>
+                      <AlertDialogAction onClick={executePay} className="bg-green-600">Bayar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 
                 <div className="glassmorphic-card p-5 space-y-4">
                     <button onClick={() => setShowHistory(!showHistory)} className="w-full flex justify-between items-center p-1">

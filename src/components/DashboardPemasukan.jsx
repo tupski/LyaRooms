@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, Dialog
 import { supabase } from '@/lib/customSupabaseClient';
 import EditTransaksiModal from '@/components/EditTransaksiModal';
 import ManajemenDeposit from '@/components/ManajemenDeposit';
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { addDays, addMonths, format, startOfDay, startOfMonth } from 'date-fns';
 import * as XLSX from 'xlsx';
 import PinInput from '@/components/PinInput';
 import { resolveStorageUrl } from '@/lib/storageUrl';
@@ -91,12 +91,12 @@ const DashboardPemasukan = () => {
     switch (filterType) {
       case 'harian':
         fromDate = startOfDay(new Date(startDate));
-        toDate = endOfDay(new Date(startDate));
+        toDate = addDays(fromDate, 1);
         break;
       case 'bulanan': {
         const monthDate = new Date(startDate);
         fromDate = startOfMonth(monthDate);
-        toDate = endOfMonth(monthDate);
+        toDate = addMonths(fromDate, 1);
         break;
       }
       case 'rentang':
@@ -105,14 +105,14 @@ const DashboardPemasukan = () => {
         break;
       default:
         fromDate = startOfDay(new Date());
-        toDate = endOfDay(new Date());
+        toDate = addDays(fromDate, 1);
     }
 
     let query = supabase
       .from('transactions')
       .select('*')
       .gte('checkin_at', fromDate.toISOString())
-      .lte('checkin_at', toDate.toISOString());
+      .lt('checkin_at', toDate.toISOString());
 
     if (lokasi !== 'semua') query = query.eq('apartment_location', lokasi);
     if (shift !== 'semua') query = query.eq('shift', shift);
@@ -151,11 +151,13 @@ const DashboardPemasukan = () => {
       setLokasiOptions(['Semua Lokasi', ...lokasiData.map((l) => l.name)]);
     }
 
+    const start = startOfDay(new Date());
+    const endExclusive = addDays(start, 1);
     const { count, error } = await supabase
       .from('transactions')
       .select('*', { count: 'exact', head: true })
-      .gte('checkin_at', startOfDay(new Date()).toISOString())
-      .lt('checkin_at', endOfDay(new Date()).toISOString());
+      .gte('checkin_at', start.toISOString())
+      .lt('checkin_at', endExclusive.toISOString());
 
     if (!error) {
       setStats((prev) => ({ ...prev, transaksiHariIni: count || 0 }));
