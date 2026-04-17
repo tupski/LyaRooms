@@ -78,7 +78,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
     const depositLine = depositCash > 0 || depositTransfer > 0
       ? `Deposit: ${depositCash > 0 ? `Tunai ${formatRupiahNumber(depositCash)} ` : ''}${depositTransfer > 0 ? `Transfer ${formatRupiahNumber(depositTransfer)}` : ''}`.trim()
       : null;
-    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nKomisi: ${komisi}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nCheck-in: ${formatReportDateTime(t.checkin_at || t.created_at)}\nCheckout: ${formatReportDateTime(inferCheckoutTime(t))}\nTotal Bayar: ${formatRupiahNumber(total)}\n${lines.join('\n')}${depositLine ? `\n${depositLine}` : ''}\nInput oleh: ${t.input_by || '-'}`;
+    return `*LAPORAN TRANSAKSI*\n\nCustomer: ${t.customer_name}\nLokasi: ${t.apartment_location} - ${t.room_number}\nMarketing: ${t.marketing_name || '-'}\nKomisi: ${komisi}\nSewa: ${formatRentalDuration(t.rental_duration)} (${t.shift || '-'})\nCheck-in: ${formatReportDateTime(t.checkin_at || t.created_at)}\nCheckout: ${formatReportDateTime(inferCheckoutTime(t))}\nTotal Bayar: ${formatRupiahNumber(total)}\nPembayaran: ${lines.join('\n')}${depositLine ? `\n${depositLine}` : ''}\nInput oleh: ${t.input_by || '-'}`;
   };
 
   const sendForwardReport = (t, force = false) => {

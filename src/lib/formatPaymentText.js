@@ -14,16 +14,16 @@ export function formatPaymentLines({ cashAmount = 0, transferAmount = 0, transfe
 
   const lines = [];
   if (transfer <= 0 && cash > 0) {
-    lines.push(`Pembayaran: Tunai/Cash ${formatRupiahNumber(cash)}`);
+    lines.push(`Tunai/Cash ${formatRupiahNumber(cash)}`);
     return { total, lines };
   }
 
   if (cash <= 0 && transfer > 0) {
-    lines.push(`Pembayaran: Transfer ${formatRupiahNumber(transfer)}${transferTo ? ` (ke ${transferTo})` : ''}`);
+    lines.push(`Transfer ${formatRupiahNumber(transfer)}${transferTo ? ` (ke ${transferTo})` : ''}`);
     return { total, lines };
   }
 
-  lines.push(`Pembayaran (split):`);
+  lines.push(`Split Payment:`);
   lines.push(`- Tunai/Cash: ${formatRupiahNumber(cash)}`);
   lines.push(`- Transfer: ${formatRupiahNumber(transfer)}${transferTo ? ` (ke ${transferTo})` : ''}`);
   return { total, lines };
