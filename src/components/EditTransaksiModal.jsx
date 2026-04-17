@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
+import { getRentalConfig } from '@/lib/roomUtils';
 
 const RENTAL_TYPE_OPTIONS = [
   { value: 'TRANSIT', label: 'Transit' },
@@ -33,24 +34,6 @@ const parseCheckInDate = (value) => {
   const parsed = value ? new Date(value) : new Date();
   if (Number.isNaN(parsed.getTime())) return new Date();
   return parsed;
-};
-
-const getRentalConfig = (rentalType, duration, customValue, checkInDate) => {
-  if (rentalType === 'PER_MALAM') {
-    const nights = duration === 'Custom' ? Math.max(Number(customValue) || 1, 1) : 1;
-    const isBeforeNoon = checkInDate.getHours() < 12;
-    const addDays = isBeforeNoon ? Math.max(nights - 1, 0) : nights;
-    const checkoutDate = new Date(checkInDate);
-    checkoutDate.setDate(checkoutDate.getDate() + addDays);
-    checkoutDate.setHours(12, 0, 0, 0);
-    const rentalHours = Math.max(Math.ceil((checkoutDate.getTime() - checkInDate.getTime()) / 3600000), 1);
-    return { rentalHours, checkoutDate };
-  }
-  const hours = duration === 'Custom'
-    ? Math.max(Number(customValue) || 1, 1)
-    : Number(String(duration).match(/\d+/)?.[0] || 1);
-  const checkoutDate = new Date(checkInDate.getTime() + hours * 3600000);
-  return { rentalHours: hours, checkoutDate };
 };
 
 const AutocompleteInput = ({ table, value, onValueChange }) => {

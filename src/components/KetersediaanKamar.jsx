@@ -17,24 +17,9 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { calcEndAt, getActiveTransaction, formatTimeWIB, capitalizeWords } from '@/lib/roomUtils';
 
 const INITIAL_VISIBLE_ROOMS = 8;
-
-const formatTimeWIB = (date) => {
-  if (!date) return '-';
-  const d = new Date(date);
-  const parts = new Intl.DateTimeFormat('id-ID', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(d);
-  const getPart = (type) => parts.find((part) => part.type === type)?.value || '';
-  return `${getPart('weekday')}, ${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}:${getPart('minute')} WIB`;
-};
 
 const formatTime = (date) =>
   date ? date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -58,18 +43,6 @@ const getSewaDisplay = (tx) => {
   }
   const map = { 3: '3 JAM', 6: '6 JAM', 9: '9 JAM', 12: '12 JAM', 24: '24 JAM' };
   return map[hours] || `${hours} JAM`;
-};
-
-const capitalizeWords = (str) => {
-  if (!str) return '-';
-  return str.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-};
-
-const calcEndAt = (tx) => {
-  if (tx.checkout_at) return new Date(tx.checkout_at);
-  const start = new Date(tx.checkin_at || tx.created_at);
-  const hours = Number(tx.rental_duration || 1);
-  return new Date(start.getTime() + hours * 3600000);
 };
 
 // ── Detail Modal ───────────────────────────────────────
@@ -226,10 +199,17 @@ const KetersediaanKamar = () => {
 
   const fetchRoomStatus = useCallback(async () => {
     setLoading(true);
+    
+    // Optimasi: Ambil transaksi dari 3 hari terakhir saja untuk performa,
+    // ATAU yang checkout_at nya masih null (masih aktif).
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
     const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }, { data: paidFees, error: paidError }] = await Promise.all([
       supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
       supabase.from('transactions')
         .select('id, created_at, checkin_at, rental_duration, apartment_location, room_number, customer_name, checkout_at, user_id, cash_amount, transfer_amount, transfer_to, marketing_name, input_by, shift, deposit_cash, deposit_transfer, deposit_returned_at, marketing_fee')
+        .or(`checkin_at.gt.${threeDaysAgo.toISOString()},checkout_at.is.null`)
         .order('checkin_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false }),
       supabase.from('tagihan_fee_lunas').select('marketing_name, paid_at'),
@@ -243,27 +223,24 @@ const KetersediaanKamar = () => {
 
     const now = new Date();
     const roomStatus = (allRooms || []).map((room) => {
-      const tx = (transactions || []).find(
-        (t) => t.apartment_location === room.lokasi && t.room_number === room.name
-      );
-      if (tx) {
-        const endAt = calcEndAt(tx);
-        if (now < endAt) {
-          return {
-            ...room,
-            tx,
-            transactionId: tx.id,
-            transactionUserId: tx.user_id,
-            status: 'terisi',
-            readyAt: endAt,
-            customerName: tx.customer_name,
-            checkInTime: new Date(tx.checkin_at || tx.created_at),
-            feePaid: (paidFees || []).some(pf => 
-              pf.marketing_name === tx.marketing_name && 
-              new Date(pf.paid_at).toDateString() === new Date(tx.checkin_at || tx.created_at).toDateString()
-            ),
-          };
-        }
+      const activeTx = getActiveTransaction(room.lokasi, room.name, transactions, now);
+      
+      if (activeTx) {
+        const endAt = calcEndAt(activeTx);
+        return {
+          ...room,
+          tx: activeTx,
+          transactionId: activeTx.id,
+          transactionUserId: activeTx.user_id,
+          status: 'terisi',
+          readyAt: endAt,
+          customerName: activeTx.customer_name,
+          checkInTime: new Date(activeTx.checkin_at || activeTx.created_at),
+          feePaid: (paidFees || []).some(pf => 
+            pf.marketing_name === activeTx.marketing_name && 
+            new Date(pf.paid_at).toDateString() === new Date(activeTx.checkin_at || activeTx.created_at).toDateString()
+          ),
+        };
       }
       return { ...room, tx: null, transactionId: null, transactionUserId: null, status: 'tersedia', readyAt: null, customerName: null, checkInTime: null };
     });

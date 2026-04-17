@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
 import { compressImageFile } from '@/lib/compressImage';
 import ImageViewerModal from '@/components/ImageViewerModal';
+import { calcEndAt, getActiveTransaction, getRentalConfig, capitalizeWords } from '@/lib/roomUtils';
 
 const RENTAL_TYPE_OPTIONS = [
   { value: 'TRANSIT', label: 'Transit' },
@@ -68,33 +69,6 @@ const parseCheckInDate = (value) => {
   const parsed = value ? new Date(value) : new Date();
   if (Number.isNaN(parsed.getTime())) return new Date();
   return parsed;
-};
-
-const computeNoonCheckout = (checkInDate, nights = 1) => {
-  const safeNights = Math.max(Number(nights) || 1, 1);
-  const isBeforeNoon = checkInDate.getHours() < 12;
-  const addDays = isBeforeNoon ? Math.max(safeNights - 1, 0) : safeNights;
-  const checkoutDate = new Date(checkInDate);
-  checkoutDate.setDate(checkoutDate.getDate() + addDays);
-  checkoutDate.setHours(12, 0, 0, 0);
-  return checkoutDate;
-};
-
-const computeTransitCheckout = (checkInDate, duration, customHours) => {
-  const hours = duration === 'Custom' ? Math.max(Number(customHours) || 1, 1) : Number(duration.match(/\d+/)?.[0] || 1);
-  const checkoutDate = new Date(checkInDate.getTime() + hours * 60 * 60 * 1000);
-  return { rentalHours: hours, checkoutDate };
-};
-
-export const getRentalConfig = (rentalType, duration, customHours, checkInDate = new Date()) => {
-  if (rentalType === 'PER_MALAM') {
-    const nights = duration === 'Custom' ? Math.max(Number(customHours) || 1, 1) : 1;
-    const checkoutDate = computeNoonCheckout(checkInDate, nights);
-    const durationMs = checkoutDate.getTime() - checkInDate.getTime();
-    const rentalHours = Math.max(Math.ceil(durationMs / (60 * 60 * 1000)), 1);
-    return { rentalHours, checkoutDate };
-  }
-  return computeTransitCheckout(checkInDate, duration, customHours);
 };
 
 /**
@@ -179,14 +153,14 @@ const FormTransaksiModern = ({
       });
       const activeMap = {};
       const txList = roomTransactions || [];
-      txList.forEach((tx) => {
-        const key = `${tx.apartment_location}__${tx.room_number}`;
-        if (activeMap[key]) return;
-        const startedAt = new Date(tx.checkin_at || tx.created_at);
-        const endAt = tx.checkout_at
-          ? new Date(tx.checkout_at)
-          : new Date(startedAt.getTime() + (Number(tx.rental_duration) || 1) * 60 * 60 * 1000);
-        if (new Date() < endAt) {
+      const now = new Date();
+      
+      // Ambil daftar kamar unik dari refs.kamar (atau fetch terbaru)
+      const allKamar = kamar || [];
+      allKamar.forEach(room => {
+        const key = `${room.lokasi}__${room.name}`;
+        const activeTx = getActiveTransaction(room.lokasi, room.name, txList, now);
+        if (activeTx) {
           activeMap[key] = true;
         }
       });
@@ -398,7 +372,7 @@ const FormTransaksiModern = ({
       ]);
       const payload = {
         user_id: user.id,
-        customer_name: formData.namaCustomer.trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        customer_name: capitalizeWords(formData.namaCustomer),
         marketing_name: formData.namaMarketing || formData.input_by || user?.email || 'sistem',
         rental_duration: rentalConfig.rentalHours,
         checkin_at: checkInDate.toISOString(),
