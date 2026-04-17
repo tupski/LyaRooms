@@ -43,6 +43,25 @@ const DashboardPemasukan = () => {
 
   const formatRupiah = (angka) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+
+  const capitalizeWords = (str) => {
+    if (!str) return '-';
+    return str.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const getSewaDisplay = (transaksi) => {
+    const durationHours = Number(transaksi.rental_duration || 0);
+    const checkInAt = transaksi.checkin_at || transaksi.created_at;
+    const checkoutAt = transaksi.checkout_at || new Date(new Date(checkInAt).getTime() + (durationHours || 1) * 3600000).toISOString();
+    const isPerMalam = durationHours >= 12 && (new Date(checkoutAt).getHours() === 12 || durationHours > 24);
+
+    if (isPerMalam) {
+      const nights = Math.max(Math.ceil(durationHours / 24), 1);
+      const label = durationHours <= 15 ? 'Promo Malam' : 'Fullday';
+      return `${nights} Malam (${label})`;
+    }
+    return formatRentalDuration(durationHours);
+  };
   const formatDateTime = (iso) => new Date(iso).toLocaleString('id-ID');
   const formatWhatsappDateTime = (iso) => {
     const parts = new Intl.DateTimeFormat('id-ID', {
@@ -206,6 +225,10 @@ const DashboardPemasukan = () => {
         .map((k) => [k, updatedTransaksi[k]])
     );
 
+    if (updateData.customer_name) {
+      updateData.customer_name = capitalizeWords(updateData.customer_name);
+    }
+
     const { error, count } = await supabase
       .from('transactions')
       .update(updateData, { count: 'exact' })
@@ -240,12 +263,33 @@ const DashboardPemasukan = () => {
     const komisi = formatRupiahNumber(Number(transaksi.marketing_fee || 0));
     const depositCash = Number(transaksi.deposit_cash || 0);
     const depositTransfer = Number(transaksi.deposit_transfer || 0);
+    
     const depositLine = depositCash > 0 || depositTransfer > 0
-      ? `Deposit: ${depositCash > 0 ? `Tunai ${formatRupiahNumber(depositCash)} ` : ''}${depositTransfer > 0 ? `Transfer ${formatRupiahNumber(depositTransfer)}` : ''}`.trim()
+      ? `${depositCash > 0 ? `Tunai ${formatRupiahNumber(depositCash)} ` : ''}${depositTransfer > 0 ? `Transfer ${formatRupiahNumber(depositTransfer)}` : ''}`.trim()
       : null;
+
     const checkInAt = transaksi.checkin_at || transaksi.created_at;
     const checkoutAt = transaksi.checkout_at || new Date(new Date(checkInAt).getTime() + (Number(transaksi.rental_duration) || 1) * 60 * 60 * 1000).toISOString();
-    const message = `*TRANSAKSI KAKARAMA GROUP*\n-------------------\n*Customer:* ${transaksi.customer_name}\n*Marketing:* ${transaksi.marketing_name || '-'}\n*Komisi:* ${komisi}\n*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}\n*Check-in:* ${formatWhatsappDateTime(checkInAt)}\n*Checkout:* ${formatWhatsappDateTime(checkoutAt)}\n*Sewa:* ${formatRentalDuration(transaksi.rental_duration)} (${transaksi.shift})\n*Total Bayar:* ${formatRupiahNumber(total)}\n${lines.join('\n')}${depositLine ? `\n${depositLine}` : ''}\n-------------------\nDiinput oleh: ${transaksi.input_by || '-'}`;
+    
+    const customerName = capitalizeWords(transaksi.customer_name);
+    const sewaDisplay = getSewaDisplay(transaksi);
+
+    const message = `*TRANSAKSI KAKARAMA GROUP*
+-------------------
+*Marketing:* ${transaksi.marketing_name || '-'}
+*Komisi:* ${komisi}
+-------------------
+*Customer:* ${customerName}
+*Lokasi:* ${transaksi.apartment_location} - ${transaksi.room_number}
+*Check-in:* ${formatWhatsappDateTime(checkInAt)}
+*Checkout:* ${formatWhatsappDateTime(checkoutAt)}
+*Sewa:* ${sewaDisplay}
+-------------------
+*Total Bayar:* ${formatRupiahNumber(total)}
+*Pembayaran:* ${lines.join('\n')}
+${depositLine ? `*Deposit:* ${depositLine}\n` : ''}-------------------
+Diinput oleh: ${transaksi.input_by || '-'} (Shift: ${transaksi.shift || '-'})`;
+
     try {
       await navigator.clipboard.writeText(message);
       toast({ title: 'Pesan disalin', description: 'Buka WhatsApp dan tempel pesan.' });
@@ -406,16 +450,21 @@ const DashboardPemasukan = () => {
               {paginatedTransaksi.map((transaksi) => (
                 <div key={transaksi.id} className="rounded-2xl border bg-white/70 p-4">
                   <div className="mb-3 flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-gray-800">{transaksi.customer_name}</h3>
+                    <h3 className="font-bold text-gray-800">{capitalizeWords(transaksi.customer_name)}</h3>
                     <p className="text-right text-base font-extrabold text-orange-600 sm:text-lg">{formatRupiah((transaksi.cash_amount || 0) + (transaksi.transfer_amount || 0))}</p>
                   </div>
                   <div className="mb-3 space-y-1 border-y py-2 text-xs text-gray-700">
                     <p>Lokasi: {transaksi.apartment_location} - Kamar {transaksi.room_number}</p>
-                    <p>Sewa: {formatRentalDuration(transaksi.rental_duration)} ({transaksi.shift})</p>
+                    <p>Sewa: {getSewaDisplay(transaksi)}</p>
                     <p>Check-in: {formatDateTime(transaksi.checkin_at || transaksi.created_at)}</p>
                     {transaksi.marketing_name && <p>Marketing: {transaksi.marketing_name}</p>}
                     {transaksi.marketing_fee > 0 && <p>Fee: {formatRupiah(transaksi.marketing_fee)}</p>}
-                    {transaksi.input_by && <p><UserCheck className="mr-1 inline h-3 w-3" /> Diinput oleh: {transaksi.input_by}</p>}
+                    {transaksi.input_by && (
+                      <p>
+                        <UserCheck className="mr-1 inline h-3 w-3" /> 
+                        Diinput oleh: {transaksi.input_by} (Shift: {transaksi.shift || '-'})
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-1 text-xs">

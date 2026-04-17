@@ -398,7 +398,7 @@ const FormTransaksiModern = ({
       ]);
       const payload = {
         user_id: user.id,
-        customer_name: formData.namaCustomer.trim(),
+        customer_name: formData.namaCustomer.trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         marketing_name: formData.namaMarketing || formData.input_by || user?.email || 'sistem',
         rental_duration: rentalConfig.rentalHours,
         checkin_at: checkInDate.toISOString(),
