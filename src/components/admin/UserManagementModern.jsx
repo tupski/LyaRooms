@@ -444,10 +444,40 @@ const UserManagementModern = () => {
             <DialogDescription>
               Tugaskan <strong>{selectedUser?.full_name}</strong> ke lokasi tertentu. 
               <br />
-              <span className="text-emerald-600 font-bold">💡 Tips: Jika tidak ada yang dipilih, karyawan bisa akses semua lokasi.</span>
+              <span className="text-emerald-600 font-bold">💡 Tips: Jika tidak ada yang dipilih, akun karyawan tidak bisa input transaksi/lihat kamar.</span>
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2 max-h-[300px] overflow-y-auto pr-2">
+          <div className="flex justify-between items-center mb-2 px-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Apartemen</p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              onClick={async () => {
+                if (!selectedUser) return;
+                const allLocationNames = locations.map(l => l.name);
+                const currentAssigned = userAssignments.filter(a => a.user_id === selectedUser.id).map(a => a.location_name);
+                
+                if (currentAssigned.length === allLocationNames.length) {
+                  // Unselect all
+                  await supabase.from('user_location_assignments').delete().eq('user_id', selectedUser.id);
+                } else {
+                  // Select all
+                  const toInsert = allLocationNames
+                    .filter(name => !currentAssigned.includes(name))
+                    .map(name => ({ user_id: selectedUser.id, location_name: name }));
+                  if (toInsert.length > 0) {
+                    await supabase.from('user_location_assignments').insert(toInsert);
+                  }
+                }
+                const { data } = await supabase.from('user_location_assignments').select('*');
+                setUserAssignments(data || []);
+              }}
+            >
+              {userAssignments.filter(a => a.user_id === selectedUser?.id).length === locations.length ? 'Hapus Semua' : 'Pilih Semua'}
+            </Button>
+          </div>
+          <div className="py-2 space-y-2 max-h-[300px] overflow-y-auto pr-2">
             {locations.map(loc => {
               const isAssigned = userAssignments.some(a => a.user_id === selectedUser?.id && a.location_name === loc.name);
               return (

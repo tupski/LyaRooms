@@ -100,7 +100,8 @@ const FormTransaksiModern = ({
       ? allowReferenceManagement
       : isAdmin || isSuperAdmin;
 
-  const SelectComponent = canManageReferences ? CreatableSelect : Select;
+  const SelectComponent = Select;
+  const CreatableSelectComponent = CreatableSelect;
   const ktpInputRef = useRef(null);
   const transferInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,12 +151,18 @@ const FormTransaksiModern = ({
       let filteredLokasi = lokasi || [];
       let filteredKamar = kamar || [];
 
-      if (effectiveRole === 'karyawan' && assignments && assignments.length > 0) {
-        const assignedNames = assignments.map(a => a.location_name);
-        filteredLokasi = filteredLokasi.filter(l => assignedNames.includes(l.name));
-        filteredKamar = filteredKamar.filter(k => assignedNames.includes(k.lokasi));
+      if (effectiveRole === 'karyawan') {
+        if (assignments && assignments.length > 0) {
+          const assignedNames = assignments.map(a => a.location_name);
+          filteredLokasi = filteredLokasi.filter(l => assignedNames.includes(l.name));
+          filteredKamar = filteredKamar.filter(k => assignedNames.includes(k.lokasi));
+        } else {
+          // Jika karyawan belum diassign kemanapun, kosongkan data (akan memicu blocking UI)
+          filteredLokasi = [];
+          filteredKamar = [];
+        }
       }
-      // Jika assignments.length === 0, biarkan filteredLokasi dan filteredKamar berisi semua data.
+      // Untuk admin/super_admin, biarkan filteredLokasi dan filteredKamar berisi semua data.
 
       setRefs({
         lokasi: filteredLokasi,
@@ -212,24 +219,9 @@ const FormTransaksiModern = ({
   const handleChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
   const handleCreateReference = async (field, value) => {
-    if (!canManageReferences) {
-      toast({ title: 'Akses ditolak', description: 'Hanya admin/superadmin yang dapat menambah data lokasi/kamar.', variant: 'destructive' });
-      return;
-    }
     const trimmed = String(value || '').trim();
     if (!trimmed) return;
     try {
-      if (field === 'lokasiApartemen') {
-        const exists = refs.lokasi.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
-        if (!exists) {
-          const { error } = await supabase.from('lokasi_apartemen').insert({ name: trimmed });
-          if (error) throw error;
-          setRefs((prev) => ({ ...prev, lokasi: [...prev.lokasi, { name: trimmed }] }));
-          toast({ title: 'Lokasi baru ditambahkan', description: trimmed });
-        }
-        setFormData((prev) => ({ ...prev, lokasiApartemen: trimmed, nomorKamar: '' }));
-        return;
-      }
       if (field === 'namaMarketing') {
         const exists = refs.marketing.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
         if (!exists) {
@@ -240,20 +232,6 @@ const FormTransaksiModern = ({
         }
         setFormData((prev) => ({ ...prev, namaMarketing: trimmed }));
         return;
-      }
-      if (field === 'nomorKamar') {
-        if (!formData.lokasiApartemen) {
-          toast({ title: 'Pilih lokasi terlebih dahulu', variant: 'destructive' });
-          return;
-        }
-        const exists = refs.kamar.some((item) => item.name.toLowerCase() === trimmed.toLowerCase() && item.lokasi === formData.lokasiApartemen);
-        if (!exists) {
-          const { error } = await supabase.from('nomor_kamar').insert({ name: trimmed, lokasi: formData.lokasiApartemen });
-          if (error) throw error;
-          setRefs((prev) => ({ ...prev, kamar: [...prev.kamar, { name: trimmed, lokasi: formData.lokasiApartemen }] }));
-          toast({ title: 'Nomor kamar baru ditambahkan', description: `${trimmed} pada ${formData.lokasiApartemen}` });
-        }
-        setFormData((prev) => ({ ...prev, nomorKamar: trimmed }));
       }
     } catch (error) {
       toast({ title: 'Gagal menambahkan data', description: error.message, variant: 'destructive' });
@@ -437,7 +415,7 @@ const FormTransaksiModern = ({
     return (
       <div>
         <label className="mb-2 block text-sm font-medium text-slate-700">{label}</label>
-        <CreatableSelect
+        <CreatableSelectComponent
           styles={selectStyles}
           menuPortalTarget={selectPortalTarget}
           options={marketingOptions}
@@ -473,6 +451,25 @@ const FormTransaksiModern = ({
   const previewRentalConfig = formData.jenisSewa && formData.lamaSewa
     ? getRentalConfig(formData.jenisSewa, formData.lamaSewa, formData.customSewaJam, previewCheckInDate)
     : null;
+
+  // Blocking UI for employees with no assignments
+  if (roleMode === 'karyawan' && !loading && refs.lokasi.length === 0) {
+    return (
+      <div className="bg-white rounded-[2rem] p-10 border-2 border-orange-100 shadow-xl text-center space-y-6">
+        <div className="h-24 w-24 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
+          <AlertTriangle className="h-12 w-12" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Penempatan Belum Diatur</h2>
+          <p className="text-slate-600 mt-3 leading-relaxed">
+            Akun Anda belum ditempatkan di lokasi apartemen manapun. 
+            <br /><br />
+            Silakan hubungi <span className="font-bold text-blue-600">Admin KR</span> untuk mengatur penempatan kerja akun Anda agar bisa melakukan input transaksi.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const content = (
     <div className={`mx-auto max-w-2xl space-y-5 ${embedded ? 'w-full' : ''}`}>
@@ -511,37 +508,14 @@ const FormTransaksiModern = ({
                     styles={selectStyles}
                     menuPortalTarget={selectPortalTarget}
                     options={lokasiOptions}
-                    placeholder={canManageReferences ? 'Pilih lokasi atau tambah baru...' : 'Pilih lokasi...'}
+                    placeholder="Pilih lokasi..."
                     value={lokasiOptions.find((x) => x.value === formData.lokasiApartemen) || null}
                     onChange={(opt) => {
                       handleChange('lokasiApartemen', opt?.value || '');
                       handleChange('nomorKamar', '');
                     }}
-                    {...(canManageReferences ? {
-                      onCreateOption: (value) => handleCreateReference('lokasiApartemen', value),
-                      formatCreateLabel: (inputValue) => `Tambah lokasi: ${inputValue}`,
-                    } : {})}
                     isClearable
                   />
-                  {canManageReferences && formData.lokasiApartemen && (
-                    <button type="button" className="mt-2 text-sm text-red-600 hover:text-red-800" onClick={async () => {
-                      if (!window.confirm(`Hapus lokasi ${formData.lokasiApartemen}?`)) return;
-                      const { error } = await supabase.from('lokasi_apartemen').delete().eq('name', formData.lokasiApartemen);
-                      if (error) {
-                        toast({ title: 'Gagal menghapus lokasi', description: error.message, variant: 'destructive' });
-                        return;
-                      }
-                      setRefs((prev) => ({
-                        ...prev,
-                        lokasi: prev.lokasi.filter((item) => item.name !== formData.lokasiApartemen),
-                        kamar: prev.kamar.filter((item) => item.lokasi !== formData.lokasiApartemen),
-                      }));
-                      toast({ title: 'Lokasi dihapus', description: formData.lokasiApartemen });
-                      setFormData((prev) => ({ ...prev, lokasiApartemen: '', nomorKamar: '' }));
-                    }}>
-                      Hapus lokasi ini
-                    </button>
-                  )}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Nomor Kamar *</label>
@@ -549,31 +523,12 @@ const FormTransaksiModern = ({
                     styles={selectStyles}
                     menuPortalTarget={selectPortalTarget}
                     options={kamarOptions}
-                    placeholder={formData.lokasiApartemen ? (canManageReferences ? 'Pilih nomor kamar atau tambah baru...' : 'Pilih nomor kamar...') : 'Pilih lokasi terlebih dahulu'}
+                    placeholder={formData.lokasiApartemen ? 'Pilih nomor kamar...' : 'Pilih lokasi terlebih dahulu'}
                     value={kamarOptions.find((x) => x.value === formData.nomorKamar) || null}
                     onChange={(opt) => handleChange('nomorKamar', opt?.value || '')}
                     isDisabled={!formData.lokasiApartemen}
                     isClearable
-                    {...(canManageReferences ? {
-                      onCreateOption: (value) => handleCreateReference('nomorKamar', value),
-                      formatCreateLabel: (inputValue) => `Tambah kamar: ${inputValue}`,
-                    } : {})}
                   />
-                  {canManageReferences && formData.nomorKamar && (
-                    <button type="button" className="mt-2 text-sm text-red-600 hover:text-red-800" onClick={async () => {
-                      if (!window.confirm(`Hapus nomor kamar ${formData.nomorKamar}?`)) return;
-                      const { error } = await supabase.from('nomor_kamar').delete().eq('name', formData.nomorKamar).eq('lokasi', formData.lokasiApartemen);
-                      if (error) {
-                        toast({ title: 'Gagal menghapus kamar', description: error.message, variant: 'destructive' });
-                        return;
-                      }
-                      setRefs((prev) => ({ ...prev, kamar: prev.kamar.filter((item) => !(item.name === formData.nomorKamar && item.lokasi === formData.lokasiApartemen)) }));
-                      toast({ title: 'Nomor kamar dihapus', description: formData.nomorKamar });
-                      setFormData((prev) => ({ ...prev, nomorKamar: '' }));
-                    }}>
-                      Hapus kamar ini
-                    </button>
-                  )}
                 </div>
               </div>
             </SectionCard>

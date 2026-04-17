@@ -133,6 +133,13 @@ export const AuthProvider = ({ children }) => {
   }, [toast]);
 
   const signOut = useCallback(async () => {
+    // Clear all persistent states to prevent role pollution
+    localStorage.clear();
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    }
+
     const { error } = await supabase.auth.signOut();
 
     if (error) {

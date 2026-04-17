@@ -324,7 +324,23 @@ const KetersediaanKamar = () => {
         </div>
 
         {/* Stats bar */}
-        {!loading && (
+        {!loading && userRole === 'karyawan' && Object.keys(groupedRooms).length === 0 && (
+          <div className="bg-white rounded-[2rem] p-10 border-2 border-orange-100 shadow-xl text-center space-y-6 mt-8">
+            <div className="h-24 w-24 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
+              <AlertTriangle className="h-12 w-12" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">Penempatan Belum Diatur</h2>
+              <p className="text-slate-600 mt-3 leading-relaxed">
+                Akun Anda belum ditempatkan di lokasi apartemen manapun. 
+                <br /><br />
+                Silakan hubungi <span className="font-bold text-blue-600">Admin/Superadmin</span> untuk mengatur penempatan kerja akun Anda agar bisa memantau status kamar.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!loading && (Object.keys(groupedRooms).length > 0 || userRole !== 'karyawan') && (
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => setFilterStatus('ALL')}
