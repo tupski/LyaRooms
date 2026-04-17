@@ -84,24 +84,32 @@ const DashboardPemasukan = () => {
     return durationMap[hours] || `${hours} JAM`;
   };
 
+  const parseLocalDateInput = (value) => {
+    if (!value) return new Date();
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return new Date(value);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  };
+
   const loadTransaksi = useCallback(async () => {
     let fromDate;
     let toDate;
 
     switch (filterType) {
       case 'harian':
-        fromDate = startOfDay(new Date(startDate));
+        fromDate = startOfDay(parseLocalDateInput(startDate));
         toDate = addDays(fromDate, 1);
         break;
       case 'bulanan': {
-        const monthDate = new Date(startDate);
+        const monthDate = parseLocalDateInput(startDate);
         fromDate = startOfMonth(monthDate);
         toDate = addMonths(fromDate, 1);
         break;
       }
       case 'rentang':
-        fromDate = new Date(`${startDate}T${startTime}:00`);
-        toDate = new Date(`${endDate}T${endTime}:59`);
+        fromDate = new Date(`${startDate}T${startTime || '00:00'}:00`);
+        // Pakai batas akhir eksklusif untuk menghindari edge-case detik/ms.
+        toDate = new Date(new Date(`${endDate}T${endTime || '23:59'}:59`).getTime() + 1000);
         break;
       default:
         fromDate = startOfDay(new Date());
@@ -206,8 +214,21 @@ const DashboardPemasukan = () => {
     if (error) {
       toast({ title: 'Gagal menghapus', description: error.message, variant: 'destructive' });
     } else {
+      setTransaksiList((prev) => prev.filter((t) => t.id !== id));
+      setStats((prev) => ({ ...prev, jumlahTransaksi: Math.max((prev.jumlahTransaksi || 1) - 1, 0) }));
       const removedInfo = data?.removed_fee_rows ? `, komisi terhapus ${data.removed_fee_rows}` : '';
-      toast({ title: `Transaksi dihapus${removedInfo}` });
+      const { data: stillExists, error: verifyError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('id', id)
+        .maybeSingle();
+      if (verifyError) {
+        toast({ title: 'Transaksi dihapus, verifikasi gagal', description: verifyError.message, variant: 'destructive' });
+      } else if (stillExists?.id) {
+        toast({ title: 'Penghapusan belum sinkron', description: 'Data masih terdeteksi di database, coba muat ulang.', variant: 'destructive' });
+      } else {
+        toast({ title: `Transaksi dihapus${removedInfo}` });
+      }
       loadTransaksi();
     }
   };
