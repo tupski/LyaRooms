@@ -49,6 +49,14 @@ const UserManagementModern = () => {
 
   const [locations, setLocations] = useState([]);
   const [userAssignments, setUserAssignments] = useState([]);
+  /** Hindari race double-klik; state agar UI (disabled) ikut update */
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+
+  const normalizeRole = (r) => {
+    if (!r || r === 'user') return 'karyawan';
+    if (r === 'admin' || r === 'karyawan' || r === 'super_admin') return r;
+    return 'karyawan';
+  };
 
   const [formData, setFormData] = useState({
     email: '',
@@ -108,7 +116,7 @@ const UserManagementModern = () => {
       full_name: user.full_name || '',
       phone: user.phone || '',
       gender: user.gender || 'Pria',
-      role: user.role || 'karyawan'
+      role: normalizeRole(user.role),
     });
     setIsFormOpen(true);
   };
@@ -128,7 +136,7 @@ const UserManagementModern = () => {
           p_full_name: formData.full_name,
           p_phone: formData.phone,
           p_gender: formData.gender,
-          p_role: formData.role
+          p_role: normalizeRole(formData.role),
         });
         if (error) throw error;
         toast({ title: "User berhasil diperbarui ✅" });
@@ -140,7 +148,7 @@ const UserManagementModern = () => {
           p_full_name: formData.full_name,
           p_phone: formData.phone,
           p_gender: formData.gender,
-          p_role: formData.role
+          p_role: normalizeRole(formData.role),
         });
         if (error) throw error;
         toast({ title: "User berhasil ditambahkan ✅" });
@@ -178,18 +186,18 @@ const UserManagementModern = () => {
     setIsAssignmentOpen(true);
   };
 
-  const handleToggleAssignment = async (locationName) => {
-    if (!selectedUser) return;
-    const isAssigned = userAssignments.some(a => a.user_id === selectedUser.id && a.location_name === locationName);
-    
-    // UI optimistic update
-    const previousAssignments = [...userAssignments];
-    if (isAssigned) {
-      setUserAssignments(prev => prev.filter(a => !(a.user_id === selectedUser.id && a.location_name === locationName)));
-    } else {
-      setUserAssignments(prev => [...prev, { id: 'temp-' + Date.now(), user_id: selectedUser.id, location_name: locationName }]);
-    }
+  const refreshAllAssignments = async () => {
+    const { data, error } = await supabase.from('user_location_assignments').select('*').order('id', { ascending: true });
+    if (error) throw error;
+    setUserAssignments(data || []);
+  };
 
+  const handleToggleAssignment = async (locationName) => {
+    if (!selectedUser || assignmentBusy) return;
+    setAssignmentBusy(true);
+    const isAssigned = userAssignments.some(
+      (a) => a.user_id === selectedUser.id && a.location_name === locationName
+    );
     try {
       if (isAssigned) {
         const { error } = await supabase
@@ -204,13 +212,16 @@ const UserManagementModern = () => {
           .insert({ user_id: selectedUser.id, location_name: locationName });
         if (error) throw error;
       }
-      
-      // Refresh assignments from server
-      const { data } = await supabase.from('user_location_assignments').select('*');
-      if (data) setUserAssignments(data);
+      await refreshAllAssignments();
     } catch (error) {
-      setUserAssignments(previousAssignments); // Rollback
-      toast({ title: "Gagal mengubah assignment", description: error.message, variant: "destructive" });
+      toast({ title: 'Gagal mengubah assignment', description: error.message, variant: 'destructive' });
+      try {
+        await refreshAllAssignments();
+      } catch {
+        /* abaikan */
+      }
+    } finally {
+      setAssignmentBusy(false);
     }
   };
 
@@ -465,25 +476,38 @@ const UserManagementModern = () => {
               variant="ghost" 
               size="sm" 
               className="h-7 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              disabled={assignmentBusy}
               onClick={async () => {
-                if (!selectedUser) return;
-                const allLocationNames = locations.map(l => l.name);
-                const currentAssigned = userAssignments.filter(a => a.user_id === selectedUser.id).map(a => a.location_name);
-                
-                if (currentAssigned.length === allLocationNames.length) {
-                  // Unselect all
-                  await supabase.from('user_location_assignments').delete().eq('user_id', selectedUser.id);
-                } else {
-                  // Select all
-                  const toInsert = allLocationNames
-                    .filter(name => !currentAssigned.includes(name))
-                    .map(name => ({ user_id: selectedUser.id, location_name: name }));
-                  if (toInsert.length > 0) {
-                    await supabase.from('user_location_assignments').insert(toInsert);
+                if (!selectedUser || assignmentBusy) return;
+                setAssignmentBusy(true);
+                const allLocationNames = locations.map((l) => l.name);
+                const currentAssigned = userAssignments
+                  .filter((a) => a.user_id === selectedUser.id)
+                  .map((a) => a.location_name);
+                try {
+                  if (currentAssigned.length === allLocationNames.length) {
+                    const { error } = await supabase.from('user_location_assignments').delete().eq('user_id', selectedUser.id);
+                    if (error) throw error;
+                  } else {
+                    const toInsert = allLocationNames
+                      .filter((name) => !currentAssigned.includes(name))
+                      .map((name) => ({ user_id: selectedUser.id, location_name: name }));
+                    if (toInsert.length > 0) {
+                      const { error } = await supabase.from('user_location_assignments').insert(toInsert);
+                      if (error) throw error;
+                    }
                   }
+                  await refreshAllAssignments();
+                } catch (error) {
+                  toast({ title: 'Gagal memperbarui penempatan', description: error.message, variant: 'destructive' });
+                  try {
+                    await refreshAllAssignments();
+                  } catch {
+                    /* abaikan */
+                  }
+                } finally {
+                  setAssignmentBusy(false);
                 }
-                const { data } = await supabase.from('user_location_assignments').select('*');
-                setUserAssignments(data || []);
               }}
             >
               {userAssignments.filter(a => a.user_id === selectedUser?.id).length === locations.length ? 'Hapus Semua' : 'Pilih Semua'}
@@ -495,8 +519,10 @@ const UserManagementModern = () => {
               return (
                 <button
                   key={loc.id}
+                  type="button"
+                  disabled={assignmentBusy}
                   onClick={() => handleToggleAssignment(loc.name)}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 transition-all ${
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 transition-all disabled:opacity-50 disabled:pointer-events-none ${
                     isAssigned 
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-900' 
                       : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
