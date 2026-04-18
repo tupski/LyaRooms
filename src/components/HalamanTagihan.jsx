@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
     import { resolveStorageUrl } from '@/lib/storageUrl';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
-    import { addDays, addMonths, format, endOfMonth, startOfDay, startOfMonth } from 'date-fns';
+    import { addDays, addMonths, format, endOfMonth, startOfDay, startOfMonth, subDays } from 'date-fns';
     import {
       Dialog,
       DialogContent,
@@ -28,6 +28,22 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
       AlertDialogTitle,
       AlertDialogTrigger,
     } from "@/components/ui/alert-dialog";
+
+    /** Contoh: "18 Apr 2026, 13:20 WIB" — waktu zona Asia/Jakarta. */
+    const formatLunasDateTimeWib = (iso) => {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        const core = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hourCycle: 'h23',
+        }).format(d);
+        return `${core} WIB`;
+    };
     
     const HalamanTagihan = () => {
         const [activeMenu, setActiveMenu] = useState('bulanan');
@@ -334,7 +350,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                               <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Data riwayat lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
                               <p className="font-bold text-gray-900">{item.apartment_location} - {item.room_number}</p>
                               <p className="text-blue-700 font-semibold">{formatRupiah(item.amount)}</p>
-                              <p className="text-xs text-gray-500">Lunas: {new Date(item.paid_at).toLocaleString('id-ID')}</p>
+                              <p className="text-xs text-gray-500">Lunas: {formatLunasDateTimeWib(item.paid_at)}</p>
                               <div className="flex justify-between items-center mt-2">
                                 {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/> Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran tagihan bulanan.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt="Bukti bayar" className="rounded-lg" /></DialogContent></Dialog>)}
                               </div>
@@ -348,12 +364,36 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
       )
     };
     
+    const getFeeRangeYesterday = () => {
+        const y = subDays(startOfDay(new Date()), 1);
+        const d = format(y, 'yyyy-MM-dd');
+        return { from: d, to: d };
+    };
+    const getFeeRangeLast7Days = () => {
+        const end = startOfDay(new Date());
+        const start = subDays(end, 6);
+        return { from: format(start, 'yyyy-MM-dd'), to: format(end, 'yyyy-MM-dd') };
+    };
+    const getFeeRangeThisMonth = () => {
+        const now = new Date();
+        return { from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd') };
+    };
+    const getFeeRangeLastMonth = () => {
+        const now = new Date();
+        const firstThisMonth = startOfMonth(now);
+        const lastDayPrev = subDays(firstThisMonth, 1);
+        const startPrev = startOfMonth(lastDayPrev);
+        return { from: format(startPrev, 'yyyy-MM-dd'), to: format(endOfMonth(startPrev), 'yyyy-MM-dd') };
+    };
+
     const TagihanFee = ({ onDataUpdate }) => {
         const [unpaidFees, setUnpaidFees] = useState([]);
         const [paidFees, setPaidFees] = useState([]);
         const [showHistory, setShowHistory] = useState(true);
         const [uploadFile, setUploadFile] = useState(null);
-        const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+        const [feeDateFrom, setFeeDateFrom] = useState(() => getFeeRangeLast7Days().from);
+        const [feeDateTo, setFeeDateTo] = useState(() => getFeeRangeLast7Days().to);
+        const [feePreset, setFeePreset] = useState('last7');
         const [isPayModalOpen, setIsPayModalOpen] = useState(false);
         const [modalMarketing, setModalMarketing] = useState(null);
         const [pendingPayAction, setPendingPayAction] = useState(null); // { type: 'single'|'all', marketingName, transactions: [], totalFee }
@@ -383,10 +423,21 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             });
         };
         
+        const applyFeePreset = useCallback((preset) => {
+            let r;
+            if (preset === 'yesterday') r = getFeeRangeYesterday();
+            else if (preset === 'last7') r = getFeeRangeLast7Days();
+            else if (preset === 'thisMonth') r = getFeeRangeThisMonth();
+            else if (preset === 'lastMonth') r = getFeeRangeLastMonth();
+            else return;
+            setFeeDateFrom(r.from);
+            setFeeDateTo(r.to);
+            setFeePreset(preset);
+        }, []);
+
         const loadData = useCallback(async () => {
-            const targetDate = new Date(selectedDate);
-            const startTime = startOfDay(targetDate);
-            const endTimeExclusive = addDays(startTime, 1);
+            const startTime = startOfDay(new Date(feeDateFrom));
+            const endTimeExclusive = addDays(startOfDay(new Date(feeDateTo)), 1);
     
             const { data: transactions, error: transError } = await supabase.from('transactions').select('*')
                 .gte('checkin_at', startTime.toISOString()).lt('checkin_at', endTimeExclusive.toISOString());
@@ -442,7 +493,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     
             const unpaidFeeArray = Object.values(marketingSummary).filter(fee => fee.count > 0);
             setUnpaidFees(unpaidFeeArray);
-        }, [selectedDate]);
+        }, [feeDateFrom, feeDateTo]);
     
         useEffect(() => {
             loadData();
@@ -528,7 +579,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             const totalFee = item.total_fee ?? item.totalFee ?? 0;
             const customerCount = item.customer_count ?? item.count ?? 0;
             const marketingName = item.marketing_name ?? item.nama ?? 'Unknown';
-            const paidAt = item.paid_at ? `\n\nLunas pada: ${new Date(item.paid_at).toLocaleString('id-ID')}` : '';
+            const paidAt = item.paid_at ? `\n\nLunas: ${formatLunasDateTimeWib(item.paid_at)}` : '';
     
             const message = `*Rincian Fee*\n-------------------\n*Marketing:* ${marketingName}\n*Total Fee:* ${formatRupiah(totalFee)}\n*Jumlah Customer:* ${customerCount} orang\n\n*Detail Customer:*\n${details}${paidAt}`;
     
@@ -544,6 +595,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             }
         };
     
+        const feeRangeLabel = useMemo(() => {
+          if (feeDateFrom === feeDateTo) return feeDateFrom;
+          return `${feeDateFrom} – ${feeDateTo}`;
+        }, [feeDateFrom, feeDateTo]);
+
         const processedFees = useMemo(() => {
           let result = [...unpaidFees];
           
@@ -573,9 +629,47 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 </div>
 
                 <div className="glassmorphic-card p-5 space-y-4">
-                     <div className="flex justify-between items-center">
-                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Coins className="text-blue-500"/> Tagihan Fee</h2>
-                        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-white/50 border-gray-300 border-2 rounded-lg px-2 py-1 text-gray-800 text-sm"/>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Coins className="text-blue-500 shrink-0"/> Tagihan Fee</h2>
+                      </div>
+                      <p className="text-xs text-slate-500">Filter menurut tanggal check-in transaksi.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant={feePreset === 'yesterday' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('yesterday')}>Kemarin</Button>
+                        <Button type="button" variant={feePreset === 'last7' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('last7')}>7 hari terakhir</Button>
+                        <Button type="button" variant={feePreset === 'thisMonth' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('thisMonth')}>Bulan ini</Button>
+                        <Button type="button" variant={feePreset === 'lastMonth' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('lastMonth')}>Bulan kemarin</Button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                          <span className="text-xs font-medium text-slate-600 shrink-0">Dari</span>
+                          <input
+                            type="date"
+                            value={feeDateFrom}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFeePreset('custom');
+                              setFeeDateFrom(v);
+                              if (v > feeDateTo) setFeeDateTo(v);
+                            }}
+                            className="min-w-0 flex-1 border-0 bg-transparent text-sm text-gray-900 outline-none"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                          <span className="text-xs font-medium text-slate-600 shrink-0">Sampai</span>
+                          <input
+                            type="date"
+                            value={feeDateTo}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFeePreset('custom');
+                              setFeeDateTo(v);
+                              if (v < feeDateFrom) setFeeDateFrom(v);
+                            }}
+                            className="min-w-0 flex-1 border-0 bg-transparent text-sm text-gray-900 outline-none"
+                          />
+                        </label>
+                      </div>
                     </div>
                     
                     {/* Search & Sort UI */}
@@ -603,7 +697,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
                     {processedFees.length === 0 ? (
                       <p className="text-center text-gray-500 py-8">
-                        {searchTerm ? 'Marketing tidak ditemukan.' : 'Semua fee pada tanggal ini sudah lunas! 🎉'}
+                        {searchTerm ? 'Marketing tidak ditemukan.' : 'Semua fee pada periode ini sudah lunas! 🎉'}
                       </p>
                     ) : (
                         processedFees.map((fee) => (
@@ -631,7 +725,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                     <DialogHeader>
                       <DialogTitle>Bayar Fee Marketing</DialogTitle>
                       <DialogDescription>
-                        {modalMarketing?.nama ? `Marketing: ${modalMarketing.nama} • Tanggal: ${selectedDate}` : 'Pilih marketing untuk membayar fee.'}
+                        {modalMarketing?.nama ? `Marketing: ${modalMarketing.nama} • Periode: ${feeRangeLabel}` : 'Pilih marketing untuk membayar fee.'}
                       </DialogDescription>
                     </DialogHeader>
 
@@ -715,13 +809,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                                     <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Riwayat fee lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
                                     <p className="font-bold text-lg text-gray-900">{item.marketing_name}</p>
                                     <p className="text-blue-700 font-semibold">{formatRupiah(item.total_fee)} ({item.customer_count} CS)</p>
-                                    <p className="text-xs text-gray-500">Lunas: {new Date(item.paid_at).toLocaleTimeString('id-ID')}</p>
+                                    <p className="text-xs text-gray-500">Lunas: {formatLunasDateTimeWib(item.paid_at)}</p>
                                     <div className="flex gap-2 items-center mt-2">
                                         {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran Fee</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran fee marketing.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
                                         <Button size="icon" onClick={() => handleShare(item)} className="h-7 w-7 bg-green-500"><Share2 className="w-4 h-4" /></Button>
                                     </div>
                                 </motion.div>
-                            )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat lunas untuk tanggal ini.</p>}
+                            )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat lunas untuk periode ini.</p>}
                         </motion.div>
                     )}
                     </AnimatePresence>
