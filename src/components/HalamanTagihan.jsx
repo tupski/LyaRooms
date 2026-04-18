@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
     import { motion, AnimatePresence } from 'framer-motion';
-    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search, ArrowUpAZ } from 'lucide-react';
+    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search } from 'lucide-react';
     import { Button } from '@/components/ui/button';
     import { toast } from '@/components/ui/use-toast';
     import { supabase } from '@/lib/customSupabaseClient';
@@ -364,6 +364,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
       )
     };
     
+    const getFeeRangeToday = () => {
+        const t = startOfDay(new Date());
+        const d = format(t, 'yyyy-MM-dd');
+        return { from: d, to: d };
+    };
     const getFeeRangeYesterday = () => {
         const y = subDays(startOfDay(new Date()), 1);
         const d = format(y, 'yyyy-MM-dd');
@@ -378,29 +383,23 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         const now = new Date();
         return { from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd') };
     };
-    const getFeeRangeLastMonth = () => {
-        const now = new Date();
-        const firstThisMonth = startOfMonth(now);
-        const lastDayPrev = subDays(firstThisMonth, 1);
-        const startPrev = startOfMonth(lastDayPrev);
-        return { from: format(startPrev, 'yyyy-MM-dd'), to: format(endOfMonth(startPrev), 'yyyy-MM-dd') };
-    };
 
     const TagihanFee = ({ onDataUpdate }) => {
         const [unpaidFees, setUnpaidFees] = useState([]);
         const [paidFees, setPaidFees] = useState([]);
         const [showHistory, setShowHistory] = useState(true);
         const [uploadFile, setUploadFile] = useState(null);
-        const [feeDateFrom, setFeeDateFrom] = useState(() => getFeeRangeLast7Days().from);
-        const [feeDateTo, setFeeDateTo] = useState(() => getFeeRangeLast7Days().to);
-        const [feePreset, setFeePreset] = useState('last7');
+        const [feeDateFrom, setFeeDateFrom] = useState(() => getFeeRangeToday().from);
+        const [feeDateTo, setFeeDateTo] = useState(() => getFeeRangeToday().to);
+        const [feePreset, setFeePreset] = useState('today');
         const [isPayModalOpen, setIsPayModalOpen] = useState(false);
         const [modalMarketing, setModalMarketing] = useState(null);
         const [pendingPayAction, setPendingPayAction] = useState(null); // { type: 'single'|'all', marketingName, transactions: [], totalFee }
         const [confirmOpen, setConfirmOpen] = useState(false);
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
-        const [sortOrder, setSortOrder] = useState('highest'); // 'highest' | 'lowest' | 'name'
+        /** Urutan daftar marketing & transaksi per tanggal check-in */
+        const [feeDateOrder, setFeeDateOrder] = useState('newest'); // 'newest' | 'oldest'
         const feeHistorySectionRef = useRef(null);
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
@@ -425,15 +424,20 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         
         const applyFeePreset = useCallback((preset) => {
             let r;
-            if (preset === 'yesterday') r = getFeeRangeYesterday();
+            if (preset === 'today') r = getFeeRangeToday();
+            else if (preset === 'yesterday') r = getFeeRangeYesterday();
             else if (preset === 'last7') r = getFeeRangeLast7Days();
             else if (preset === 'thisMonth') r = getFeeRangeThisMonth();
-            else if (preset === 'lastMonth') r = getFeeRangeLastMonth();
             else return;
             setFeeDateFrom(r.from);
             setFeeDateTo(r.to);
             setFeePreset(preset);
         }, []);
+
+        const showFeeDateRange =
+            feePreset === 'last7' ||
+            feePreset === 'thisMonth' ||
+            (feePreset === 'custom' && feeDateFrom !== feeDateTo);
 
         const loadData = useCallback(async () => {
             const startTime = startOfDay(new Date(feeDateFrom));
@@ -487,6 +491,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                   customer: curr.customer_name,
                   location: curr.apartment_location,
                   fee: feeAmount,
+                  checkin_at: curr.checkin_at,
                 });
                 return acc;
             }, {});
@@ -601,23 +606,30 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         }, [feeDateFrom, feeDateTo]);
 
         const processedFees = useMemo(() => {
-          let result = [...unpaidFees];
-          
-          // Filter search
+          const txTime = (t) => {
+            const x = t?.checkin_at ? new Date(t.checkin_at).getTime() : 0;
+            return Number.isFinite(x) ? x : 0;
+          };
+          let result = unpaidFees.map((f) => ({
+            ...f,
+            transactions: [...(f.transactions || [])].sort((a, b) =>
+              feeDateOrder === 'newest' ? txTime(b) - txTime(a) : txTime(a) - txTime(b)
+            ),
+          }));
+
           if (searchTerm) {
-            result = result.filter(f => f.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+            result = result.filter((f) => f.nama.toLowerCase().includes(searchTerm.toLowerCase()));
           }
-          
-          // Sort
-          result.sort((a, b) => {
-            if (sortOrder === 'highest') return b.totalFee - a.totalFee;
-            if (sortOrder === 'lowest') return a.totalFee - b.totalFee;
-            if (sortOrder === 'name') return a.nama.localeCompare(b.nama);
-            return 0;
-          });
-          
+
+          const groupKey = (f) => {
+            const times = (f.transactions || []).map(txTime).filter((n) => n > 0);
+            if (!times.length) return 0;
+            return feeDateOrder === 'newest' ? Math.max(...times) : Math.min(...times);
+          };
+          result.sort((a, b) => (feeDateOrder === 'newest' ? groupKey(b) - groupKey(a) : groupKey(a) - groupKey(b)));
+
           return result;
-        }, [unpaidFees, searchTerm, sortOrder]);
+        }, [unpaidFees, searchTerm, feeDateOrder]);
 
         return (
             <div className="space-y-6">
@@ -635,14 +647,45 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                       </div>
                       <p className="text-xs text-slate-500">Filter menurut tanggal check-in transaksi.</p>
                       <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant={feePreset === 'today' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('today')}>Hari ini</Button>
                         <Button type="button" variant={feePreset === 'yesterday' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('yesterday')}>Kemarin</Button>
                         <Button type="button" variant={feePreset === 'last7' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('last7')}>7 hari terakhir</Button>
                         <Button type="button" variant={feePreset === 'thisMonth' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('thisMonth')}>Bulan ini</Button>
-                        <Button type="button" variant={feePreset === 'lastMonth' ? 'default' : 'outline'} size="sm" className="h-8 text-xs rounded-lg" onClick={() => applyFeePreset('lastMonth')}>Bulan kemarin</Button>
                       </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {showFeeDateRange ? (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                            <span className="text-xs font-medium text-slate-600 shrink-0">Dari</span>
+                            <input
+                              type="date"
+                              value={feeDateFrom}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setFeePreset('custom');
+                                setFeeDateFrom(v);
+                                if (v > feeDateTo) setFeeDateTo(v);
+                              }}
+                              className="min-w-0 flex-1 border-0 bg-transparent text-sm text-gray-900 outline-none"
+                            />
+                          </label>
+                          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                            <span className="text-xs font-medium text-slate-600 shrink-0">Sampai</span>
+                            <input
+                              type="date"
+                              value={feeDateTo}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setFeePreset('custom');
+                                setFeeDateTo(v);
+                                if (v < feeDateFrom) setFeeDateFrom(v);
+                              }}
+                              className="min-w-0 flex-1 border-0 bg-transparent text-sm text-gray-900 outline-none"
+                            />
+                          </label>
+                        </div>
+                      ) : (
                         <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
-                          <span className="text-xs font-medium text-slate-600 shrink-0">Dari</span>
+                          <span className="text-xs font-medium text-slate-600 shrink-0">Tanggal</span>
                           <input
                             type="date"
                             value={feeDateFrom}
@@ -650,26 +693,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                               const v = e.target.value;
                               setFeePreset('custom');
                               setFeeDateFrom(v);
-                              if (v > feeDateTo) setFeeDateTo(v);
-                            }}
-                            className="min-w-0 flex-1 border-0 bg-transparent text-sm text-gray-900 outline-none"
-                          />
-                        </label>
-                        <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
-                          <span className="text-xs font-medium text-slate-600 shrink-0">Sampai</span>
-                          <input
-                            type="date"
-                            value={feeDateTo}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setFeePreset('custom');
                               setFeeDateTo(v);
-                              if (v < feeDateFrom) setFeeDateFrom(v);
                             }}
                             className="min-w-0 flex-1 border-0 bg-transparent text-sm text-gray-900 outline-none"
                           />
                         </label>
-                      </div>
+                      )}
                     </div>
                     
                     {/* Search & Sort UI */}
@@ -684,14 +713,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                           className="w-full text-xs bg-slate-50 border-2 border-slate-200 rounded-xl pl-8 pr-2 py-2.5 outline-none focus:border-blue-400 focus:bg-white transition-all shadow-sm"
                         />
                       </div>
-                      <select 
-                        value={sortOrder} 
-                        onChange={(e) => setSortOrder(e.target.value)}
+                      <select
+                        value={feeDateOrder}
+                        onChange={(e) => setFeeDateOrder(e.target.value)}
                         className="text-xs bg-slate-50 border-2 border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-blue-400"
                       >
-                        <option value="highest">Fee Tertinggi</option>
-                        <option value="lowest">Fee Terendah</option>
-                        <option value="name">Nama (A-Z)</option>
+                        <option value="newest">Tanggal terbaru</option>
+                        <option value="oldest">Tanggal terlama</option>
                       </select>
                     </div>
 
