@@ -4,3 +4,8 @@ node_modules
 .env*.local
 /Rencana Modernisasi UI.md
 /Rencana Perombakan Form Transaksi Karyawan.md
+.cursor/plans/*
+.cursor/workspaces/*
+.cursor/settings.json
+.cursor/settings.jsonc
+.cursor/settings.jsonc

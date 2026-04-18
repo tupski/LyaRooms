@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
     import { motion, AnimatePresence } from 'framer-motion';
     import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search, ArrowUpAZ } from 'lucide-react';
     import { Button } from '@/components/ui/button';
@@ -349,7 +349,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
     };
     
     const TagihanFee = ({ onDataUpdate }) => {
-        const { user } = useAuth();
         const [unpaidFees, setUnpaidFees] = useState([]);
         const [paidFees, setPaidFees] = useState([]);
         const [showHistory, setShowHistory] = useState(true);
@@ -362,8 +361,27 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
         const [sortOrder, setSortOrder] = useState('highest'); // 'highest' | 'lowest' | 'name'
+        const feeHistorySectionRef = useRef(null);
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
+
+        const lunasRowTouchesTransactionIds = (row, txIdSet) => {
+            const raw = row?.transactions_detail;
+            let arr = [];
+            if (Array.isArray(raw)) arr = raw;
+            else if (typeof raw === 'string') {
+                try {
+                    const parsed = JSON.parse(raw);
+                    arr = Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    return false;
+                }
+            }
+            return arr.some((elem) => {
+                const id = Number(elem?.transaction_id);
+                return Number.isFinite(id) && txIdSet.has(id);
+            });
+        };
         
         const loadData = useCallback(async () => {
             const targetDate = new Date(selectedDate);
@@ -373,19 +391,31 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
             const { data: transactions, error: transError } = await supabase.from('transactions').select('*')
                 .gte('checkin_at', startTime.toISOString()).lt('checkin_at', endTimeExclusive.toISOString());
             if (transError) console.error(transError);
-    
-            const { data: storedPaidFees, error: paidError } = await supabase.from('tagihan_fee_lunas').select('*')
-                .eq('paid_date', selectedDate);
-            if (paidError) console.error(paidError);
-            
-            if (storedPaidFees) setPaidFees(storedPaidFees);
-            // paid items (per transaksi) untuk mendukung pembayaran parsial
-            const { data: paidItems, error: paidItemsError } = await supabase
-              .from('tagihan_fee_lunas_items')
-              .select('transaction_id, marketing_name')
-              .eq('paid_date', selectedDate);
-            if (paidItemsError) console.error(paidItemsError);
-            const paidTransactionIds = new Set((paidItems || []).map((p) => p.transaction_id));
+
+            const txIds = (transactions || []).map((t) => t.id).filter((id) => id != null);
+            const txIdSet = new Set(txIds);
+
+            let paidTransactionIds = new Set();
+            if (txIds.length > 0) {
+              const { data: paidItems, error: paidItemsError } = await supabase
+                .from('tagihan_fee_lunas_items')
+                .select('transaction_id, marketing_name')
+                .in('transaction_id', txIds);
+              if (paidItemsError) console.error(paidItemsError);
+              paidTransactionIds = new Set((paidItems || []).map((p) => p.transaction_id));
+            }
+
+            let paidFeesFiltered = [];
+            if (txIds.length > 0) {
+              const { data: lunasRows, error: lunasError } = await supabase
+                .from('tagihan_fee_lunas')
+                .select('*')
+                .order('paid_at', { ascending: false })
+                .limit(500);
+              if (lunasError) console.error(lunasError);
+              paidFeesFiltered = (lunasRows || []).filter((row) => lunasRowTouchesTransactionIds(row, txIdSet));
+            }
+            setPaidFees(paidFeesFiltered);
     
             const marketingSummary = (transactions || []).reduce((acc, curr) => {
                 if (!curr.marketing_name || !curr.marketing_fee || curr.marketing_fee <= 0) {
@@ -419,6 +449,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
             const channel = supabase.channel('public:tagihan_fee')
               .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, loadData)
               .on('postgres_changes', { event: '*', schema: 'public', table: 'tagihan_fee_lunas' }, loadData)
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'tagihan_fee_lunas_items' }, loadData)
               .subscribe();
             return () => supabase.removeChannel(channel);
         }, [loadData]);
@@ -437,41 +468,49 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
         const executePay = async () => {
           if (!pendingPayAction || isSubmitting) return;
-          const { marketingName, transactions, totalFee } = pendingPayAction;
+          const { marketingName, transactions } = pendingPayAction;
 
           setIsSubmitting(true);
-          let proof_url = null;
-          if (uploadFile) {
-            try {
-              proof_url = await uploadToVercelBlob(uploadFile, 'fee-proofs');
-            } catch (uploadError) {
-              toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
+          try {
+            let proof_url = null;
+            if (uploadFile) {
+              try {
+                proof_url = await uploadToVercelBlob(uploadFile, 'fee-proofs');
+              } catch (uploadError) {
+                toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
+                return;
+              }
+            }
+
+            const transactionIds = (transactions || []).map((t) => t.transaction_id);
+            const { data: rpcData, error: rpcError } = await supabase.rpc('pay_fee_items', {
+              p_marketing_name: marketingName,
+              p_transaction_ids: transactionIds,
+              p_proof_url: proof_url,
+            });
+
+            if (rpcError) {
+              toast({ title: "Gagal menyimpan pembayaran", description: rpcError.message, variant: "destructive" });
               return;
             }
+
+            const inserted = rpcData?.items_inserted ?? transactions.length;
+            toast({ title: "Pembayaran fee berhasil ✅", description: `${marketingName} • ${inserted} customer` });
+
+            setConfirmOpen(false);
+            setPendingPayAction(null);
+            setUploadFile(null);
+            setIsPayModalOpen(false);
+            setModalMarketing(null);
+            setShowHistory(true);
+            await loadData();
+            requestAnimationFrame(() => {
+              feeHistorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            onDataUpdate();
+          } finally {
+            setIsSubmitting(false);
           }
-
-          const transactionIds = (transactions || []).map((t) => t.transaction_id);
-          const { data: rpcData, error: rpcError } = await supabase.rpc('pay_fee_items', {
-            p_marketing_name: marketingName,
-            p_transaction_ids: transactionIds,
-            p_proof_url: proof_url,
-          });
-
-          if (rpcError) {
-            toast({ title: "Gagal menyimpan pembayaran", description: rpcError.message, variant: "destructive" });
-            return;
-          }
-
-          const inserted = rpcData?.items_inserted ?? transactions.length;
-          toast({ title: "Pembayaran fee berhasil ✅", description: `${marketingName} • ${inserted} customer` });
-
-          setConfirmOpen(false);
-          setPendingPayAction(null);
-          setUploadFile(null);
-          setIsPayModalOpen(false);
-          setModalMarketing(null);
-          setIsSubmitting(false);
-          onDataUpdate();
         };
         
         const handleDelete = async (id) => {
@@ -663,7 +702,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
                   </AlertDialogContent>
                 </AlertDialog>
                 
-                <div className="glassmorphic-card p-5 space-y-4">
+                <div ref={feeHistorySectionRef} className="glassmorphic-card p-5 space-y-4">
                     <button onClick={() => setShowHistory(!showHistory)} className="w-full flex justify-between items-center p-1">
                         <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><History className="w-5 h-5"/>Riwayat Fee Lunas</h2>
                         <ChevronDown className={`w-5 h-5 transition-transform text-gray-800 ${showHistory ? 'rotate-180' : ''}`} />
