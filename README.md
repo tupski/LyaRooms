@@ -13,6 +13,7 @@ Aplikasi web modern untuk mengelola transaksi penyewaan apartemen, tagihan bulan
 - ✅ **Authentication** - Sistem login berbasis Supabase Auth
 - ✅ **File Upload** - Upload KTP dan bukti pembayaran (dengan kompresi gambar)
 - ✅ **PWA** - Bisa di-install seperti aplikasi (Install prompt dari layar login)
+- ✅ **Auto-Update** - Sistem pembersihan cache otomatis saat versi baru dirilis via `version.json`
 
 ## 🛠️ Tech Stack
 
@@ -214,6 +215,20 @@ npm run build
 - Pastikan bucket `tagihan_proofs` sudah dibuat
 - Cek storage policies sudah benar
 - Verify file size tidak melebihi limit Supabase
+
+## 🔄 Sistem Update (PWA Cache Clear)
+
+Untuk memastikan pengguna selalu mendapatkan versi terbaru dan menghindari masalah cache PWA yang "stuck", aplikasi ini dilengkapi dengan sistem auto-update:
+
+1.  **Pelacakan Versi**: Versi aplikasi dicatat di `public/version.json`.
+2.  **Deteksi Otomatis**: Setiap kali aplikasi dimuat, helper `checkAppUpdate()` akan mengecek apakah ada versi baru.
+3.  **Pembersihan Paksa**: Jika versi berubah, aplikasi akan:
+    - Menghapus semua PWA Cache.
+    - Meng-unregister Service Worker.
+    - Membersihkan `localStorage` & `sessionStorage`.
+    - Melakukan reload paksa (`window.location.reload(true)`).
+
+> **💡 Cara Update**: Setiap kali melakukan deployment yang memerlukan pembersihan cache, naikkan nomor versi di file `public/version.json`.
 
 ## 📊 Scripts Available
 

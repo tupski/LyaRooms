@@ -2,9 +2,13 @@
 
 Semua perubahan penting untuk proyek ini akan dicatat di file ini.
 
-## [Unreleased]
+## [2.2.0] - 2026-04-18
+### Added
+- **Sistem Auto-Update Wajib**: Aplikasi sekarang otomatis mengecek versi baru melalui `version.json`.
+- **Pembersihan Cache Otomatis**: Memaksa penghapusan PWA cache, storage, dan unregister service worker saat versi baru terdeteksi untuk menghindari masalah cache stuck.
+- **Force Reload**: Memaksa refresh halaman setelah pembersihan cache untuk memuat aset terbaru.
 
-## [2026-04-14]
+## [2.0.0] - 2026-04-14
 ### Added
 - PWA install prompt di layar login (muncul jika belum ter-install).
 - Viewer gambar (rotate kiri/kanan, zoom in/out, unduh) untuk pratinjau KTP & bukti transfer.

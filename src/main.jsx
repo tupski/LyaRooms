@@ -7,6 +7,10 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { checkAppUpdate } from '@/utils/checkAppUpdate';
+
+// Cek update aplikasi sebelum render
+checkAppUpdate();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

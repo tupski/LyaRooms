@@ -29,6 +29,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
 
+  // Exclude version.json from cache
+  if (url.pathname.endsWith('version.json')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -80,4 +86,21 @@ self.addEventListener('notificationclick', (event) => {
       return self.clients.openWindow(url);
     }),
   );
+});
+
+// Handle messages from frontend
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_PWA_CACHE') {
+    console.log('[SW] Menerima perintah CLEAR_PWA_CACHE');
+    event.waitUntil(
+      caches.keys().then((keys) => {
+        return Promise.all(keys.map((key) => caches.delete(key)));
+      }).then(() => {
+        console.log('[SW] Cache berhasil dikosongkan');
+        if (event.source) {
+          event.source.postMessage({ type: 'CACHE_CLEARED' });
+        }
+      })
+    );
+  }
 });
