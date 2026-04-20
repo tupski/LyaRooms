@@ -418,23 +418,39 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
 
         const lunasRowTouchesTransactionIds = (row, txIdSet) => {
-            const raw = row?.transactions_detail;
+            const raw = row?.transactions_detail || row?.transactions;
             let arr = [];
-            if (Array.isArray(raw)) arr = raw;
-            else if (typeof raw === 'string') {
+
+            if (Array.isArray(raw)) {
+                arr = raw;
+            } else if (typeof raw === 'string') {
                 try {
                     const parsed = JSON.parse(raw);
                     arr = Array.isArray(parsed) ? parsed : [];
                 } catch {
                     return false;
                 }
+            } else if (raw && typeof raw === 'object') {
+                // Jika raw adalah objek tunggal, coba jadikan array
+                arr = [raw];
             }
+
             return arr.some((elem) => {
-                const id = Number(elem?.transaction_id);
+                if (!elem || typeof elem !== 'object') return false;
+                const id = Number(elem?.transaction_id ?? elem?.transactionId ?? elem?.id);
                 return Number.isFinite(id) && txIdSet.has(id);
             });
         };
-        
+
+        const isFeeHistoryRowRelevant = (row, startDate, endDate) => {
+            if (!row?.paid_at) return false;
+            const paidAt = new Date(row.paid_at);
+            if (Number.isNaN(paidAt.getTime())) return false;
+            const start = new Date(`${startDate}T00:00:00`);
+            const end = new Date(`${endDate}T23:59:59.999`);
+            return paidAt >= start && paidAt <= end;
+        };
+
         const applyFeePreset = useCallback((preset) => {
             let r;
             if (preset === 'today') r = getFeeRangeToday();
@@ -474,15 +490,20 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             }
 
             let paidFeesFiltered = [];
-            if (txIds.length > 0) {
-              const { data: lunasRows, error: lunasError } = await supabase
-                .from('tagihan_fee_lunas')
-                .select('*')
-                .order('paid_at', { ascending: false })
-                .limit(500);
-              if (lunasError) console.error(lunasError);
-              paidFeesFiltered = (lunasRows || []).filter((row) => lunasRowTouchesTransactionIds(row, txIdSet));
-            }
+            const dateRangeStart = feeDateFrom;
+            const dateRangeEnd = feeDateTo;
+            const { data: lunasRows, error: lunasError } = await supabase
+              .from('tagihan_fee_lunas')
+              .select('*')
+              .order('paid_at', { ascending: false })
+              .limit(500);
+            if (lunasError) console.error(lunasError);
+            paidFeesFiltered = (lunasRows || []).filter((row) => {
+              if (txIds.length > 0 && lunasRowTouchesTransactionIds(row, txIdSet)) {
+                return true;
+              }
+              return isFeeHistoryRowRelevant(row, dateRangeStart, dateRangeEnd);
+            });
             setPaidFees(paidFeesFiltered);
     
             const marketingSummary = (transactions || []).reduce((acc, curr) => {

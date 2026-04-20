@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.admin_update_user(
   p_target_user_id uuid,
   p_full_name text,
   p_phone text,
-  p_gender text,/
+  p_gender text,
   p_role text
 )
 RETURNS boolean
@@ -15,7 +15,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
 AS $$
-BEGIN///
+BEGIN
   IF NOT public.is_super_admin() THEN
     RAISE EXCEPTION 'Akses ditolak. Hanya Super Admin yang dapat mengubah user.';
   END IF;
