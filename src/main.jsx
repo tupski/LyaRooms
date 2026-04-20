@@ -12,11 +12,7 @@ import { checkAppUpdate } from '@/utils/checkAppUpdate';
 // Cek update aplikasi sebelum render
 checkAppUpdate();
 
-// Disable StrictMode di production untuk mencegah unmount/remount yang tidak perlu
-const isDevelopment = import.meta.env.DEV;
-const root = ReactDOM.createRoot(document.getElementById('root'));
-
-const appComponent = (
+ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AuthProvider>
       <App />
@@ -26,8 +22,6 @@ const appComponent = (
     </AuthProvider>
   </BrowserRouter>
 );
-
-root.render(isDevelopment ? <React.StrictMode>{appComponent}</React.StrictMode> : appComponent);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

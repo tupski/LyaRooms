@@ -11,7 +11,6 @@ import HalamanTagihan from '@/components/HalamanTagihan';
 import HalamanRequest from '@/components/HalamanRequest';
 import SuperAdminDashboard from '@/components/SuperAdminDashboard';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useDisableAutoReload } from '@/hooks/usePageVisibility';
 import Auth from '@/components/Auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -58,9 +57,6 @@ function App() {
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const correctPin = '232325';
-
-  // Prevent auto reload saat tab visibility berubah
-  useDisableAutoReload();
 
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [appName, setAppName] = useState('Kakarama Room');
@@ -148,8 +144,7 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_reads' }, refreshUnread)
       .subscribe();
     return () => supabase.removeChannel(channel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, audienceFilter, userRole]);
+  }, [session?.user?.id]);
 
   const handleDataUpdate = () => setRefreshKey((prevKey) => prevKey + 1);
 
