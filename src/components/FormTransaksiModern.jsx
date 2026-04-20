@@ -111,6 +111,8 @@ const FormTransaksiModern = ({
   const [viewerItems, setViewerItems] = useState([]);
   const [refs, setRefs] = useState({ lokasi: [], kamar: [], marketing: [], karyawan: [] });
   const [occupiedMap, setOccupiedMap] = useState({});
+  const [ktpFile, setKtpFile] = useState(null);
+  const [buktiTransferFile, setBuktiTransferFile] = useState(null);
   const [formData, setFormData] = useState({
     namaCustomer: '',
     lokasiApartemen: '',
@@ -127,8 +129,6 @@ const FormTransaksiModern = ({
     checkinAt: toDateTimeLocalValue(new Date()),
     depositCash: '',
     depositTransfer: '',
-    ktpFile: null,
-    buktiTransferFile: null,
     input_by: '',
   });
   const selectPortalTarget = typeof document !== 'undefined' ? document.body : null;
@@ -268,27 +268,33 @@ const FormTransaksiModern = ({
   const [buktiPreviewUrl, setBuktiPreviewUrl] = useState(null);
 
   useEffect(() => {
-    if (!formData.ktpFile) { setKtpPreviewUrl(null); return; }
-    const url = URL.createObjectURL(formData.ktpFile);
+    if (!ktpFile) { setKtpPreviewUrl(null); return; }
+    const url = URL.createObjectURL(ktpFile);
     setKtpPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [formData.ktpFile]);
+  }, [ktpFile]);
 
   useEffect(() => {
-    if (!formData.buktiTransferFile) { setBuktiPreviewUrl(null); return; }
-    const url = URL.createObjectURL(formData.buktiTransferFile);
+    if (!buktiTransferFile) { setBuktiPreviewUrl(null); return; }
+    const url = URL.createObjectURL(buktiTransferFile);
     setBuktiPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [formData.buktiTransferFile]);
+  }, [buktiTransferFile]);
 
   const handleImagePick = async (field, file) => {
-    if (!file) { handleChange(field, null); return; }
+    if (!file) {
+      if (field === 'ktpFile') setKtpFile(null);
+      if (field === 'buktiTransferFile') setBuktiTransferFile(null);
+      return;
+    }
     try {
       const compressed = await compressImageFile(file);
-      handleChange(field, compressed);
+      if (field === 'ktpFile') setKtpFile(compressed);
+      if (field === 'buktiTransferFile') setBuktiTransferFile(compressed);
     } catch (err) {
       toast({ title: 'Gagal memproses gambar', description: err?.message || 'Coba gambar lain.', variant: 'destructive' });
-      handleChange(field, null);
+      if (field === 'ktpFile') setKtpFile(null);
+      if (field === 'buktiTransferFile') setBuktiTransferFile(null);
     }
   };
 
@@ -352,6 +358,8 @@ const FormTransaksiModern = ({
     }));
     if (ktpInputRef.current) ktpInputRef.current.value = '';
     if (transferInputRef.current) transferInputRef.current.value = '';
+    setKtpFile(null);
+    setBuktiTransferFile(null);
   };
 
   const performSubmit = async () => {
@@ -379,8 +387,8 @@ const FormTransaksiModern = ({
 
     try {
       const [ktpUrl, transferProofUrl] = await Promise.all([
-        uploadFile(formData.ktpFile, 'ktp_images'),
-        uploadFile(formData.buktiTransferFile, 'transfer_proofs'),
+        uploadFile(ktpFile, 'ktp_images'),
+        uploadFile(buktiTransferFile, 'transfer_proofs'),
       ]);
       const payload = {
         user_id: user.id,
@@ -697,11 +705,11 @@ const FormTransaksiModern = ({
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center">
                   <Upload className="mb-1 h-5 w-5 text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">Upload KTP</span>
-                  <span className="text-xs text-slate-500">{formData.ktpFile?.name || 'Pilih file gambar'}</span>
+                  <span className="text-xs text-slate-500">{ktpFile?.name || 'Pilih file gambar'}</span>
                   <input ref={ktpInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImagePick('ktpFile', e.target.files?.[0] || null)} />
                 </label>
                 {ktpPreviewUrl && (
-                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setViewerItems([{ src: ktpPreviewUrl, title: 'KTP', downloadName: formData.ktpFile?.name || 'ktp.jpg' }]); setViewerOpen(true); }}>
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setViewerItems([{ src: ktpPreviewUrl, title: 'KTP', downloadName: ktpFile?.name || 'ktp.jpg' }]); setViewerOpen(true); }}>
                     <Eye className="mr-2 h-4 w-4" />Pratinjau KTP
                   </Button>
                 )}
@@ -710,11 +718,11 @@ const FormTransaksiModern = ({
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center">
                   <Landmark className="mb-1 h-5 w-5 text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">Upload Bukti Transfer</span>
-                  <span className="text-xs text-slate-500">{formData.buktiTransferFile?.name || 'Pilih file gambar'}</span>
+                  <span className="text-xs text-slate-500">{buktiTransferFile?.name || 'Pilih file gambar'}</span>
                   <input ref={transferInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImagePick('buktiTransferFile', e.target.files?.[0] || null)} />
                 </label>
                 {buktiPreviewUrl && (
-                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setViewerItems([{ src: buktiPreviewUrl, title: 'Bukti transfer', downloadName: formData.buktiTransferFile?.name || 'bukti.jpg' }]); setViewerOpen(true); }}>
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setViewerItems([{ src: buktiPreviewUrl, title: 'Bukti transfer', downloadName: buktiTransferFile?.name || 'bukti.jpg' }]); setViewerOpen(true); }}>
                     <Eye className="mr-2 h-4 w-4" />Pratinjau bukti
                   </Button>
                 )}
@@ -764,7 +772,7 @@ const FormTransaksiModern = ({
                   {' '}(tidak masuk omset)
                 </li>
               )}
-              <li><span className="font-medium text-slate-900">Berkas:</span> KTP {formData.ktpFile ? `(${formData.ktpFile.name})` : '(tidak ada)'} — Bukti{' '}{formData.buktiTransferFile ? `(${formData.buktiTransferFile.name})` : '(tidak ada)'}</li>
+              <li><span className="font-medium text-slate-900">Berkas:</span> KTP {ktpFile ? `(${ktpFile.name})` : '(tidak ada)'} — Bukti{' '}{buktiTransferFile ? `(${buktiTransferFile.name})` : '(tidak ada)'}</li>
             </ul>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={() => setShowConfirmModal(false)} disabled={isSubmitting}>Batal</Button>
