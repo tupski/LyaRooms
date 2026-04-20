@@ -157,7 +157,7 @@ const Auth = () => {
                     <p className="text-gray-400 text-xs">
                         Belum punya akun?
                         <br />
-                        Hubungi <b>Om Tupas</b> untuk membuat akun karyawan/admin KakaRama Room.
+                        Hubungi <b>KR</b> untuk membuat akun.
                     </p>
                     <p className="mt-4 text-[11px] text-white/60">
                         © {currentYear} - Kakarama Room. All rights reserved.

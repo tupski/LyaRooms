@@ -11,6 +11,7 @@ import HalamanTagihan from '@/components/HalamanTagihan';
 import HalamanRequest from '@/components/HalamanRequest';
 import SuperAdminDashboard from '@/components/SuperAdminDashboard';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useDisableAutoReload } from '@/hooks/usePageVisibility';
 import Auth from '@/components/Auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -57,6 +58,9 @@ function App() {
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const correctPin = '232325';
+
+  // Prevent auto reload saat tab visibility berubah
+  useDisableAutoReload();
 
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [appName, setAppName] = useState('Kakarama Room');

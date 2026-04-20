@@ -12,18 +12,22 @@ import { checkAppUpdate } from '@/utils/checkAppUpdate';
 // Cek update aplikasi sebelum render
 checkAppUpdate();
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-        <Toaster />
-        <Analytics />
-        <SpeedInsights />
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+// Disable StrictMode di production untuk mencegah unmount/remount yang tidak perlu
+const isDevelopment = import.meta.env.DEV;
+const root = ReactDOM.createRoot(document.getElementById('root'));
+
+const appComponent = (
+  <BrowserRouter>
+    <AuthProvider>
+      <App />
+      <Toaster />
+      <Analytics />
+      <SpeedInsights />
+    </AuthProvider>
+  </BrowserRouter>
 );
+
+root.render(isDevelopment ? <React.StrictMode>{appComponent}</React.StrictMode> : appComponent);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
