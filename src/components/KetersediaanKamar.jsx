@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  AlertTriangle,
   Banknote,
   ChevronDown,
   ChevronUp,

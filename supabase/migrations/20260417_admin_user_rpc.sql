@@ -1,3 +1,6 @@
+-- Ensure pgcrypto is enabled for gen_salt
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- =============================================================
 -- MIGRATION: Super Admin Management RPCs
 -- =============================================================

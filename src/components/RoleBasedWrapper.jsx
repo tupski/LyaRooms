@@ -33,6 +33,7 @@ const RoleBasedWrapper = ({
     const requiredLevel = getRoleHierarchyLevel(requiredRole);
 
     if (userLevel < requiredLevel) {
+      console.warn(`[RoleBasedWrapper] Access Denied. Required: ${requiredRole}, User: ${userRole}, Path: ${location.pathname}`);
       if (showUnauthorized) {
         return (
           <div className="min-h-screen flex items-center justify-center">

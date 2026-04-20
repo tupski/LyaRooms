@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/* eslint-env node */
+/* global process */
 
 /**
  * Script untuk membuat akun Super Admin

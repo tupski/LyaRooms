@@ -355,7 +355,21 @@ const FormTransaksiModern = ({
   };
 
   const performSubmit = async () => {
-    if (!user?.id) return;
+    // 1. Double-submit protection
+    if (isSubmitting) return;
+    
+    // 2. Real-time session validation
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession?.user?.id) {
+      toast({ 
+        title: 'Sesi berakhir', 
+        description: 'Silakan login kembali untuk menyimpan transaksi.', 
+        variant: 'destructive' 
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
     const cashAmount = parseCurrency(formData.tunai);
     const transferAmount = parseCurrency(formData.transfer);

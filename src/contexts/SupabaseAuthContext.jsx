@@ -1,32 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from '@/components/ui/use-toast';
 
 const AuthContext = createContext(undefined);
 
 export const AuthProvider = ({ children }) => {
-  const { toast } = useToast();
+  // Gunakan fungsi toast langsung (bukan hook) untuk menghindari masalah urutan render/context
 
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
-
-  const handleSession = useCallback(async (session) => {
-    setLoading(true);
-    setSession(session);
-    setUser(session?.user ?? null);
-
-    // Cek peran pengguna
-    if (session?.user) {
-      await checkUserRole(session.user.id);
-    } else {
-      setUserRole(null);
-    }
-
-    setLoading(false);
-  }, []);
+  const [isSyncingRole, setIsSyncingRole] = useState(false);
 
   const checkUserRole = useCallback(async (userId) => {
     try {
@@ -60,6 +46,22 @@ export const AuthProvider = ({ children }) => {
       setUserRole('karyawan');
     }
   }, []);
+
+  const handleSession = useCallback(async (currentSession) => {
+    setLoading(true);
+    setSession(currentSession);
+    setUser(currentSession?.user ?? null);
+
+    if (currentSession?.user) {
+      setIsSyncingRole(true);
+      await checkUserRole(currentSession.user.id);
+      setIsSyncingRole(false);
+    } else {
+      setUserRole(null);
+    }
+
+    setLoading(false);
+  }, [checkUserRole]);
 
   const isSuperAdmin = useMemo(() => userRole === 'super_admin', [userRole]);
   const isAdmin = useMemo(() => userRole === 'admin' || userRole === 'super_admin', [userRole]);
@@ -118,7 +120,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     return { error };
-  }, [toast]);
+  }, []);
 
   const signIn = useCallback(async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -135,23 +137,32 @@ export const AuthProvider = ({ children }) => {
     }
 
     return { error };
-  }, [toast]);
+  }, []);
 
   const signOut = useCallback(async () => {
     try {
+      setLoading(true);
       await supabase.auth.signOut();
     } catch (e) {
       console.error("Signout error:", e);
     } finally {
-      // Clear persistent states AFTER signout attempt
-      localStorage.clear();
+      // Clear persistent states safely
+      const itemsToKeep = ['app_version'];
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (!itemsToKeep.includes(key)) {
+          localStorage.removeItem(key);
+        }
+      });
+      sessionStorage.clear();
+      
       if ('caches' in window) {
         try {
           const cacheNames = await caches.keys();
           await Promise.all(cacheNames.map(name => caches.delete(name)));
         } catch (e) {}
       }
-      window.location.reload(); // Hard reload to clear all in-memory state
+      window.location.reload(); 
     }
   }, []);
 
@@ -163,7 +174,7 @@ export const AuthProvider = ({ children }) => {
   const value = useMemo(() => ({
     user,
     session,
-    loading,
+    loading: loading || isSyncingRole,
     userRole,
     isSuperAdmin,
     isAdmin,
@@ -171,7 +182,7 @@ export const AuthProvider = ({ children }) => {
     signIn,
     signOut,
     refreshSession,
-  }), [user, session, loading, userRole, isSuperAdmin, isAdmin, signUp, signIn, signOut, refreshSession]);
+  }), [user, session, loading, isSyncingRole, userRole, isSuperAdmin, isAdmin, signUp, signIn, signOut, refreshSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

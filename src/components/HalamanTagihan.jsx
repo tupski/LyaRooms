@@ -159,6 +159,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
       const [buktiBayarFile, setBuktiBayarFile] = useState(null);
       const [selectedTagihan, setSelectedTagihan] = useState(null);
       const [showHistory, setShowHistory] = useState(true);
+      const [isSubmitting, setIsSubmitting] = useState(false);
     
       const fetchOptions = async () => {
         const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name');
@@ -213,6 +214,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           toast({ title: "Data tidak lengkap!", variant: "destructive" });
           return;
         }
+        setIsSubmitting(true);
         const { error } = await supabase.from('tagihan_bulanan').insert({
           ...newTagihan,
           amount: deformatRupiah(newTagihan.amount),
@@ -228,17 +230,20 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           toast({ title: "✅ Tagihan berhasil ditambahkan!" });
           onDataUpdate();
         }
+        setIsSubmitting(false);
       };
     
       const handleMarkAsPaid = async () => {
-        if (!selectedTagihan) return;
+        if (!selectedTagihan || isSubmitting) return;
         
+        setIsSubmitting(true);
         let proof_url = null;
         if (buktiBayarFile) {
           try {
             proof_url = await uploadToVercelBlob(buktiBayarFile, 'tagihan-proofs');
           } catch (uploadError) {
             toast({ title: "Gagal upload bukti", description: uploadError.message, variant: "destructive" });
+            setIsSubmitting(false);
             return;
           }
         }
@@ -256,6 +261,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           setBuktiBayarFile(null);
           onDataUpdate();
         }
+        setIsSubmitting(false);
       };
       
       const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -306,7 +312,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                   <input type="date" value={newTagihan.due_date} onChange={(e) => handleInputChange('due_date', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900"/>
                 </div>
               </div>
-              <DialogFooter><Button onClick={handleAddTagihan} className="w-full bg-cyan-500 hover:bg-cyan-600">Simpan Tagihan</Button></DialogFooter>
+              <DialogFooter><Button onClick={handleAddTagihan} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700">Simpan Tagihan</Button></DialogFooter>
           </DialogContent>
           </Dialog>
     
@@ -329,7 +335,14 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                     </div>
                     <div className="flex justify-between items-end mt-3 border-t pt-3">
                       <p className="text-sm text-gray-600"><Calendar className="w-4 h-4 inline" /> {formatDate(tagihan.due_date)}</p>
-                      <AlertDialog><AlertDialogTrigger asChild><Button size="sm" className="bg-green-500" onClick={() => setSelectedTagihan(tagihan)}><CheckCircle className="mr-2 h-4 w-4"/> Lunas</Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Konfirmasi Lunas</AlertDialogTitle><AlertDialogDescription>Upload bukti bayar (opsional).</AlertDialogDescription></AlertDialogHeader><div className="py-2"><input type="file" onChange={(e) => setBuktiBayarFile(e.target.files[0])} className="w-full text-sm text-gray-700 file:text-blue-600"/></div><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleMarkAsPaid} className="bg-green-600">Tandai Lunas</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                      <AlertDialog><AlertDialogTrigger asChild><Button size="sm" className="bg-green-500" onClick={() => setSelectedTagihan(tagihan)}><CheckCircle className="mr-2 h-4 w-4"/> Lunas</Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Konfirmasi Lunas</AlertDialogTitle><AlertDialogDescription>Upload bukti bayar (opsional).</AlertDialogDescription></AlertDialogHeader><div className="py-2"><input type="file" onChange={(e) => setBuktiBayarFile(e.target.files[0])} className="w-full text-sm text-gray-700 file:text-blue-600"/></div>
+                      <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setSelectedTagihan(null)} disabled={isSubmitting}>Batal</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleMarkAsPaid} disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
+                            {isSubmitting ? 'Memproses...' : 'Konfirmasi Lunas'}
+                          </AlertDialogAction>
+                      </AlertDialogFooter>
+                      </AlertDialogContent></AlertDialog>
                     </div>
                   </motion.div>
                 )
@@ -859,6 +872,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         const [newExpense, setNewExpense] = useState({ nama_pengeluaran: '', jumlah: '', tanggal: format(new Date(), 'yyyy-MM-dd'), keterangan: '' });
         const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
         const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+        const [isSubmitting, setIsSubmitting] = useState(false);
     
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
@@ -895,6 +909,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 toast({ title: "Data tidak lengkap!", variant: "destructive" });
                 return;
             }
+            setIsSubmitting(true);
             const { error } = await supabase.from('pengeluaran').insert({
                 ...newExpense,
                 jumlah: deformatRupiah(newExpense.jumlah),
@@ -908,6 +923,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 toast({ title: "✅ Pengeluaran berhasil dicatat!" });
                 onDataUpdate();
             }
+            setIsSubmitting(false);
         };
     
         const handleDelete = async (id) => {
@@ -936,7 +952,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                             <input type="date" value={newExpense.tanggal} onChange={(e) => handleInputChange('tanggal', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
                             <textarea placeholder="Keterangan (opsional)" value={newExpense.keterangan} onChange={(e) => handleInputChange('keterangan', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900 h-24" />
                         </div>
-                        <DialogFooter><Button onClick={handleAddExpense} className="w-full bg-red-500 hover:bg-red-600">Simpan</Button></DialogFooter>
+                        <DialogFooter><Button onClick={handleAddExpense} disabled={isSubmitting} className="w-full bg-red-500 hover:bg-red-600">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
     

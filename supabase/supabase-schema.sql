@@ -786,7 +786,7 @@ BEGIN
         RAISE EXCEPTION 'Akses ditolak untuk menghapus transaksi ini.';
     END IF;
 
-    -- Sinkronisasi riwayat komisi marketing (tagihan_fee_lunas) berdasarkan detail customer+lokasi
+    -- Sinkronisasi riwayat komisi marketing (tagihan_fee_lunas) berdasarkan ID transaksi (lebih akurat) atau detail customer+lokasi
     UPDATE public.tagihan_fee_lunas tfl
     SET
         transactions_detail = COALESCE(
@@ -794,8 +794,13 @@ BEGIN
                 SELECT jsonb_agg(elem)
                 FROM jsonb_array_elements(COALESCE(tfl.transactions_detail, '[]'::jsonb)) elem
                 WHERE NOT (
-                    COALESCE(elem->>'customer', '') = COALESCE(v_tx.customer_name, '')
-                    AND COALESCE(elem->>'location', '') = COALESCE(v_tx.apartment_location, '')
+                    (elem ? 'transaction_id' AND (elem->>'transaction_id')::bigint = p_transaction_id)
+                    OR 
+                    (
+                        NOT (elem ? 'transaction_id') AND
+                        COALESCE(elem->>'customer', '') = COALESCE(v_tx.customer_name, '') AND
+                        COALESCE(elem->>'location', '') = COALESCE(v_tx.apartment_location, '')
+                    )
                 )
             ),
             '[]'::jsonb
@@ -806,8 +811,10 @@ BEGIN
       AND EXISTS (
           SELECT 1
           FROM jsonb_array_elements(COALESCE(tfl.transactions_detail, '[]'::jsonb)) elem
-          WHERE COALESCE(elem->>'customer', '') = COALESCE(v_tx.customer_name, '')
-            AND COALESCE(elem->>'location', '') = COALESCE(v_tx.apartment_location, '')
+          WHERE (elem ? 'transaction_id' AND (elem->>'transaction_id')::bigint = p_transaction_id)
+             OR (COALESCE(elem->>'customer', '') = COALESCE(v_tx.customer_name, '')
+                 AND COALESCE(elem->>'location', '') = COALESCE(v_tx.apartment_location, '')
+             )
       );
 
     GET DIAGNOSTICS v_updated_fee_rows = ROW_COUNT;

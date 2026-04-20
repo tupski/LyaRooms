@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kr-pwa-v4';
+const CACHE_NAME = 'kr-pwa-v2.2.1';
 const APP_SHELL = [
   '/',
   '/index.html',

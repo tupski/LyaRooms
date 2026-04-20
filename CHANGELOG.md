@@ -2,6 +2,17 @@
 
 Semua perubahan penting untuk proyek ini akan dicatat di file ini.
 
+## [2.2.1] - 2026-04-18
+### Added
+- Audit Integritas Data Keuangan: Pencegahan double-submit di semua form transaksi dan finance.
+- Sinkronisasi Role yang lebih robust untuk mencegah error 403 Forbidden.
+- Logging tambahan di `RoleBasedWrapper` untuk mempermudah debugging akses.
+
+### Fixed
+- Error `gen_salt` pada pembuatan user baru (aktivasi ekstensi `pgcrypto`).
+- Bug `delete_transaction_cascade` yang kurang akurat saat menghapus riwayat fee.
+- Pembersihan cache yang lebih selektif saat logout.
+
 ## [2.2.0] - 2026-04-18
 ### Added
 - **Sistem Auto-Update Wajib**: Aplikasi sekarang otomatis mengecek versi baru melalui `version.json`.
