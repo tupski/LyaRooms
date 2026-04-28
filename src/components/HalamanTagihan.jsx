@@ -639,6 +639,29 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           return `${feeDateFrom} – ${feeDateTo}`;
         }, [feeDateFrom, feeDateTo]);
 
+        const totalUnpaidFee = useMemo(
+          () => unpaidFees.reduce((sum, fee) => sum + Number(fee.totalFee || 0), 0),
+          [unpaidFees]
+        );
+
+        const handleShareUnpaidFee = async (fee) => {
+          const details = (fee.transactions || [])
+            .map((t, i) => `${i + 1}. ${t.customer} - ${t.location}`)
+            .join('\n');
+          const message = `*Tagihan Fee (Belum Lunas)*\n-------------------\n*Marketing:* ${fee.nama}\n*Periode:* ${feeRangeLabel}\n*Total Fee:* ${formatRupiah(fee.totalFee)}\n*Jumlah Customer:* ${fee.count} orang\n\n*Detail Customer:*\n${details}`;
+
+          try {
+            await navigator.clipboard.writeText(message);
+            toast({
+              title: 'Pesan disalin!',
+              description: 'Buka WhatsApp, tempel pesan, lalu kirim.',
+            });
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+          } catch {
+            toast({ title: 'Gagal membagikan', variant: 'destructive' });
+          }
+        };
+
         const processedFees = useMemo(() => {
           const txTime = (t) => {
             const x = t?.checkin_at ? new Date(t.checkin_at).getTime() : 0;
@@ -677,7 +700,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 <div className="glassmorphic-card p-5 space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
-                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Coins className="text-blue-500 shrink-0"/> Tagihan Fee</h2>
+                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Coins className="text-blue-500 shrink-0"/> Tagihan Fee ({formatRupiah(totalUnpaidFee)})</h2>
                       </div>
                       <p className="text-xs text-slate-500">Filter menurut tanggal check-in transaksi.</p>
                       <div className="flex flex-wrap gap-2">
@@ -763,7 +786,14 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                       </p>
                     ) : (
                         processedFees.map((fee) => (
-                        <motion.div key={fee.nama} layout className="bg-white/50 border p-4 rounded-2xl">
+                        <motion.div key={fee.nama} layout className="bg-white/50 border p-4 rounded-2xl relative">
+                            <Button
+                              size="icon"
+                              onClick={() => handleShareUnpaidFee(fee)}
+                              className="absolute top-3 right-3 h-7 w-7 bg-green-500"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </Button>
                             <h3 className="font-bold text-gray-900 text-lg">{fee.nama}</h3>
                             <p className="text-gray-700">Jumlah Customer: <span className="font-semibold text-gray-900">{fee.count} orang</span></p>
                             <p className="text-gray-700">Total Fee: <span className="font-bold text-xl text-blue-600">{formatRupiah(fee.totalFee)}</span></p>

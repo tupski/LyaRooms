@@ -2,6 +2,17 @@
 
 Semua perubahan penting untuk proyek ini akan dicatat di file ini.
 
+## [2.2.2] - 2026-04-28
+### Added
+- Total tagihan fee belum dibayar kini tampil langsung di judul section: `Tagihan Fee (Rp...)`, mengikuti filter tanggal aktif.
+- Tombol bagikan (ikon share) ditambahkan di pojok kanan atas setiap kartu tagihan fee marketing yang belum lunas.
+
+### Changed
+- Alur bagikan untuk tagihan fee belum lunas disamakan dengan pola riwayat lunas: salin pesan ke clipboard lalu buka WhatsApp.
+
+### Fixed
+- Penempatan total di dalam area tombol bayar pada kartu tagihan fee dikembalikan ke layout semula agar tidak duplikat.
+
 ## [2.2.1] - 2026-04-18
 ### Added
 - Audit Integritas Data Keuangan: Pencegahan double-submit di semua form transaksi dan finance.
