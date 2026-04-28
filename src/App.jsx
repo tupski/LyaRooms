@@ -56,7 +56,7 @@ function App() {
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
-  const correctPin = '232325';
+  const correctPin = '212198';
 
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [appName, setAppName] = useState('Kakarama Room');
