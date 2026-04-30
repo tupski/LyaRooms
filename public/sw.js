@@ -29,6 +29,15 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
 
+  // Jangan cache request ke Supabase/API dinamis agar data dashboard tidak stale di mobile/PWA.
+  if (
+    url.hostname.includes('supabase.co') ||
+    url.pathname.startsWith('/api/')
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // Exclude version.json from cache
   if (url.pathname.endsWith('version.json')) {
     event.respondWith(fetch(event.request));
