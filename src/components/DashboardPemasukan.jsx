@@ -190,7 +190,24 @@ const DashboardPemasukan = () => {
       .channel('realtime-dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, refreshDashboardData)
       .subscribe();
+
+    // Fallback mobile: beberapa browser mobile/PWA kadang suspend websocket realtime.
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshDashboardData();
+      }
+    }, 15000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshDashboardData();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       supabase.removeChannel(channel);
     };
   }, [refreshDashboardData]);
