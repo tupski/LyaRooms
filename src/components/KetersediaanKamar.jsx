@@ -202,6 +202,8 @@ const KetersediaanKamar = () => {
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
   const [reportStartDate, setReportStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportLocationFilter, setReportLocationFilter] = useState('ALL');
+  const [roomSearchTerm, setRoomSearchTerm] = useState('');
 
   const canCheckoutAll = isAdmin || isSuperAdmin;
 
@@ -359,6 +361,21 @@ const KetersediaanKamar = () => {
     setReportLoading(false);
   }, [reportFilterType, reportMonth, reportStartDate, reportEndDate, user?.id, userRole]);
 
+  const reportLocations = useMemo(
+    () => ['ALL', ...Object.keys(reportGroupedRooms).sort((a, b) => a.localeCompare(b))],
+    [reportGroupedRooms]
+  );
+
+  const reportRoomOptions = useMemo(() => {
+    const options = [];
+    Object.keys(reportGroupedRooms).forEach((location) => {
+      reportGroupedRooms[location].forEach((room) => {
+        options.push(`${location} - ${room.name}`);
+      });
+    });
+    return options;
+  }, [reportGroupedRooms]);
+
   useEffect(() => {
     loadRoomReport();
   }, [loadRoomReport]);
@@ -468,6 +485,35 @@ const KetersediaanKamar = () => {
                   />
                 </div>
               )}
+
+              <div className="grid grid-cols-1 gap-2">
+                <select
+                  value={reportLocationFilter}
+                  onChange={(e) => setReportLocationFilter(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                >
+                  {reportLocations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc === 'ALL' ? 'Semua Apartemen' : loc}
+                    </option>
+                  ))}
+                </select>
+                <div>
+                  <input
+                    type="text"
+                    list="report-room-autocomplete"
+                    value={roomSearchTerm}
+                    onChange={(e) => setRoomSearchTerm(e.target.value)}
+                    placeholder="Cari kamar (autocomplete)..."
+                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                  />
+                  <datalist id="report-room-autocomplete">
+                    {reportRoomOptions.map((option) => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
             </div>
 
             {reportLoading ? (
@@ -476,7 +522,14 @@ const KetersediaanKamar = () => {
               <p className="py-10 text-center text-slate-500">Belum ada data kamar untuk laporan.</p>
             ) : (
               Object.keys(reportGroupedRooms).sort().map((location) => {
-                const rooms = reportGroupedRooms[location];
+                if (reportLocationFilter !== 'ALL' && reportLocationFilter !== location) return null;
+                const term = roomSearchTerm.trim().toLowerCase();
+                const rooms = reportGroupedRooms[location].filter((room) => {
+                  if (!term) return true;
+                  const scoped = `${location} - ${room.name}`.toLowerCase();
+                  return room.name.toLowerCase().includes(term) || scoped.includes(term);
+                });
+                if (rooms.length === 0) return null;
                 const totalTransaksi = rooms.reduce((sum, r) => sum + (r.jumlahDigunakan || 0), 0);
                 const totalPendapatan = rooms.reduce((sum, r) => sum + (r.pendapatan || 0), 0);
                 return (
