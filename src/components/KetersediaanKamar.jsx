@@ -190,11 +190,18 @@ const RoomDetailModal = ({ room, onClose, onCheckOut, canCheckout }) => {
 // ── Main Component ─────────────────────────────────────
 const KetersediaanKamar = () => {
   const { user, userRole, isAdmin, isSuperAdmin } = useAuth();
+  const [activeView, setActiveView] = useState('ketersediaan');
   const [groupedRooms, setGroupedRooms] = useState({});
+  const [reportGroupedRooms, setReportGroupedRooms] = useState({});
   const [expandedLocations, setExpandedLocations] = useState({});
   const [loading, setLoading] = useState(true);
+  const [reportLoading, setReportLoading] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [filterStatus, setFilterStatus] = useState('ALL'); // 'ALL', 'OCCUPIED', 'AVAILABLE'
+  const [reportFilterType, setReportFilterType] = useState('bulan');
+  const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [reportStartDate, setReportStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().slice(0, 10));
 
   const canCheckoutAll = isAdmin || isSuperAdmin;
 
@@ -282,6 +289,80 @@ const KetersediaanKamar = () => {
     return () => supabase.removeChannel(channel);
   }, [fetchRoomStatus]);
 
+  const loadRoomReport = useCallback(async () => {
+    setReportLoading(true);
+    let fromDate;
+    let toDate;
+
+    if (reportFilterType === 'bulan') {
+      const [year, month] = (reportMonth || '').split('-').map(Number);
+      fromDate = new Date(year || new Date().getFullYear(), (month || 1) - 1, 1, 0, 0, 0, 0);
+      toDate = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 1, 0, 0, 0, 0);
+    } else {
+      fromDate = new Date(`${reportStartDate}T00:00:00`);
+      toDate = new Date(new Date(`${reportEndDate}T23:59:59`).getTime() + 1000);
+    }
+
+    const fromIso = fromDate.toISOString();
+    const toIso = toDate.toISOString();
+
+    const [{ data: allRooms, error: roomsError }, { data: transactions, error: transError }, { data: assignments }] = await Promise.all([
+      supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
+      supabase
+        .from('transactions')
+        .select('id, apartment_location, room_number, checkin_at, created_at, cash_amount, transfer_amount')
+        .or(`and(checkin_at.gte.${fromIso},checkin_at.lt.${toIso}),and(checkin_at.is.null,created_at.gte.${fromIso},created_at.lt.${toIso})`),
+      supabase.from('user_location_assignments').select('location_name').eq('user_id', user?.id),
+    ]);
+
+    if (roomsError || transError) {
+      toast({ title: 'Gagal memuat laporan kamar', description: (roomsError || transError)?.message, variant: 'destructive' });
+      setReportLoading(false);
+      return;
+    }
+
+    let filteredRooms = allRooms || [];
+    if (userRole === 'karyawan' && assignments && assignments.length > 0) {
+      const assignedNames = assignments.map((a) => a.location_name);
+      filteredRooms = filteredRooms.filter((r) => assignedNames.includes(r.lokasi));
+    } else if (userRole === 'karyawan' && assignments && assignments.length === 0) {
+      filteredRooms = [];
+    }
+
+    const txMap = new Map();
+    (transactions || []).forEach((tx) => {
+      const key = `${tx.apartment_location || ''}__${tx.room_number || ''}`;
+      const current = txMap.get(key) || { jumlahDigunakan: 0, pendapatan: 0 };
+      current.jumlahDigunakan += 1;
+      current.pendapatan += Number(tx.cash_amount || 0) + Number(tx.transfer_amount || 0);
+      txMap.set(key, current);
+    });
+
+    const grouped = filteredRooms.reduce((acc, room) => {
+      const loc = room.lokasi || 'Lainnya';
+      if (!acc[loc]) acc[loc] = [];
+      const key = `${room.lokasi || ''}__${room.name || ''}`;
+      const agg = txMap.get(key) || { jumlahDigunakan: 0, pendapatan: 0 };
+      acc[loc].push({
+        ...room,
+        jumlahDigunakan: agg.jumlahDigunakan,
+        pendapatan: agg.pendapatan,
+      });
+      return acc;
+    }, {});
+
+    Object.keys(grouped).forEach((loc) => {
+      grouped[loc].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    });
+
+    setReportGroupedRooms(grouped);
+    setReportLoading(false);
+  }, [reportFilterType, reportMonth, reportStartDate, reportEndDate, user?.id, userRole]);
+
+  useEffect(() => {
+    loadRoomReport();
+  }, [loadRoomReport]);
+
   const handleCheckOut = async (room) => {
     if (!room.transactionId) return;
     const isOwner = room.transactionUserId === user?.id;
@@ -324,6 +405,107 @@ const KetersediaanKamar = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 rounded-2xl bg-white p-1 shadow-sm border">
+          <button
+            type="button"
+            onClick={() => setActiveView('ketersediaan')}
+            className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+              activeView === 'ketersediaan' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Ketersediaan
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView('laporan')}
+            className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+              activeView === 'laporan' ? 'bg-cyan-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Laporan Kamar
+          </button>
+        </div>
+
+        {activeView === 'laporan' && (
+          <>
+            <div className="rounded-2xl border bg-white p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReportFilterType('bulan')}
+                  className={`rounded-xl px-3 py-2 text-xs font-bold ${reportFilterType === 'bulan' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'}`}
+                >
+                  Per Bulan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportFilterType('rentang')}
+                  className={`rounded-xl px-3 py-2 text-xs font-bold ${reportFilterType === 'rentang' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'}`}
+                >
+                  Rentang Tanggal
+                </button>
+              </div>
+              {reportFilterType === 'bulan' ? (
+                <input
+                  type="month"
+                  value={reportMonth}
+                  onChange={(e) => setReportMonth(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={reportStartDate}
+                    onChange={(e) => setReportStartDate(e.target.value)}
+                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={reportEndDate}
+                    onChange={(e) => setReportEndDate(e.target.value)}
+                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            {reportLoading ? (
+              <p className="py-10 text-center text-slate-500">Memuat laporan kamar...</p>
+            ) : Object.keys(reportGroupedRooms).length === 0 ? (
+              <p className="py-10 text-center text-slate-500">Belum ada data kamar untuk laporan.</p>
+            ) : (
+              Object.keys(reportGroupedRooms).sort().map((location) => {
+                const rooms = reportGroupedRooms[location];
+                const totalTransaksi = rooms.reduce((sum, r) => sum + (r.jumlahDigunakan || 0), 0);
+                const totalPendapatan = rooms.reduce((sum, r) => sum + (r.pendapatan || 0), 0);
+                return (
+                  <div key={location} className="rounded-2xl border bg-white p-4 shadow-sm space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h2 className="text-sm font-bold text-slate-800">{location}</h2>
+                      <p className="text-[11px] text-slate-500">{rooms.length} kamar</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      Transaksi: <span className="font-bold text-slate-800">{totalTransaksi}</span> · Pendapatan: <span className="font-bold text-emerald-700">{formatRupiah(totalPendapatan)}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {rooms.map((room) => (
+                        <div key={room.id} className="rounded-xl border px-3 py-2">
+                          <p className="text-sm font-bold text-slate-800">{room.name}</p>
+                          <p className="text-xs text-slate-600">Digunakan: <span className="font-semibold text-slate-800">{room.jumlahDigunakan || 0}x</span></p>
+                          <p className="text-xs text-slate-600">Pendapatan: <span className="font-semibold text-emerald-700">{formatRupiah(room.pendapatan || 0)}</span></p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {activeView === 'ketersediaan' && (
+          <>
         {/* Stats bar */}
         {!loading && userRole === 'karyawan' && Object.keys(groupedRooms).length === 0 && (
           <div className="bg-white rounded-[2rem] p-10 border-2 border-orange-100 shadow-xl text-center space-y-6 mt-8">
@@ -468,6 +650,8 @@ const KetersediaanKamar = () => {
               </motion.div>
             );
           })
+        )}
+          </>
         )}
       </div>
 
