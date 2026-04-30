@@ -169,28 +169,31 @@ const DashboardPemasukan = () => {
     const { count, error } = await supabase
       .from('transactions')
       .select('*', { count: 'exact', head: true })
-      .gte('checkin_at', start.toISOString())
-      .lt('checkin_at', endExclusive.toISOString());
+      .or(`and(checkin_at.gte.${start.toISOString()},checkin_at.lt.${endExclusive.toISOString()}),and(checkin_at.is.null,created_at.gte.${start.toISOString()},created_at.lt.${endExclusive.toISOString()})`);
 
     if (!error) {
       setStats((prev) => ({ ...prev, transaksiHariIni: count || 0 }));
     }
   }, []);
 
+  const refreshDashboardData = useCallback(async () => {
+    await Promise.all([loadTransaksi(), loadInitialData()]);
+  }, [loadTransaksi, loadInitialData]);
+
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
 
   useEffect(() => {
-    loadTransaksi();
+    refreshDashboardData();
     const channel = supabase
       .channel('realtime-dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, loadTransaksi)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, refreshDashboardData)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadTransaksi]);
+  }, [refreshDashboardData]);
 
   const handleEditClick = (transaksi) => {
     if (userRole === 'super_admin') {
