@@ -20,6 +20,7 @@ const TRANSIT_DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM',
 const OVERNIGHT_DURATION_OPTIONS = ['Promo Malam', 'Fullday', 'Custom'];
 const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
 const TRANSFER_TARGET_OPTIONS = ['Kakarama', 'Marketing'];
+const DRAFT_STORAGE_KEY = 'kr:form-transaksi-modern:draft:v1';
 
 const SectionCard = ({ icon: Icon, title, subtitle, children, className = '' }) => (
   <section className={`rounded-2xl border border-blue-100 bg-white/90 p-5 shadow-sm backdrop-blur ${className}`}>
@@ -113,6 +114,7 @@ const FormTransaksiModern = ({
   const [occupiedMap, setOccupiedMap] = useState({});
   const [ktpFile, setKtpFile] = useState(null);
   const [buktiTransferFile, setBuktiTransferFile] = useState(null);
+  const draftKey = `${DRAFT_STORAGE_KEY}:${user?.id || 'guest'}`;
   const [formData, setFormData] = useState({
     namaCustomer: '',
     lokasiApartemen: '',
@@ -137,6 +139,34 @@ const FormTransaksiModern = ({
     const inputBy = defaultInputBy || user?.user_metadata?.full_name || user?.email || '';
     setFormData((prev) => ({ ...prev, input_by: inputBy }));
   }, [user, defaultInputBy]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      setFormData((prev) => ({
+        ...prev,
+        ...parsed,
+        // Pastikan input_by tetap konsisten dengan user/default terbaru.
+        input_by: parsed.input_by || defaultInputBy || user?.user_metadata?.full_name || user?.email || prev.input_by,
+      }));
+      toast({ title: 'Draft dipulihkan', description: 'Input terakhir Anda berhasil dimuat ulang.' });
+    } catch (_error) {
+      // Ignore draft parse error silently.
+    }
+  }, [draftKey, defaultInputBy, user]);
+
+  useEffect(() => {
+    const payload = {
+      ...formData,
+      // File upload tidak bisa dipulihkan dari localStorage.
+      ktpFile: null,
+      buktiTransferFile: null,
+    };
+    localStorage.setItem(draftKey, JSON.stringify(payload));
+  }, [draftKey, formData]);
 
   useEffect(() => {
     const fetchRefs = async () => {
@@ -360,6 +390,7 @@ const FormTransaksiModern = ({
     if (transferInputRef.current) transferInputRef.current.value = '';
     setKtpFile(null);
     setBuktiTransferFile(null);
+    localStorage.removeItem(draftKey);
   };
 
   const performSubmit = async () => {
