@@ -353,7 +353,7 @@ const KetersediaanKamar = () => {
       supabase.from('nomor_kamar').select('*').order('lokasi').order('name'),
       supabase
         .from('transactions')
-        .select('id, apartment_location, room_number, checkin_at, created_at, cash_amount, transfer_amount')
+        .select('id, apartment_location, room_number, customer_name, checkin_at, created_at, cash_amount, transfer_amount')
         .or(`and(checkin_at.gte.${fromIso},checkin_at.lt.${toIso}),and(checkin_at.is.null,created_at.gte.${fromIso},created_at.lt.${toIso})`),
       supabase.from('user_location_assignments').select('location_name').eq('user_id', user?.id),
     ]);
