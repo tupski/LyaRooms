@@ -151,6 +151,8 @@ const FormTransaksiModern = ({
         ...parsed,
         // Pastikan input_by tetap konsisten dengan user/default terbaru.
         input_by: parsed.input_by || defaultInputBy || user?.user_metadata?.full_name || user?.email || prev.input_by,
+        // checkinAt tidak dipulihkan dari draft, tetap mengikuti waktu terkini
+        checkinAt: toDateTimeLocalValue(new Date()),
       }));
       toast({ title: 'Draft dipulihkan', description: 'Input terakhir Anda berhasil dimuat ulang.' });
     } catch (_error) {
