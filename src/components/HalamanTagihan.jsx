@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
     import { motion, AnimatePresence } from 'framer-motion';
-    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search } from 'lucide-react';
+    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search, Download, Building2, DoorOpen, Tag } from 'lucide-react';
+    import * as XLSX from 'xlsx';
     import { Button } from '@/components/ui/button';
     import { toast } from '@/components/ui/use-toast';
     import { supabase } from '@/lib/customSupabaseClient';
@@ -120,7 +121,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                         </div>
                     </div>
     
-                    <div className="grid grid-cols-3 gap-2 p-1 rounded-full bg-black/10">
+<div className="grid grid-cols-4 gap-1 p-1 rounded-full bg-black/10">
                         <button onClick={() => setActiveMenu('bulanan')} className={`py-2 px-2 rounded-full text-xs font-semibold transition-all duration-300 ${activeMenu === 'bulanan' ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg' : 'text-gray-700'}`}>
                             Tgh. Unit
                         </button>
@@ -129,6 +130,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                         </button>
                         <button onClick={() => setActiveMenu('pengeluaran')} className={`py-2 px-2 rounded-full text-xs font-semibold transition-all duration-300 ${activeMenu === 'pengeluaran' ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg' : 'text-gray-700'}`}>
                             Pengeluaran
+                        </button>
+                        <button onClick={() => setActiveMenu('pengeluaranUnit')} className={`py-2 px-2 rounded-full text-xs font-semibold transition-all duration-300 ${activeMenu === 'pengeluaranUnit' ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg' : 'text-gray-700'}`}>
+                            Per Unit
                         </button>
                     </div>
     
@@ -140,7 +144,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
                         >
-                            {activeMenu === 'bulanan' ? <TagihanBulanan onDataUpdate={handleDataUpdate} /> : activeMenu === 'fee' ? <TagihanFee onDataUpdate={handleDataUpdate} /> : <Pengeluaran onDataUpdate={handleDataUpdate} />}
+{activeMenu === 'bulanan' ? <TagihanBulanan onDataUpdate={handleDataUpdate} /> : activeMenu === 'fee' ? <TagihanFee onDataUpdate={handleDataUpdate} /> : activeMenu === 'pengeluaranUnit' ? <PengeluaranUnit onDataUpdate={handleDataUpdate} /> : <Pengeluaran onDataUpdate={handleDataUpdate} />}
                         </motion.div>
                     </AnimatePresence>
                 </motion.div>
@@ -916,19 +920,295 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         );
     };
     
-    const Pengeluaran = ({ onDataUpdate }) => {
+// Export Filter Modal Component
+const ExportFilterModal = ({ open, onOpenChange, onExport, categories, locations }) => {
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [selectedLocations, setSelectedLocations] = useState([]);
+    const [dateFrom, setDateFrom] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [dateTo, setDateTo] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [includeUncategorized, setIncludeUncategorized] = useState(true);
+
+    const handleCategoryToggle = (cat) => {
+        setSelectedCategories(prev => 
+            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+        );
+    };
+
+    const handleLocationToggle = (loc) => {
+        setSelectedLocations(prev => 
+            prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc]
+        );
+    };
+
+    const handleExport = () => {
+        onExport({
+            categories: selectedCategories,
+            locations: selectedLocations,
+            dateFrom,
+            dateTo,
+            includeUncategorized
+        });
+        onOpenChange(false);
+    };
+
+    const selectAllCategories = () => setSelectedCategories([...categories]);
+    const clearAllCategories = () => setSelectedCategories([]);
+    const selectAllLocations = () => setSelectedLocations([...locations]);
+    const clearAllLocations = () => setSelectedLocations([]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="bg-white max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2"><Download className="w-5 h-5"/> Export Pengeluaran</DialogTitle>
+                    <DialogDescription>Pilih filter untuk data yang ingin diexport ke Excel.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    {/* Periode */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Periode</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500">Dari</label>
+                                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-3 py-2 rounded-xl border-2 text-gray-900"/>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500">Sampai</label>
+                                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-3 py-2 rounded-xl border-2 text-gray-900"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Kategori */}
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-sm font-semibold text-gray-700">Kategori</label>
+                            <div className="flex gap-2">
+                                <button type="button" onClick={selectAllCategories} className="text-xs text-blue-600 hover:underline">Pilih Semua</button>
+                                <button type="button" onClick={clearAllCategories} className="text-xs text-gray-500 hover:underline">Hapus</button>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {categories.map(cat => (
+                                <button key={cat} type="button" onClick={() => handleCategoryToggle(cat)}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${selectedCategories.includes(cat) ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+                        <label className="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                            <input type="checkbox" checked={includeUncategorized} onChange={(e) => setIncludeUncategorized(e.target.checked)} className="rounded"/>
+                            Sertakan data tanpa kategori (lama)
+                        </label>
+                    </div>
+
+                    {/* Lokasi */}
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-sm font-semibold text-gray-700">Lokasi Apartemen</label>
+                            <div className="flex gap-2">
+                                <button type="button" onClick={selectAllLocations} className="text-xs text-blue-600 hover:underline">Pilih Semua</button>
+                                <button type="button" onClick={clearAllLocations} className="text-xs text-gray-500 hover:underline">Hapus</button>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                            {locations.map(loc => (
+                                <button key={loc} type="button" onClick={() => handleLocationToggle(loc)}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${selectedLocations.includes(loc) ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                    {loc}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+                    <Button onClick={handleExport} className="bg-green-600 hover:bg-green-700">
+                        <Download className="w-4 h-4 mr-2"/> Export Excel
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+// Pengeluaran Unit Component - Screen untuk melihat pengeluaran per unit
+const PengeluaranUnit = ({ onDataUpdate }) => {
+    const [expenses, setExpenses] = useState([]);
+    const [lokasiOptions, setLokasiOptions] = useState([]);
+    const [kamarOptions, setKamarOptions] = useState([]);
+    const [selectedLokasi, setSelectedLokasi] = useState('');
+    const [selectedKamar, setSelectedKamar] = useState('');
+    const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+
+    const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
+
+    const loadOptions = useCallback(async () => {
+        const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name').order('name');
+        if (lokasiData) setLokasiOptions(lokasiData.map(l => l.name));
+        
+        const { data: kamarData } = await supabase.from('nomor_kamar').select('name, lokasi').order('name');
+        if (kamarData) setKamarOptions(kamarData);
+    }, []);
+
+    const loadData = useCallback(async () => {
+        let query = supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false });
+        
+        if (startDate) query = query.gte('tanggal', startDate);
+        if (endDate) query = query.lte('tanggal', endDate);
+        if (selectedLokasi) query = query.eq('apartment_location', selectedLokasi);
+        if (selectedKamar) query = query.eq('room_number', selectedKamar);
+
+        const { data, error } = await query;
+        if (error) console.error("Error fetching expenses:", error);
+        else setExpenses(data || []);
+    }, [startDate, endDate, selectedLokasi, selectedKamar]);
+
+    useEffect(() => {
+        loadOptions();
+    }, [loadOptions]);
+
+    useEffect(() => {
+        loadData();
+        const channel = supabase.channel('public:pengeluaran_unit').on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran' }, loadData).subscribe();
+        return () => supabase.removeChannel(channel);
+    }, [loadData]);
+
+    const filteredKamarOptions = selectedLokasi ? kamarOptions.filter(k => k.lokasi === selectedLokasi) : [];
+
+    // Summary per kategori
+    const categorySummary = useMemo(() => {
+        const summary = {};
+        expenses.forEach(e => {
+            const cat = e.category || 'Lainnya';
+            if (!summary[cat]) summary[cat] = { count: 0, total: 0 };
+            summary[cat].count += 1;
+            summary[cat].total += Number(e.jumlah || 0);
+        });
+        return summary;
+    }, [expenses]);
+
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.jumlah || 0), 0);
+
+    return (
+        <div className="space-y-5">
+            <div className="glassmorphic-card p-5 space-y-4">
+                <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-blue-500"/> Filter Unit</h2>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Lokasi</label>
+                        <select value={selectedLokasi} onChange={(e) => { setSelectedLokasi(e.target.value); setSelectedKamar(''); }} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900 bg-white">
+                            <option value="">Semua Lokasi</option>
+                            {lokasiOptions.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Kamar</label>
+                        <select value={selectedKamar} onChange={(e) => setSelectedKamar(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900 bg-white" disabled={!selectedLokasi}>
+                            <option value="">{selectedLokasi ? 'Semua Kamar' : 'Pilih Lokasi Dulu'}</option>
+                            {filteredKamarOptions.map(k => <option key={k.name} value={k.name}>{k.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Dari Tanggal</label>
+                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900"/>
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Sampai Tanggal</label>
+                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900"/>
+                    </div>
+                </div>
+            </div>
+
+            {/* Summary Card */}
+            <div className="glassmorphic-card p-5">
+                <h3 className="font-bold text-gray-800 mb-3">Ringkasan Pengeluaran</h3>
+                <div className="bg-red-50 p-4 rounded-xl mb-3">
+                    <p className="text-sm text-red-800">Total Pengeluaran</p>
+                    <p className="text-2xl font-bold text-red-700">{formatRupiah(totalExpenses)}</p>
+                    <p className="text-xs text-red-600">{expenses.length} transaksi</p>
+                </div>
+                <div className="space-y-2">
+                    {Object.entries(categorySummary).map(([cat, data]) => (
+                        <div key={cat} className="flex justify-between items-center bg-white/50 p-2 rounded-lg">
+                            <span className="text-sm text-gray-700">{cat}</span>
+                            <span className="text-sm font-semibold text-gray-900">{formatRupiah(data.total)} ({data.count})</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Daftar Pengeluaran */}
+            <div className="glassmorphic-card p-5 space-y-4">
+                <h2 className="font-bold text-lg text-gray-800">Detail Pengeluaran</h2>
+                {expenses.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">Tidak ada pengeluaran untuk filter yang dipilih.</p>
+                ) : (
+                    expenses.map(expense => (
+                        <motion.div key={expense.id} layout className="bg-white/50 p-4 rounded-2xl shadow-sm border">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-bold text-gray-900">{expense.nama_pengeluaran}</h3>
+                                    {expense.category && <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full mt-1">{expense.category}</span>}
+                                </div>
+                                <p className="font-bold text-red-600 whitespace-nowrap">{formatRupiah(expense.jumlah)}</p>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+                                <p><Calendar className="w-3 h-3 inline mr-1"/>{format(new Date(expense.tanggal), 'dd MMMM yyyy')}</p>
+                                {expense.apartment_location && <p><Building2 className="w-3 h-3 inline mr-1"/>{expense.apartment_location}{expense.room_number ? ` - ${expense.room_number}` : ''}</p>}
+                            </div>
+                            {expense.keterangan && <p className="text-sm text-gray-700 mt-2 border-t pt-2">{expense.keterangan}</p>}
+                        </motion.div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+};
+
+const Pengeluaran = ({ onDataUpdate }) => {
         const { user } = useAuth();
         const [expenses, setExpenses] = useState([]);
         const [isFormOpen, setIsFormOpen] = useState(false);
-        const [newExpense, setNewExpense] = useState({ nama_pengeluaran: '', jumlah: '', tanggal: format(new Date(), 'yyyy-MM-dd'), keterangan: '' });
         const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
         const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
         const [isSubmitting, setIsSubmitting] = useState(false);
-    
+        
+        // New state for categories and units
+        const [categories, setCategories] = useState([]);
+        const [lokasiOptions, setLokasiOptions] = useState([]);
+        const [kamarOptions, setKamarOptions] = useState([]);
+        const [newExpense, setNewExpense] = useState({ 
+            nama_pengeluaran: '', 
+            jumlah: '', 
+            tanggal: format(new Date(), 'yyyy-MM-dd'), 
+            keterangan: '',
+            category: '',
+            customCategory: '',
+            apartment_location: '',
+            room_number: ''
+        });
+        
+        // Export filter state
+        const [showExportModal, setShowExportModal] = useState(false);
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
         const deformatRupiah = (value) => String(value).replace(/[^0-9]/g, '');
     
+        const loadOptions = useCallback(async () => {
+            const { data: catData } = await supabase.from('pengeluaran_categories').select('name').order('name');
+            if (catData) setCategories(catData.map(c => c.name));
+            
+            const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name').order('name');
+            if (lokasiData) setLokasiOptions(lokasiData.map(l => l.name));
+            
+            const { data: kamarData } = await supabase.from('nomor_kamar').select('name, lokasi').order('name');
+            if (kamarData) setKamarOptions(kamarData);
+        }, []);
+
         const loadData = useCallback(async () => {
             let query = supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false });
     
@@ -941,10 +1221,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         }, [startDate, endDate]);
     
         useEffect(() => {
+            loadOptions();
             loadData();
             const channel = supabase.channel('public:pengeluaran').on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran' }, loadData).subscribe();
             return () => supabase.removeChannel(channel);
-        }, [loadData]);
+        }, [loadData, loadOptions]);
     
         const handleInputChange = (field, value) => {
             if (field === 'jumlah') {
@@ -954,6 +1235,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 setNewExpense(prev => ({ ...prev, [field]: value }));
             }
         };
+
+        const filteredKamarOptions = newExpense.apartment_location ? kamarOptions.filter(k => k.lokasi === newExpense.apartment_location) : [];
     
         const handleAddExpense = async () => {
             if (!newExpense.nama_pengeluaran || !newExpense.jumlah || !newExpense.tanggal) {
@@ -961,16 +1244,41 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 return;
             }
             setIsSubmitting(true);
+            
+            // Determine final category
+            const finalCategory = newExpense.category === 'custom' ? newExpense.customCategory : newExpense.category;
+            
+            // If custom category, add to categories table
+            if (newExpense.category === 'custom' && newExpense.customCategory) {
+                await supabase.from('pengeluaran_categories').insert({ name: newExpense.customCategory }).then(() => {
+                    setCategories(prev => [...prev, newExpense.customCategory]);
+                });
+            }
+            
             const { error } = await supabase.from('pengeluaran').insert({
-                ...newExpense,
+                nama_pengeluaran: newExpense.nama_pengeluaran,
                 jumlah: deformatRupiah(newExpense.jumlah),
+                tanggal: newExpense.tanggal,
+                keterangan: newExpense.keterangan || null,
+                category: finalCategory || null,
+                apartment_location: newExpense.apartment_location || null,
+                room_number: newExpense.room_number || null,
                 user_id: user.id,
             });
             if (error) {
                 toast({ title: "Gagal menambah pengeluaran", description: error.message, variant: "destructive" });
             } else {
                 setIsFormOpen(false);
-                setNewExpense({ nama_pengeluaran: '', jumlah: '', tanggal: format(new Date(), 'yyyy-MM-dd'), keterangan: '' });
+                setNewExpense({ 
+                    nama_pengeluaran: '', 
+                    jumlah: '', 
+                    tanggal: format(new Date(), 'yyyy-MM-dd'), 
+                    keterangan: '',
+                    category: '',
+                    customCategory: '',
+                    apartment_location: '',
+                    room_number: ''
+                });
                 toast({ title: "✅ Pengeluaran berhasil dicatat!" });
                 onDataUpdate();
             }
@@ -986,20 +1294,108 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 onDataUpdate();
             }
         };
+
+        const handleExport = async (filters) => {
+            try {
+                let query = supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false });
+                
+                if (filters.dateFrom) query = query.gte('tanggal', filters.dateFrom);
+                if (filters.dateTo) query = query.lte('tanggal', filters.dateTo);
+                
+                const { data, error } = await query;
+                if (error) throw error;
+
+                let filteredData = data || [];
+                
+                // Filter by categories
+                if (filters.categories.length > 0) {
+                    filteredData = filteredData.filter(e => 
+                        (filters.includeUncategorized && !e.category) || filters.categories.includes(e.category)
+                    );
+                } else if (!filters.includeUncategorized) {
+                    filteredData = filteredData.filter(e => e.category);
+                }
+                
+                // Filter by locations
+                if (filters.locations.length > 0) {
+                    filteredData = filteredData.filter(e => !e.apartment_location || filters.locations.includes(e.apartment_location));
+                }
+
+                if (filteredData.length === 0) {
+                    toast({ title: "Tidak ada data untuk diexport", variant: "destructive" });
+                    return;
+                }
+
+                const exportData = filteredData.map(e => ({
+                    'Tanggal': format(new Date(e.tanggal), 'dd/MM/yyyy'),
+                    'Kategori': e.category || '-',
+                    'Lokasi': e.apartment_location || '-',
+                    'Kamar': e.room_number || '-',
+                    'Nama Pengeluaran': e.nama_pengeluaran,
+                    'Jumlah': e.jumlah,
+                    'Keterangan': e.keterangan || '-'
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Pengeluaran');
+                XLSX.writeFile(workbook, `Laporan_Pengeluaran_${filters.dateFrom}_${filters.dateTo}.xlsx`);
+                
+                toast({ title: "Export berhasil!", description: `${filteredData.length} data diexport.` });
+            } catch (err) {
+                toast({ title: "Gagal export", description: err.message, variant: "destructive" });
+            }
+        };
     
         return (
             <div className="space-y-5">
+                <ExportFilterModal 
+                    open={showExportModal} 
+                    onOpenChange={setShowExportModal} 
+                    onExport={handleExport}
+                    categories={categories}
+                    locations={lokasiOptions}
+                />
+                
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                     <DialogTrigger asChild>
                         <Button className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold py-6 text-base rounded-2xl shadow-lg">
                             <PlusCircle className="mr-2 h-5 w-5" /> Catat Pengeluaran
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="bg-white">
+                    <DialogContent className="bg-white max-h-[90vh] overflow-y-auto">
                         <DialogHeader><DialogTitle>Form Pengeluaran Baru</DialogTitle><DialogDescription>Masukkan detail pengeluaran untuk dicatat ke sistem.</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
-                            <input type="text" placeholder="Nama Pengeluaran" value={newExpense.nama_pengeluaran} onChange={(e) => handleInputChange('nama_pengeluaran', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
-                            <input type="text" placeholder="Jumlah (Rp)" value={newExpense.jumlah} onChange={(e) => handleInputChange('jumlah', e.target.value)} inputMode="numeric" className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+                            {/* Kategori */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Kategori <span className="text-gray-400">(opsional)</span></label>
+                                <select value={newExpense.category} onChange={(e) => handleInputChange('category', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900 bg-white">
+                                    <option value="">Pilih Kategori</option>
+                                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    <option value="custom">+ Kategori Baru</option>
+                                </select>
+                                {newExpense.category === 'custom' && (
+                                    <input type="text" placeholder="Nama kategori baru" value={newExpense.customCategory} onChange={(e) => handleInputChange('customCategory', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900 mt-2" />
+                                )}
+                            </div>
+                            
+                            {/* Unit Apartemen */}
+                            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                                <label className="block text-sm font-semibold text-amber-800 mb-2"><Building2 className="w-4 h-4 inline mr-1"/> Unit Apartemen <span className="text-gray-400">(opsional)</span></label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <select value={newExpense.apartment_location} onChange={(e) => { handleInputChange('apartment_location', e.target.value); handleInputChange('room_number', ''); }} className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-gray-900 text-sm">
+                                        <option value="">Pilih Lokasi</option>
+                                        {lokasiOptions.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                                    </select>
+                                    <select value={newExpense.room_number} onChange={(e) => handleInputChange('room_number', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-gray-900 text-sm" disabled={!newExpense.apartment_location}>
+                                        <option value="">{newExpense.apartment_location ? 'Pilih Kamar' : '-'}</option>
+                                        {filteredKamarOptions.map(k => <option key={k.name} value={k.name}>{k.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <input type="text" placeholder="Nama Pengeluaran *" value={newExpense.nama_pengeluaran} onChange={(e) => handleInputChange('nama_pengeluaran', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
+                            <input type="text" placeholder="Jumlah (Rp) *" value={newExpense.jumlah} onChange={(e) => handleInputChange('jumlah', e.target.value)} inputMode="numeric" className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
                             <input type="date" value={newExpense.tanggal} onChange={(e) => handleInputChange('tanggal', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900" />
                             <textarea placeholder="Keterangan (opsional)" value={newExpense.keterangan} onChange={(e) => handleInputChange('keterangan', e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 text-gray-900 h-24" />
                         </div>
@@ -1008,7 +1404,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 </Dialog>
     
                 <div className="glassmorphic-card p-5 space-y-4">
-                    <h2 className="font-bold text-lg text-gray-800">Riwayat Pengeluaran</h2>
+                    <div className="flex justify-between items-center">
+                        <h2 className="font-bold text-lg text-gray-800">Riwayat Pengeluaran</h2>
+                        <Button size="sm" variant="outline" className="border-green-300 bg-green-100 text-green-800 hover:bg-green-200" onClick={() => setShowExportModal(true)}>
+                            <Download className="w-4 h-4 mr-1"/> Export
+                        </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="relative">
                             <label className="absolute -top-2 left-3 bg-white/10 px-1 text-xs text-gray-600">Dari Tanggal</label>
@@ -1027,7 +1428,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                                     <AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Pengeluaran?</AlertDialogTitle><AlertDialogDescription>Data pengeluaran ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(expense.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                 </AlertDialog>
                                 <div className="flex justify-between items-start">
-                                    <h3 className="font-bold text-gray-900 pr-8">{expense.nama_pengeluaran}</h3>
+                                    <div className="pr-8">
+                                        <h3 className="font-bold text-gray-900">{expense.nama_pengeluaran}</h3>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {expense.category && <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">{expense.category}</span>}
+                                            {expense.apartment_location && <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">{expense.apartment_location}{expense.room_number ? ` - ${expense.room_number}` : ''}</span>}
+                                        </div>
+                                    </div>
                                     <p className="font-bold text-red-600 whitespace-nowrap">{formatRupiah(expense.jumlah)}</p>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">{format(new Date(expense.tanggal), 'dd MMMM yyyy')}</p>

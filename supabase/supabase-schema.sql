@@ -55,9 +55,25 @@ CREATE TABLE IF NOT EXISTS public.pengeluaran (
     jumlah DECIMAL(15,2) NOT NULL,
     tanggal DATE NOT NULL,
     keterangan TEXT,
+    category VARCHAR(100),
+    apartment_location VARCHAR(255),
+    room_number VARCHAR(255),
     user_id UUID REFERENCES auth.users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS public.pengeluaran_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+INSERT INTO public.pengeluaran_categories (name, is_default) VALUES
+    ('Listrik', true),
+    ('Air', true),
+    ('IPL', true)
+ON CONFLICT (name) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS public.tagihan_bulanan (
     id SERIAL PRIMARY KEY,
@@ -437,7 +453,7 @@ ALTER TABLE public.user_roles
 
 UPDATE public.user_roles
 SET role = 'karyawan'
-WHERE role = 'user';image.png
+WHERE role = 'user';
 
 -- Tabel profil karyawan/pengguna aplikasi
 CREATE TABLE IF NOT EXISTS public.user_profiles (
@@ -561,6 +577,7 @@ ALTER TABLE public.role_menu_visibility ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.menu_configuration ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.menu_access_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pengeluaran_categories ENABLE ROW LEVEL SECURITY;
 
 -- Hapus policy lama jika ada
 DROP POLICY IF EXISTS "profiles_select_self_or_superadmin" ON public.user_profiles;
@@ -689,6 +706,23 @@ CREATE POLICY "menu_access_logs_read_superadmin" ON public.menu_access_logs
 
 CREATE POLICY "menu_access_logs_insert_authenticated" ON public.menu_access_logs
     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- pengeluaran_categories
+DROP POLICY IF EXISTS "pengeluaran_categories_read_authenticated" ON public.pengeluaran_categories;
+CREATE POLICY "pengeluaran_categories_read_authenticated" ON public.pengeluaran_categories
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "pengeluaran_categories_insert_authenticated" ON public.pengeluaran_categories;
+CREATE POLICY "pengeluaran_categories_insert_authenticated" ON public.pengeluaran_categories
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "pengeluaran_categories_update_authenticated" ON public.pengeluaran_categories;
+CREATE POLICY "pengeluaran_categories_update_authenticated" ON public.pengeluaran_categories
+    FOR UPDATE USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "pengeluaran_categories_delete_authenticated" ON public.pengeluaran_categories;
+CREATE POLICY "pengeluaran_categories_delete_authenticated" ON public.pengeluaran_categories
+    FOR DELETE USING (auth.role() = 'authenticated');
 
 -- ============================================================
 -- Cascade delete transaksi + sinkronisasi data turunan

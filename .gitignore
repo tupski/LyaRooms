@@ -8,3 +8,7 @@ node_modules
 Rencana Modernisasi UI.md
 Rencana Perombakan Form Transaksi Karyawan.md
 planbaru.md
+-p
+.clinerules/*
+plan-auditCodebase.prompt.md
+implementation_plan.md
