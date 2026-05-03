@@ -9,6 +9,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     import { resolveStorageUrl } from '@/lib/storageUrl';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import { addDays, addMonths, format, endOfMonth, startOfDay, startOfMonth, subDays } from 'date-fns';
+    import PaginationControls from '@/components/PaginationControls';
+    import TrendBreakdownChart from '@/components/TrendBreakdownChart';
     import {
       Dialog,
       DialogContent,
@@ -1093,6 +1095,10 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
 
     return (
         <div className="space-y-5">
+            <Button className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold py-6 text-base rounded-2xl shadow-lg" onClick={() => window.location.hash = '#pengeluaran'}>
+                <PlusCircle className="mr-2 h-5 w-5" /> Catat Pengeluaran
+            </Button>
+            
             <div className="glassmorphic-card p-5 space-y-4">
                 <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-blue-500"/> Filter Unit</h2>
                 <div className="grid grid-cols-2 gap-3">
@@ -1194,6 +1200,13 @@ const Pengeluaran = ({ onDataUpdate }) => {
         
         // Export filter state
         const [showExportModal, setShowExportModal] = useState(false);
+        
+        // Pagination state
+        const [currentPage, setCurrentPage] = useState(1);
+        const [itemsPerPage] = useState(10);
+        
+        // View state
+        const [showTrendBreakdown, setShowTrendBreakdown] = useState(false);
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
         const deformatRupiah = (value) => String(value).replace(/[^0-9]/g, '');
