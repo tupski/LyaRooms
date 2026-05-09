@@ -469,7 +469,7 @@ const KetersediaanKamar = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 rounded-2xl bg-white p-1 shadow-sm border">
+        <div className={`rounded-2xl bg-white p-1 shadow-sm border ${userRole === 'karyawan' ? 'grid grid-cols-1' : 'grid grid-cols-2'}`}>
           <button
             type="button"
             onClick={() => setActiveView('ketersediaan')}
@@ -479,15 +479,17 @@ const KetersediaanKamar = () => {
           >
             Ketersediaan
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('laporan')}
-            className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
-              activeView === 'laporan' ? 'bg-cyan-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Laporan Kamar
-          </button>
+          {userRole !== 'karyawan' && (
+            <button
+              type="button"
+              onClick={() => setActiveView('laporan')}
+              className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                activeView === 'laporan' ? 'bg-cyan-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Laporan Kamar
+            </button>
+          )}
         </div>
 
         {activeView === 'laporan' && (
@@ -715,7 +717,7 @@ const KetersediaanKamar = () => {
                     const s_depCash = room.tx?.deposit_cash || 0;
                     const s_depTrans = room.tx?.deposit_transfer || 0;
                     const hasDeposit = s_depCash > 0 || s_depTrans > 0;
-                    const depLabel = s_depCash > 0 && s_depTrans > 0 ? 'Mix' : (s_depCash > 0 ? 'Tunai' : 'Trans');
+                    const depLabel = s_depCash > 0 && s_depTrans > 0 ? 'Mix' : (s_depCash > 0 ? 'CASH' : 'TF');
 
                     return (
                       <button
@@ -728,16 +730,22 @@ const KetersediaanKamar = () => {
                             : 'border-green-200 bg-green-50 hover:bg-green-100'
                         }`}
                       >
-                        {/* Deposit badge */}
-                        {hasDeposit && (
-                          <span className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold shadow-sm border ${
-                            room.tx?.deposit_returned_at 
-                              ? 'bg-green-500 text-white border-green-600'
-                              : 'bg-yellow-400 text-red-700 border-yellow-500'
-                          }`}>
-                            DEP: {depLabel}
-                          </span>
-                        )}
+                         {/* Deposit badge */}
+                         {hasDeposit && (
+                           <span className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold shadow-sm border ${
+                             room.tx?.deposit_returned_at 
+                               ? 'bg-green-500 text-white border-green-600'
+                               : depLabel === 'CASH'
+                                 ? 'bg-green-500 text-white border-green-600'
+                                 : depLabel === 'TF'
+                                   ? 'bg-blue-500 text-white border-blue-600'
+                                   : depLabel === 'Mix'
+                                     ? 'bg-purple-500 text-white border-purple-600'
+                                     : 'bg-yellow-400 text-red-700 border-yellow-500'
+                           }`}>
+                             Dep: {depLabel}
+                           </span>
+                         )}
 
                         <p className="text-sm font-bold text-slate-800 truncate pr-8">{room.name}</p>
 

@@ -711,13 +711,60 @@ const FormTransaksiModern = ({
 
           <SectionCard icon={Wallet} title="Detail Pembayaran" subtitle="Tunai, transfer, bank tujuan, dan fee marketing">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div><label className="mb-2 block text-sm font-medium text-slate-700">Tunai (Rp)</label><input inputMode="numeric" value={formData.tunai} onChange={(e) => handleChange('tunai', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
-              <div><label className="mb-2 block text-sm font-medium text-slate-700">Transfer (Rp)</label><input inputMode="numeric" value={formData.transfer} onChange={(e) => handleChange('transfer', formatCurrency(e.target.value))} className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700" placeholder="0" /></div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Tunai (Rp)</label>
+                <input
+                  inputMode="numeric"
+                  value={formData.tunai}
+                  onChange={(e) => {
+                    const val = formatCurrency(e.target.value);
+                    handleChange('tunai', val);
+                    if (parseCurrency(val) > 0 && parseCurrency(formData.transfer) > 0) {
+                      handleChange('transfer', '');
+                      handleChange('transferKe', '');
+                    }
+                  }}
+                  className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  placeholder="0"
+                  disabled={parseCurrency(formData.transfer) > 0}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Transfer (Rp)</label>
+                <input
+                  inputMode="numeric"
+                  value={formData.transfer}
+                  onChange={(e) => {
+                    const val = formatCurrency(e.target.value);
+                    handleChange('transfer', val);
+                    if (parseCurrency(val) > 0 && parseCurrency(formData.tunai) > 0) {
+                      handleChange('tunai', '');
+                    }
+                  }}
+                  className="h-11 w-full rounded-2xl border border-slate-300 px-4 text-sm outline-none focus:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  placeholder="0"
+                  disabled={parseCurrency(formData.tunai) > 0}
+                />
+              </div>
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">Bank Tujuan</label>
                 <div className="grid grid-cols-2 gap-2">
                   {TRANSFER_TARGET_OPTIONS.map((item) => (
-                    <button key={item} type="button" onClick={() => handleChange('transferKe', item)} className={`h-11 rounded-2xl border text-sm font-medium ${formData.transferKe === item ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>{item}</button>
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => handleChange('transferKe', item)}
+                      disabled={parseCurrency(formData.tunai) > 0}
+                      className={`h-11 rounded-2xl border text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
+                        formData.transferKe === item
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : parseCurrency(formData.tunai) > 0
+                            ? 'border-slate-200 bg-slate-100 text-slate-400'
+                            : 'border-slate-300 bg-white text-slate-700'
+                      }`}
+                    >
+                      {item}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -726,8 +773,40 @@ const FormTransaksiModern = ({
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
               <p className="mb-2 text-xs font-semibold text-amber-700">Deposit Tamu</p>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="mb-1 block text-xs font-medium text-amber-700">Tunai (Rp)</label><input inputMode="numeric" value={formData.depositCash} onChange={(e) => handleChange('depositCash', formatCurrency(e.target.value))} className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500" placeholder="0" /></div>
-                <div><label className="mb-1 block text-xs font-medium text-amber-700">Transfer (Rp)</label><input inputMode="numeric" value={formData.depositTransfer} onChange={(e) => handleChange('depositTransfer', formatCurrency(e.target.value))} className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500" placeholder="0" /></div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-amber-700">Tunai (Rp)</label>
+                  <input
+                    inputMode="numeric"
+                    value={formData.depositCash}
+                    onChange={(e) => {
+                      const val = formatCurrency(e.target.value);
+                      handleChange('depositCash', val);
+                      if (parseCurrency(val) > 0 && parseCurrency(formData.depositTransfer) > 0) {
+                        handleChange('depositTransfer', '');
+                      }
+                    }}
+                    className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:opacity-60"
+                    placeholder="0"
+                    disabled={parseCurrency(formData.depositTransfer) > 0}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-amber-700">Transfer (Rp)</label>
+                  <input
+                    inputMode="numeric"
+                    value={formData.depositTransfer}
+                    onChange={(e) => {
+                      const val = formatCurrency(e.target.value);
+                      handleChange('depositTransfer', val);
+                      if (parseCurrency(val) > 0 && parseCurrency(formData.depositCash) > 0) {
+                        handleChange('depositCash', '');
+                      }
+                    }}
+                    className="h-10 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm outline-none focus:border-amber-500 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:opacity-60"
+                    placeholder="0"
+                    disabled={parseCurrency(formData.depositCash) > 0}
+                  />
+                </div>
               </div>
             </div>
           </SectionCard>

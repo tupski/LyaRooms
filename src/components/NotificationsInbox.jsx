@@ -45,6 +45,7 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
   const [page, setPage] = useState(1);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedIds, setExpandedIds] = useState(new Set());
 
   const audienceFilter = useMemo(() => buildAudienceFilter(userId, userRole), [userId, userRole]);
 
@@ -217,7 +218,31 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
                         </Badge>
                       </div>
                       <p className={`truncate text-sm font-semibold ${unread ? 'text-slate-900' : 'text-slate-700'}`}>{n.title}</p>
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-600">{n.body}</p>
+                      {expandedIds.has(n.id) ? (
+                        <p className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">{n.body}</p>
+                      ) : (
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">{n.body}</p>
+                      )}
+                      {(n.body?.length || 0) > 120 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(n.id)) {
+                                next.delete(n.id);
+                              } else {
+                                next.add(n.id);
+                              }
+                              return next;
+                            });
+                          }}
+                          className="mt-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline"
+                        >
+                          {expandedIds.has(n.id) ? 'Sembunyikan' : 'Selengkapnya'}
+                        </button>
+                      )}
                       <p className="mt-2 text-[11px] text-slate-500">{formatWibDateTime(n.created_at)}</p>
                     </div>
                     <div className="shrink-0">

@@ -25,6 +25,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
   const [reportTransaksi, setReportTransaksi] = useState(null);
   const [confirmResendTransaksi, setConfirmResendTransaksi] = useState(null);
   const [reportDraft, setReportDraft] = useState(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 5;
 
   // --- Utilitas laporan WhatsApp ---
   const getSentMap = () => {
@@ -186,14 +188,20 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
           {/* Kolom Riwayat */}
           <div className="lg:col-span-5">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">Riwayat Transaksi</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">Riwayat Transaksi</h2>
+                <span className="text-xs text-slate-400">{transactions.length} total</span>
+              </div>
           {loading ? (
             <p className="text-sm text-slate-500">Memuat transaksi...</p>
           ) : transactions.length === 0 ? (
             <p className="text-sm text-slate-500">Belum ada transaksi yang Anda input.</p>
           ) : (
+            <>
             <div className="space-y-4">
-              {transactions.map((t) => {
+              {transactions
+                .slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE)
+                .map((t) => {
                 const sentAt = getSentMap()[t.id];
                 return (
                   <motion.div key={t.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border bg-white/70 p-4">
@@ -243,6 +251,27 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
                 );
               })}
             </div>
+            {/* Pagination */}
+            {transactions.length > HISTORY_PAGE_SIZE && (
+              <div className="mt-4 flex items-center justify-between text-xs">
+                <button
+                  disabled={historyPage <= 1}
+                  onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border px-3 py-1.5 font-medium disabled:opacity-40 hover:bg-slate-50"
+                >
+                  ← Sebelumnya
+                </button>
+                <span className="text-slate-500">Hal {historyPage}/{Math.ceil(transactions.length / HISTORY_PAGE_SIZE)}</span>
+                <button
+                  disabled={historyPage >= Math.ceil(transactions.length / HISTORY_PAGE_SIZE)}
+                  onClick={() => setHistoryPage((p) => Math.min(Math.ceil(transactions.length / HISTORY_PAGE_SIZE), p + 1))}
+                  className="rounded-lg border px-3 py-1.5 font-medium disabled:opacity-40 hover:bg-slate-50"
+                >
+                  Berikutnya →
+                </button>
+              </div>
+            )}
+            </>
           )}
             </div>
           </div>
