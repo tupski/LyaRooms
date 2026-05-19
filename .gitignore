@@ -17,3 +17,7 @@ github.com_supabase-community_supabase-mcp
 .vercel
 .vercel/
 *.vercel.json
+
+AGENTS.md
+planbaru.md
+.kiro/*
