@@ -1,51 +1,68 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useDayInfo } from '@/hooks/useDayInfo';
 
 /**
- * DayInfoBanner — banner kecil di atas form transaksi yang menampilkan:
- * - Libur nasional hari ini (merah)
- * - Besok libur nasional (kuning/amber)
- * - Weekend (hijau)
- * - Hari kerja biasa: tidak tampil
+ * DayInfoBanner — banner info hari yang bisa di-dismiss.
+ * Muncul hanya saat: libur nasional hari ini, besok libur, atau weekend.
+ * Hari kerja biasa: tidak tampil.
  */
 const DayInfoBanner = () => {
   const { todayInfo, tomorrowInfo, loading } = useDayInfo();
+  const [dismissed, setDismissed] = useState(false);
 
-  if (loading || !todayInfo) return null;
+  if (loading || !todayInfo || dismissed) return null;
 
-  // Prioritas: libur hari ini > besok libur > weekend
+  // Kumpulkan semua banner yang perlu ditampilkan
+  const banners = [];
+
   if (todayInfo.isHoliday) {
-    return (
-      <div className="flex items-center gap-2 rounded-2xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-800 shadow-sm">
-        <span className="text-base">🔥</span>
-        <div className="min-w-0">
-          <span className="font-semibold">Hari Ini Libur: {todayInfo.holidayName}</span>
-          <span className="text-red-500 text-xs ml-1">— Tamu makin rame, siap-siap sibuk!</span>
-        </div>
-      </div>
-    );
+    banners.push({
+      key: 'holiday-today',
+      emoji: '🔥',
+      text: <><span className="font-semibold">{todayInfo.holidayName}</span> — Tamu makin rame, siap-siap sibuk!</>,
+      className: 'bg-red-50 border-red-200 text-red-800',
+    });
+  } else {
+    if (tomorrowInfo?.isHoliday) {
+      banners.push({
+        key: 'holiday-tomorrow',
+        emoji: '⚡',
+        text: <><span className="font-semibold">Besok Libur: {tomorrowInfo.holidayName}</span> — Bersiap, tamu bakal rame!</>,
+        className: 'bg-amber-50 border-amber-200 text-amber-800',
+      });
+    }
+    if (todayInfo.isWeekend) {
+      banners.push({
+        key: 'weekend',
+        emoji: '🚀',
+        text: <><span className="font-semibold">Weekend!</span> <span className="opacity-75 text-xs">{todayInfo.dayName}, {todayInfo.dateLabel}</span> — Tamu rame, semangat!</>,
+        className: 'bg-green-50 border-green-200 text-green-800',
+      });
+    }
   }
+
+  if (banners.length === 0) return null;
 
   return (
     <div className="space-y-2">
-      {tomorrowInfo?.isHoliday && (
-        <div className="flex items-center gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm text-amber-800 shadow-sm">
-          <span className="text-base">⚡</span>
-          <div className="min-w-0">
-            <span className="font-semibold">Besok Libur: {tomorrowInfo.holidayName}</span>
-            <span className="text-amber-600 text-xs ml-1">— Bersiap, tamu bakal rame besok!</span>
-          </div>
+      {banners.map((b, i) => (
+        <div key={b.key} className={`flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm shadow-sm ${b.className}`}>
+          <span className="text-base shrink-0">{b.emoji}</span>
+          <p className="flex-1 min-w-0 leading-snug">{b.text}</p>
+          {/* Tombol dismiss hanya di banner pertama */}
+          {i === 0 && (
+            <button
+              type="button"
+              onClick={() => setDismissed(true)}
+              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              aria-label="Tutup"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-      )}
-      {todayInfo.isWeekend && (
-        <div className="flex items-center gap-2 rounded-2xl bg-green-50 border border-green-200 px-4 py-2.5 text-sm text-green-800 shadow-sm">
-          <span className="text-base">🚀</span>
-          <div className="min-w-0">
-            <span className="font-semibold">Weekend!</span>
-            <span className="text-green-600 text-xs ml-1">— {todayInfo.dayName}, {todayInfo.dateLabel} · Tamu rame, semangat!</span>
-          </div>
-        </div>
-      )}
+      ))}
     </div>
   );
 };
