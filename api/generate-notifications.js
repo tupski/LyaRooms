@@ -72,25 +72,50 @@ async function fetchHolidaysForMonth(year, month) {
 
 /**
  * Deteksi libur panjang: rangkaian hari libur (tanggal merah + weekend) ≥ 3 hari berturut-turut.
- * Returns: { isLongHoliday, startDate, endDate, totalDays, description } | null
+ * Termasuk "hari kejepit nasional" (harpitnas): hari kerja yang diapit hari libur di kedua sisi,
+ * sehingga banyak orang ambil cuti dan efektif menjadi libur panjang.
+ *
+ * Contoh harpitnas:
+ *   - Minggu + [Senin kerja] + Selasa merah → Senin = harpitnas → 3 hari efektif
+ *   - Kamis merah + [Jumat kerja] + Sabtu-Minggu → Jumat = harpitnas → 4 hari efektif
+ *
+ * holidayMap: { "YYYY-MM-DD": "Nama Libur" }
+ * fromDate: Date object (hari ini)
  */
 function detectLongHoliday(holidayMap, fromDate) {
-  // Cek 14 hari ke depan untuk menemukan rangkaian libur panjang
-  const NAMA_BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const NAMA_BULAN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
   function toKey(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
-  function isOffDay(d) {
-    const dow = d.getDay(); // 0=Sun, 6=Sat
-    if (dow === 0 || dow === 6) return true; // weekend
+  function isWeekend(d) {
+    const dow = d.getDay();
+    return dow === 0 || dow === 6;
+  }
+  function isHoliday(d) {
     return !!holidayMap[toKey(d)];
   }
+  // Hari "off" = weekend ATAU tanggal merah ATAU harpitnas (diapit libur di kedua sisi)
+  function isOffDay(d) {
+    if (isWeekend(d) || isHoliday(d)) return true;
+    // Cek harpitnas: hari kerja yang diapit hari libur sebelum dan sesudahnya
+    const prev = new Date(d); prev.setDate(d.getDate() - 1);
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    const prevOff = isWeekend(prev) || isHoliday(prev);
+    const nextOff = isWeekend(next) || isHoliday(next);
+    return prevOff && nextOff;
+  }
+  function isHarpitnas(d) {
+    if (isWeekend(d) || isHoliday(d)) return false;
+    const prev = new Date(d); prev.setDate(d.getDate() - 1);
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    return (isWeekend(prev) || isHoliday(prev)) && (isWeekend(next) || isHoliday(next));
+  }
   function fmtDate(d) {
-    return `${d.getDate()} ${NAMA_BULAN[d.getMonth()]}`;
+    return `${d.getDate()} ${NAMA_BULAN_SHORT[d.getMonth()]}`;
   }
 
-  // Scan 14 hari ke depan, cari streak ≥ 3 hari libur berturut-turut
+  // Scan 14 hari ke depan, cari streak ≥ 3 hari off berturut-turut
   for (let startOffset = 0; startOffset <= 14; startOffset++) {
     const startD = new Date(fromDate);
     startD.setDate(fromDate.getDate() + startOffset);
@@ -98,7 +123,6 @@ function detectLongHoliday(holidayMap, fromDate) {
 
     if (!isOffDay(startD)) continue;
 
-    // Hitung panjang streak dari startD
     let streakLen = 0;
     const streakD = new Date(startD);
     while (streakLen < 14) {
@@ -111,19 +135,20 @@ function detectLongHoliday(holidayMap, fromDate) {
       const endD = new Date(startD);
       endD.setDate(startD.getDate() + streakLen - 1);
 
-      // Kumpulkan nama-nama libur nasional dalam streak
+      // Kumpulkan nama libur nasional + tandai harpitnas
       const holidayNames = [];
+      const harpitnasDays = [];
       const scanD = new Date(startD);
       for (let i = 0; i < streakLen; i++) {
         const key = toKey(scanD);
         if (holidayMap[key]) holidayNames.push(holidayMap[key]);
+        if (isHarpitnas(scanD)) harpitnasDays.push(scanD.getDate());
         scanD.setDate(scanD.getDate() + 1);
       }
 
       const uniqueNames = [...new Set(holidayNames)];
-      const desc = uniqueNames.length > 0
-        ? uniqueNames.slice(0, 2).join(' & ')
-        : 'Weekend panjang';
+      let desc = uniqueNames.length > 0 ? uniqueNames.slice(0,2).join(' & ') : 'Weekend panjang';
+      if (harpitnasDays.length > 0) desc += ` (harpitnas tgl ${harpitnasDays.join(',')})`;
 
       return {
         isLongHoliday: true,
@@ -132,6 +157,8 @@ function detectLongHoliday(holidayMap, fromDate) {
         totalDays: streakLen,
         description: desc,
         startOffset,
+        hasHarpitnas: harpitnasDays.length > 0,
+        harpitnasDays,
       };
     }
   }

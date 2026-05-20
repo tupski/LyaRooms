@@ -25,12 +25,13 @@ const DayInfoBanner = () => {
 
   // 1. Libur panjang sedang berlangsung (startOffset === 0)
   if (longHoliday?.isLongHoliday && longHoliday.startOffset === 0) {
+    const harpitInfo = longHoliday.hasHarpitnas ? ' (termasuk hari kejepit)' : '';
     banners.push({
       key: 'long-holiday-now',
       emoji: '🎉',
       text: (
         <>
-          <span className="font-semibold">Libur Panjang {longHoliday.totalDays} Hari!</span>
+          <span className="font-semibold">Libur Panjang {longHoliday.totalDays} Hari{harpitInfo}!</span>
           {' '}<span className="opacity-80 text-xs">s/d {longHoliday.endLabel}</span>
           {' '}— {longHoliday.description}. Tamu rame, semangat!
         </>
@@ -41,12 +42,13 @@ const DayInfoBanner = () => {
 
   // 2. Libur panjang besok dimulai (H-1)
   if (longHoliday?.isLongHoliday && longHoliday.startOffset === 1) {
+    const harpitInfo = longHoliday.hasHarpitnas ? ' (ada hari kejepit)' : '';
     banners.push({
       key: 'long-holiday-tomorrow',
       emoji: '🔥',
       text: (
         <>
-          <span className="font-semibold">Besok Libur Panjang {longHoliday.totalDays} Hari!</span>
+          <span className="font-semibold">Besok Libur Panjang {longHoliday.totalDays} Hari{harpitInfo}!</span>
           {' '}<span className="opacity-80 text-xs">{longHoliday.startLabel} – {longHoliday.endLabel}</span>
           {' '}— {longHoliday.description}. Pastikan semua siap!
         </>
