@@ -18,6 +18,15 @@ github.com_supabase-community_supabase-mcp
 .vercel/
 *.vercel.json
 
+# Build output — Vercel builds from source, no need to push dist
+dist/
+
+# Editor settings
+.vscode/
+
+# Supabase CLI temp files
+supabase/.temp/
+
 AGENTS.md
 planbaru.md
 .kiro/*

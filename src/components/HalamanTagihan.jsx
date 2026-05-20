@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
     import { motion, AnimatePresence } from 'framer-motion';
-    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, Eye, Share2, Trash2, Coins, Search, Download, Building2, DoorOpen, Tag } from 'lucide-react';
+    import { FileText, PlusCircle, Calendar, CheckCircle, History, ChevronDown, ChevronRight, Eye, Share2, Trash2, Coins, Search, Download, Building2, DoorOpen, Tag, AlertCircle } from 'lucide-react';
     import * as XLSX from 'xlsx';
     import { Button } from '@/components/ui/button';
     import { toast } from '@/components/ui/use-toast';
@@ -11,6 +11,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     import { addDays, addMonths, format, endOfMonth, startOfDay, startOfMonth, subDays } from 'date-fns';
     import PaginationControls from '@/components/PaginationControls';
     import TrendBreakdownChart from '@/components/TrendBreakdownChart';
+    import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
+    import { useCategorySummary } from '@/hooks/useCategorySummary';
+    import { Spinner } from '@/components/ui/spinner';
+    import { getDefaultDateRange } from '@/lib/dateUtils';
+    import { formatRupiah } from '@/lib/formatRupiah';
+    import CategoryDetailPopup from '@/components/CategoryDetailPopup';
     import {
       Dialog,
       DialogContent,
@@ -50,7 +56,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     
     const HalamanTagihan = () => {
         const [activeMenu, setActiveMenu] = useState('bulanan');
-        const [refreshKey, setRefreshKey] = useState(0);
         const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
         const [monthlySummary, setMonthlySummary] = useState({ pemasukan: 0, pengeluaran: 0, laba: 0 });
     
@@ -76,7 +81,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         }, [selectedMonth]);
         
         const handleDataUpdate = () => {
-            setRefreshKey(prev => prev + 1);
             calculateSummary();
         }
     
@@ -140,7 +144,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     
                     <AnimatePresence mode="wait">
                         <motion.div
-                            key={`${activeMenu}-${refreshKey}`}
+                            key={activeMenu}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
@@ -156,8 +160,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     
     const TagihanBulanan = ({ onDataUpdate }) => {
       const { user } = useAuth();
-      const [tagihanList, setTagihanList] = useState([]);
-      const [paidList, setPaidList] = useState([]);
       const [isFormOpen, setIsFormOpen] = useState(false);
       const [newTagihan, setNewTagihan] = useState({ apartment_location: '', room_number: '', amount: '', due_date: '' });
       const [tagihanKamarOptions, setTagihanKamarOptions] = useState([]);
@@ -166,6 +168,45 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
       const [selectedTagihan, setSelectedTagihan] = useState(null);
       const [showHistory, setShowHistory] = useState(true);
       const [isSubmitting, setIsSubmitting] = useState(false);
+
+      // Stable filter objects — must be memoized to avoid infinite re-fetch loop
+      // (inline object literals create a new reference every render, which causes
+      //  usePaginatedQuery's useCallback to rebuild fetchPage on every render)
+      const unpaidFilters = useMemo(() => ({ status: { op: 'eq', value: 'unpaid' } }), []);
+      const paidFilters = useMemo(() => ({ status: { op: 'eq', value: 'paid' } }), []);
+
+      // Server-side paginated queries
+      const unpaidQuery = usePaginatedQuery({
+        table: 'tagihan_bulanan',
+        select: '*',
+        pageSize: 10,
+        orderBy: 'due_date',
+        ascending: true,
+        filters: unpaidFilters,
+      });
+
+      const paidQuery = usePaginatedQuery({
+        table: 'tagihan_bulanan',
+        select: '*',
+        pageSize: 10,
+        orderBy: 'paid_at',
+        ascending: false,
+        filters: paidFilters,
+      });
+
+      // Compute diffDays for unpaid tagihan display
+      const tagihanList = useMemo(() => {
+        return (unpaidQuery.data || []).map(tagihan => {
+          const dueDate = new Date(tagihan.due_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const diffTime = dueDate - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return { ...tagihan, diffDays };
+        });
+      }, [unpaidQuery.data]);
+
+      const paidList = paidQuery.data || [];
     
       const fetchOptions = async () => {
         const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name');
@@ -173,35 +214,10 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         const { data: kamarData } = await supabase.from('nomor_kamar').select('name, lokasi');
         if (kamarData) setTagihanKamarOptions(kamarData);
       };
-      
-      const loadData = useCallback(async () => {
-        const { data: storedTagihan, error: unpaidError } = await supabase.from('tagihan_bulanan').select('*').eq('status', 'unpaid');
-        if (unpaidError) console.error("Error fetching unpaid bills:", unpaidError);
-    
-        const { data: storedPaid, error: paidError } = await supabase.from('tagihan_bulanan').select('*').eq('status', 'paid');
-        if (paidError) console.error("Error fetching paid bills:", paidError);
-        
-        if (storedPaid) setPaidList(storedPaid.sort((a, b) => new Date(b.paid_at) - new Date(a.paid_at)));
-    
-        if (storedTagihan) {
-          const sortedTagihan = storedTagihan.map(tagihan => {
-            const dueDate = new Date(tagihan.due_date);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const diffTime = dueDate - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return { ...tagihan, diffDays };
-          }).sort((a, b) => a.diffDays - b.diffDays);
-          setTagihanList(sortedTagihan);
-        }
-      }, []);
-    
+
       useEffect(() => {
         fetchOptions();
-        loadData();
-        const channel = supabase.channel('public:tagihan_bulanan').on('postgres_changes', { event: '*', schema: 'public', table: 'tagihan_bulanan' }, loadData).subscribe();
-        return () => supabase.removeChannel(channel);
-      }, [loadData]);
+      }, []);
       
       const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
       const deformatRupiah = (value) => String(value).replace(/[^0-9]/g, '');
@@ -234,6 +250,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           setIsFormOpen(false);
           setNewTagihan({ apartment_location: '', room_number: '', amount: '', due_date: '' });
           toast({ title: "✅ Tagihan berhasil ditambahkan!" });
+          unpaidQuery.refresh();
           onDataUpdate();
         }
         setIsSubmitting(false);
@@ -265,6 +282,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           toast({ title: "🎉 Lunas!", description: "Tagihan telah dipindahkan ke riwayat dan dicatat di pengeluaran." });
           setSelectedTagihan(null);
           setBuktiBayarFile(null);
+          unpaidQuery.refresh();
+          paidQuery.refresh();
           onDataUpdate();
         }
         setIsSubmitting(false);
@@ -278,6 +297,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
           toast({ title: "Gagal menghapus", description: error.message, variant: "destructive" });
         } else {
           toast({title: "Tagihan dihapus"});
+          unpaidQuery.refresh();
+          paidQuery.refresh();
           onDataUpdate();
         }
       }
@@ -324,8 +345,24 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     
           <div className="glassmorphic-card p-5 space-y-4">
             <h2 className="font-bold text-lg text-gray-800">Daftar Tagihan Aktif</h2>
-            {tagihanList.length === 0 ? (<p className="text-center text-gray-500 py-8">Tidak ada tagihan aktif. 🎉</p>) : (
-              tagihanList.map(tagihan => {
+            {unpaidQuery.error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{unpaidQuery.error}</span>
+              </div>
+            )}
+            {unpaidQuery.isLoading && (
+              <div className="flex justify-center py-8">
+                <Spinner className="w-6 h-6 text-blue-500" />
+              </div>
+            )}
+            {!unpaidQuery.isLoading && tagihanList.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">Tidak ada tagihan aktif. 🎉</p>
+              </div>
+            ) : (
+              !unpaidQuery.isLoading && tagihanList.map(tagihan => {
                 const isOverdue = tagihan.diffDays < 0;
                 const isDueSoon = tagihan.diffDays >= 0 && tagihan.diffDays <= 7;
                 let statusClasses = 'bg-green-100 text-green-800';
@@ -354,6 +391,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 )
               })
             )}
+            <PaginationControls
+              currentPage={unpaidQuery.currentPage}
+              totalPages={unpaidQuery.totalPages}
+              onPageChange={unpaidQuery.setPage}
+              itemsPerPage={10}
+              totalItems={unpaidQuery.totalItems}
+            />
           </div>
     
           <div className="glassmorphic-card p-5 space-y-4">
@@ -361,10 +405,21 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                   <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><History className="w-5 h-5"/>Riwayat Lunas</h2>
                   <ChevronDown className={`w-5 h-5 transition-transform text-gray-800 ${showHistory ? 'rotate-180' : ''}`} />
               </button>
+              {paidQuery.error && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{paidQuery.error}</span>
+                </div>
+              )}
               <AnimatePresence>
               {showHistory && (
                   <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="mt-4 space-y-3 overflow-hidden">
-                      {paidList.length > 0 ? paidList.map(item => (
+                      {paidQuery.isLoading && (
+                        <div className="flex justify-center py-8">
+                          <Spinner className="w-6 h-6 text-blue-500" />
+                        </div>
+                      )}
+                      {!paidQuery.isLoading && paidList.length > 0 ? paidList.map(item => (
                           <motion.div key={item.id} layout initial={{opacity: 0}} animate={{opacity: 1}} className="bg-white/50 p-4 rounded-2xl relative">
                               <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Data riwayat lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
                               <p className="font-bold text-gray-900">{item.apartment_location} - {item.room_number}</p>
@@ -374,10 +429,22 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                                 {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/> Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran tagihan bulanan.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt="Bukti bayar" className="rounded-lg" /></DialogContent></Dialog>)}
                               </div>
                           </motion.div>
-                      )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat.</p>}
+                      )) : !paidQuery.isLoading && (
+                        <div className="text-center py-8">
+                          <History className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-500">Belum ada riwayat.</p>
+                        </div>
+                      )}
                   </motion.div>
               )}
               </AnimatePresence>
+              <PaginationControls
+                currentPage={paidQuery.currentPage}
+                totalPages={paidQuery.totalPages}
+                onPageChange={paidQuery.setPage}
+                itemsPerPage={10}
+                totalItems={paidQuery.totalItems}
+              />
           </div>
         </div>
       )
@@ -405,7 +472,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
     const TagihanFee = ({ onDataUpdate }) => {
         const [unpaidFees, setUnpaidFees] = useState([]);
-        const [paidFees, setPaidFees] = useState([]);
         const [showHistory, setShowHistory] = useState(true);
         const [uploadFile, setUploadFile] = useState(null);
         const [feeDateFrom, setFeeDateFrom] = useState(() => getFeeRangeToday().from);
@@ -420,42 +486,34 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
         /** Urutan daftar marketing & transaksi per tanggal check-in */
         const [feeDateOrder, setFeeDateOrder] = useState('newest'); // 'newest' | 'oldest'
         const feeHistorySectionRef = useRef(null);
+
+        // Memoize filters for paginated riwayat lunas query
+        const paidFeesFilters = useMemo(() => ({
+            ...(feeDateFrom ? { paid_date_from: { op: 'gte', value: feeDateFrom, column: 'paid_date' } } : {}),
+            ...(feeDateTo ? { paid_date_to: { op: 'lte', value: feeDateTo, column: 'paid_date' } } : {}),
+        }), [feeDateFrom, feeDateTo]);
+
+        // Paginated query for riwayat fee lunas
+        const {
+            data: paidFees,
+            totalItems: paidFeesTotalItems,
+            totalPages: paidFeesTotalPages,
+            currentPage: paidFeesCurrentPage,
+            isLoading: paidFeesLoading,
+            error: paidFeesError,
+            setPage: setPaidFeesPage,
+            refresh: refreshPaidFees,
+        } = usePaginatedQuery({
+            table: 'tagihan_fee_lunas',
+            select: '*',
+            pageSize: 10,
+            orderBy: 'paid_at',
+            ascending: false,
+            filters: paidFeesFilters,
+            enabled: true,
+        });
     
         const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
-
-        const lunasRowTouchesTransactionIds = (row, txIdSet) => {
-            const raw = row?.transactions_detail || row?.transactions;
-            let arr = [];
-
-            if (Array.isArray(raw)) {
-                arr = raw;
-            } else if (typeof raw === 'string') {
-                try {
-                    const parsed = JSON.parse(raw);
-                    arr = Array.isArray(parsed) ? parsed : [];
-                } catch {
-                    return false;
-                }
-            } else if (raw && typeof raw === 'object') {
-                // Jika raw adalah objek tunggal, coba jadikan array
-                arr = [raw];
-            }
-
-            return arr.some((elem) => {
-                if (!elem || typeof elem !== 'object') return false;
-                const id = Number(elem?.transaction_id ?? elem?.transactionId ?? elem?.id);
-                return Number.isFinite(id) && txIdSet.has(id);
-            });
-        };
-
-        const isFeeHistoryRowRelevant = (row, startDate, endDate) => {
-            if (!row?.paid_at) return false;
-            const paidAt = new Date(row.paid_at);
-            if (Number.isNaN(paidAt.getTime())) return false;
-            const start = new Date(`${startDate}T00:00:00`);
-            const end = new Date(`${endDate}T23:59:59.999`);
-            return paidAt >= start && paidAt <= end;
-        };
 
         const applyFeePreset = useCallback((preset) => {
             let r;
@@ -483,7 +541,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             if (transError) console.error(transError);
 
             const txIds = (transactions || []).map((t) => t.id).filter((id) => id != null);
-            const txIdSet = new Set(txIds);
 
             let paidTransactionIds = new Set();
             if (txIds.length > 0) {
@@ -494,23 +551,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
               if (paidItemsError) console.error(paidItemsError);
               paidTransactionIds = new Set((paidItems || []).map((p) => p.transaction_id));
             }
-
-            let paidFeesFiltered = [];
-            const dateRangeStart = feeDateFrom;
-            const dateRangeEnd = feeDateTo;
-            const { data: lunasRows, error: lunasError } = await supabase
-              .from('tagihan_fee_lunas')
-              .select('*')
-              .order('paid_at', { ascending: false })
-              .limit(500);
-            if (lunasError) console.error(lunasError);
-            paidFeesFiltered = (lunasRows || []).filter((row) => {
-              if (txIds.length > 0 && lunasRowTouchesTransactionIds(row, txIdSet)) {
-                return true;
-              }
-              return isFeeHistoryRowRelevant(row, dateRangeStart, dateRangeEnd);
-            });
-            setPaidFees(paidFeesFiltered);
     
             const marketingSummary = (transactions || []).reduce((acc, curr) => {
                 if (!curr.marketing_name || !curr.marketing_fee || curr.marketing_fee <= 0) {
@@ -544,11 +584,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             loadData();
             const channel = supabase.channel('public:tagihan_fee')
               .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, loadData)
-              .on('postgres_changes', { event: '*', schema: 'public', table: 'tagihan_fee_lunas' }, loadData)
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'tagihan_fee_lunas' }, () => { loadData(); refreshPaidFees(); })
               .on('postgres_changes', { event: '*', schema: 'public', table: 'tagihan_fee_lunas_items' }, loadData)
               .subscribe();
             return () => supabase.removeChannel(channel);
-        }, [loadData]);
+        }, [loadData, refreshPaidFees]);
     
         const openPayModal = (fee) => {
           setModalMarketing(fee);
@@ -600,6 +640,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             setModalMarketing(null);
             setShowHistory(true);
             await loadData();
+            refreshPaidFees();
             requestAnimationFrame(() => {
               feeHistorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
@@ -615,6 +656,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             toast({ title: "Gagal menghapus", description: error.message, variant: "destructive" });
           } else {
             toast({title: "Riwayat fee dihapus"});
+            refreshPaidFees();
             onDataUpdate();
           }
         }
@@ -787,9 +829,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                     </div>
 
                     {processedFees.length === 0 ? (
-                      <p className="text-center text-gray-500 py-8">
-                        {searchTerm ? 'Marketing tidak ditemukan.' : 'Semua fee pada periode ini sudah lunas! 🎉'}
-                      </p>
+                      <div className="text-center py-8">
+                        <Coins className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-gray-500">
+                          {searchTerm ? 'Marketing tidak ditemukan.' : 'Semua fee pada periode ini sudah lunas! 🎉'}
+                        </p>
+                      </div>
                     ) : (
                         processedFees.map((fee) => (
                         <motion.div key={fee.nama} layout className="bg-white/50 border p-4 rounded-2xl relative">
@@ -902,18 +947,44 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                     <AnimatePresence>
                     {showHistory && (
                         <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="mt-4 space-y-3 overflow-hidden">
-                            {paidFees.length > 0 ? paidFees.map(item => (
-                                <motion.div key={item.id} layout className="bg-white/50 border p-4 rounded-2xl relative">
-                                    <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Riwayat fee lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-                                    <p className="font-bold text-lg text-gray-900">{item.marketing_name}</p>
-                                    <p className="text-blue-700 font-semibold">{formatRupiah(item.total_fee)} ({item.customer_count} CS)</p>
-                                    <p className="text-xs text-gray-500">Lunas: {formatLunasDateTimeWib(item.paid_at)}</p>
-                                    <div className="flex gap-2 items-center mt-2">
-                                        {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran Fee</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran fee marketing.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
-                                        <Button size="icon" onClick={() => handleShare(item)} className="h-7 w-7 bg-green-500"><Share2 className="w-4 h-4" /></Button>
-                                    </div>
-                                </motion.div>
-                            )) : <p className="text-center text-gray-500 py-4">Belum ada riwayat lunas untuk periode ini.</p>}
+                            {paidFeesError && (
+                                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>{paidFeesError}</span>
+                                </div>
+                            )}
+                            {paidFeesLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Spinner className="w-6 h-6 text-blue-500" />
+                                </div>
+                            ) : paidFees.length > 0 ? (
+                                <>
+                                    {paidFees.map(item => (
+                                        <motion.div key={item.id} layout className="bg-white/50 border p-4 rounded-2xl relative">
+                                            <AlertDialog><AlertDialogTrigger asChild><Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7 text-red-500"><Trash2 className="w-4 h-4"/></Button></AlertDialogTrigger><AlertDialogContent className="bg-white"><AlertDialogHeader><AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle><AlertDialogDescription>Riwayat fee lunas ini akan dihapus permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                                            <p className="font-bold text-lg text-gray-900">{item.marketing_name}</p>
+                                            <p className="text-blue-700 font-semibold">{formatRupiah(item.total_fee)} ({item.customer_count} CS)</p>
+                                            <p className="text-xs text-gray-500">Lunas: {formatLunasDateTimeWib(item.paid_at)}</p>
+                                            <div className="flex gap-2 items-center mt-2">
+                                                {item.proof_url && (<Dialog><DialogTrigger asChild><Button variant="link" className="text-blue-600 p-0 h-auto"><Eye className="w-4 h-4 mr-1"/>Lihat Bukti</Button></DialogTrigger><DialogContent className="bg-black/80"><DialogHeader><DialogTitle className="text-white">Bukti Pembayaran Fee</DialogTitle><DialogDescription className="text-gray-300">Pratinjau bukti pembayaran fee marketing.</DialogDescription></DialogHeader><img src={resolveStorageUrl(item.proof_url)} alt={`Bukti bayar ${item.marketing_name}`} className="rounded-lg w-full" /></DialogContent></Dialog>)}
+                                                <Button size="icon" onClick={() => handleShare(item)} className="h-7 w-7 bg-green-500"><Share2 className="w-4 h-4" /></Button>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                    <PaginationControls
+                                        currentPage={paidFeesCurrentPage}
+                                        totalPages={paidFeesTotalPages}
+                                        onPageChange={setPaidFeesPage}
+                                        itemsPerPage={10}
+                                        totalItems={paidFeesTotalItems}
+                                    />
+                                </>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <History className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                                    <p className="text-gray-500">Belum ada riwayat lunas untuk periode ini.</p>
+                                </div>
+                            )}
                         </motion.div>
                     )}
                     </AnimatePresence>
@@ -1036,69 +1107,143 @@ const ExportFilterModal = ({ open, onOpenChange, onExport, categories, locations
 
 // Pengeluaran Unit Component - Screen untuk melihat pengeluaran per unit
 const PengeluaranUnit = ({ onDataUpdate }) => {
-    const [expenses, setExpenses] = useState([]);
     const [lokasiOptions, setLokasiOptions] = useState([]);
     const [kamarOptions, setKamarOptions] = useState([]);
     const [selectedLokasi, setSelectedLokasi] = useState('');
     const [selectedKamar, setSelectedKamar] = useState('');
-    const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-    const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-
-    const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
+    const [startDate, setStartDate] = useState(() => getDefaultDateRange().startDate);
+    const [endDate, setEndDate] = useState(() => getDefaultDateRange().endDate);
+    const [showLoadingTimeout, setShowLoadingTimeout] = useState(false);
 
     const loadOptions = useCallback(async () => {
         const { data: lokasiData } = await supabase.from('lokasi_apartemen').select('name').order('name');
         if (lokasiData) setLokasiOptions(lokasiData.map(l => l.name));
-        
+
         const { data: kamarData } = await supabase.from('nomor_kamar').select('name, lokasi').order('name');
         if (kamarData) setKamarOptions(kamarData);
     }, []);
-
-    const loadData = useCallback(async () => {
-        let query = supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false });
-        
-        if (startDate) query = query.gte('tanggal', startDate);
-        if (endDate) query = query.lte('tanggal', endDate);
-        if (selectedLokasi) query = query.eq('apartment_location', selectedLokasi);
-        if (selectedKamar) query = query.eq('room_number', selectedKamar);
-
-        const { data, error } = await query;
-        if (error) console.error("Error fetching expenses:", error);
-        else setExpenses(data || []);
-    }, [startDate, endDate, selectedLokasi, selectedKamar]);
 
     useEffect(() => {
         loadOptions();
     }, [loadOptions]);
 
+    // Memoize filters for paginated query (Requirement 4.4 - filter changes reset to page 1)
+    const pengeluaranFilters = useMemo(() => ({
+        ...(startDate ? { tanggal_from: { op: 'gte', value: startDate, column: 'tanggal' } } : {}),
+        ...(endDate ? { tanggal_to: { op: 'lte', value: endDate, column: 'tanggal' } } : {}),
+        ...(selectedLokasi ? { apartment_location: { op: 'eq', value: selectedLokasi } } : {}),
+        ...(selectedKamar ? { room_number: { op: 'eq', value: selectedKamar } } : {}),
+    }), [startDate, endDate, selectedLokasi, selectedKamar]);
+
+    // Server-side paginated query for detail list (Requirement 4.1, 4.2)
+    const {
+        data: expenses,
+        totalItems,
+        totalPages,
+        currentPage,
+        isLoading,
+        error: queryError,
+        setPage,
+        refresh: refreshExpenses,
+    } = usePaginatedQuery({
+        table: 'pengeluaran',
+        select: '*',
+        pageSize: 10,
+        orderBy: 'tanggal',
+        ascending: false,
+        filters: pengeluaranFilters,
+    });
+
+    // Server-side category summary via RPC (Requirement 5.1, 5.2, 5.6)
+    const {
+        data: categorySummary,
+        isLoading: isCategoryLoading,
+        error: categoryError,
+        refresh: refreshCategorySummary,
+    } = useCategorySummary({
+        lokasi: selectedLokasi || undefined,
+        kamar: selectedKamar || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+    });
+
+    // Loading timeout indicator (Requirement 4.6 - 10s timeout display)
     useEffect(() => {
-        loadData();
-        const channel = supabase.channel('public:pengeluaran_unit').on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran' }, loadData).subscribe();
+        if (!isLoading) {
+            setShowLoadingTimeout(false);
+            return;
+        }
+        setShowLoadingTimeout(false);
+        const timer = setTimeout(() => setShowLoadingTimeout(true), 10000);
+        return () => clearTimeout(timer);
+    }, [isLoading]);
+
+    // Realtime refresh after add/delete (Requirement 4.5, 5.3)
+    useEffect(() => {
+        const channel = supabase
+            .channel('public:pengeluaran_unit')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran' }, () => {
+                refreshExpenses();
+                refreshCategorySummary();
+                if (typeof onDataUpdate === 'function') onDataUpdate();
+            })
+            .subscribe();
         return () => supabase.removeChannel(channel);
-    }, [loadData]);
+    }, [refreshExpenses, refreshCategorySummary, onDataUpdate]);
 
     const filteredKamarOptions = selectedLokasi ? kamarOptions.filter(k => k.lokasi === selectedLokasi) : [];
 
-    // Summary per kategori
-    const categorySummary = useMemo(() => {
-        const summary = {};
-        expenses.forEach(e => {
-            const cat = e.category || 'Lainnya';
-            if (!summary[cat]) summary[cat] = { count: 0, total: 0 };
-            summary[cat].count += 1;
-            summary[cat].total += Number(e.jumlah || 0);
-        });
-        return summary;
-    }, [expenses]);
+    // Total from server-side category summary (covers all pages, not just current)
+    const totalAllPages = useMemo(
+        () => (categorySummary || []).reduce((sum, c) => sum + Number(c.total_amount || 0), 0),
+        [categorySummary]
+    );
+    const totalTransactions = useMemo(
+        () => (categorySummary || []).reduce((sum, c) => sum + Number(c.transaction_count || 0), 0),
+        [categorySummary]
+    );
 
-    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.jumlah || 0), 0);
+    // Popup state for CategoryDetailPopup (Requirement 6.1, 6.6).
+    // Parent state (filters, currentPage) is intentionally untouched while
+    // the popup is open; closing only flips popup-local state.
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [isCategoryPopupOpen, setIsCategoryPopupOpen] = useState(false);
+
+    // Snapshot filters at click time so popup queries stay stable while open.
+    const popupFilters = useMemo(
+        () => ({
+            lokasi: selectedLokasi || undefined,
+            kamar: selectedKamar || undefined,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+        }),
+        [selectedLokasi, selectedKamar, startDate, endDate]
+    );
+
+    const handleCategoryClick = (cat) => {
+        if (!cat) return;
+        const rawCategory = cat.category;
+        // Use the raw_category from RPC (actual DB value) for exact match query.
+        // Fall back to category field if raw_category not available.
+        const dbValue = cat.raw_category !== undefined ? cat.raw_category : rawCategory;
+        const label =
+            rawCategory && String(rawCategory).trim() !== ''
+                ? rawCategory
+                : 'Lainnya';
+        setSelectedCategory({
+            category: dbValue,
+            label,
+            totalAmount: Number(cat.total_amount || 0),
+        });
+        setIsCategoryPopupOpen(true);
+    };
 
     return (
         <div className="space-y-5">
             <Button className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold py-6 text-base rounded-2xl shadow-lg" onClick={() => window.location.hash = '#pengeluaran'}>
                 <PlusCircle className="mr-2 h-5 w-5" /> Catat Pengeluaran
             </Button>
-            
+
             <div className="glassmorphic-card p-5 space-y-4">
                 <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-blue-500"/> Filter Unit</h2>
                 <div className="grid grid-cols-2 gap-3">
@@ -1129,30 +1274,101 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
                 </div>
             </div>
 
-            {/* Summary Card */}
+            {/* Category Summary Card - positioned ABOVE detail list (Requirement 7.4) */}
             <div className="glassmorphic-card p-5">
                 <h3 className="font-bold text-gray-800 mb-3">Ringkasan Pengeluaran</h3>
                 <div className="bg-red-50 p-4 rounded-xl mb-3">
                     <p className="text-sm text-red-800">Total Pengeluaran</p>
-                    <p className="text-2xl font-bold text-red-700">{formatRupiah(totalExpenses)}</p>
-                    <p className="text-xs text-red-600">{expenses.length} transaksi</p>
+                    <p className="text-2xl font-bold text-red-700">{formatRupiah(totalAllPages)}</p>
+                    <p className="text-xs text-red-600">{totalTransactions} transaksi</p>
                 </div>
-                <div className="space-y-2">
-                    {Object.entries(categorySummary).map(([cat, data]) => (
-                        <div key={cat} className="flex justify-between items-center bg-white/50 p-2 rounded-lg">
-                            <span className="text-sm text-gray-700">{cat}</span>
-                            <span className="text-sm font-semibold text-gray-900">{formatRupiah(data.total)} ({data.count})</span>
-                        </div>
-                    ))}
-                </div>
+
+                {/* Category error */}
+                {categoryError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{categoryError}</span>
+                    </div>
+                )}
+
+                {/* Category loading */}
+                {isCategoryLoading && (!categorySummary || categorySummary.length === 0) && (
+                    <div className="flex justify-center py-4">
+                        <Spinner className="w-5 h-5 text-blue-500" />
+                    </div>
+                )}
+
+                {/* Category empty state */}
+                {!isCategoryLoading && !categoryError && (!categorySummary || categorySummary.length === 0) && (
+                    <p className="text-center text-sm text-gray-500 py-4">Tidak ada data untuk filter ini</p>
+                )}
+
+                {/* Category rows - keyboard focusable, chevron icon, hover state (Requirement 7.4, 7.6) */}
+                {categorySummary && categorySummary.length > 0 && (
+                    <div className="space-y-2">
+                        {categorySummary.map((cat) => {
+                            const label = cat.category && String(cat.category).trim() !== '' ? cat.category : 'Lainnya';
+                            return (
+                                <div
+                                    key={label}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => handleCategoryClick(cat)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            handleCategoryClick(cat);
+                                        }
+                                    }}
+                                    className="flex justify-between items-center bg-white/50 p-3 rounded-lg cursor-pointer hover:bg-white/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-800">{label}</span>
+                                        <span className="text-xs text-gray-500">{cat.transaction_count} transaksi</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-semibold text-gray-900">{formatRupiah(cat.total_amount)}</span>
+                                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
-            {/* Daftar Pengeluaran */}
+            {/* Detail Pengeluaran with server-side pagination */}
             <div className="glassmorphic-card p-5 space-y-4">
                 <h2 className="font-bold text-lg text-gray-800">Detail Pengeluaran</h2>
-                {expenses.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">Tidak ada pengeluaran untuk filter yang dipilih.</p>
-                ) : (
+
+                {/* Error message (Requirement 4 - error handling) */}
+                {queryError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{queryError}</span>
+                    </div>
+                )}
+
+                {/* Loading indicator with 10s timeout display (Requirement 4.6) */}
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                        <Spinner className="w-6 h-6 text-blue-500" />
+                        {showLoadingTimeout && (
+                            <p className="text-xs text-gray-500">Memuat data lebih lama dari biasanya...</p>
+                        )}
+                    </div>
+                )}
+
+                {/* Empty state (Requirement 7.7) */}
+                {!isLoading && !queryError && expenses.length === 0 && (
+                    <div className="text-center py-8">
+                        <Coins className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-gray-500">Tidak ada data untuk filter ini</p>
+                    </div>
+                )}
+
+                {/* Expense list */}
+                {!isLoading && expenses.length > 0 && (
                     expenses.map(expense => (
                         <motion.div key={expense.id} layout className="bg-white/50 p-4 rounded-2xl shadow-sm border">
                             <div className="flex justify-between items-start">
@@ -1170,18 +1386,47 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
                         </motion.div>
                     ))
                 )}
+
+                {/* Pagination controls below detail list (Requirement 4.3) */}
+                <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    itemsPerPage={10}
+                    totalItems={totalItems}
+                />
             </div>
+
+            {/* Category detail popup (Requirement 6.1, 6.6).
+                Closing the popup only updates popup-local state — the parent's
+                filter state and currentPage remain untouched. */}
+            <CategoryDetailPopup
+                open={isCategoryPopupOpen}
+                onOpenChange={setIsCategoryPopupOpen}
+                category={selectedCategory?.category ?? ''}
+                label={selectedCategory?.label}
+                totalAmount={selectedCategory?.totalAmount || 0}
+                filters={popupFilters}
+            />
         </div>
     );
 };
 
 const Pengeluaran = ({ onDataUpdate }) => {
         const { user } = useAuth();
-        const [expenses, setExpenses] = useState([]);
         const [isFormOpen, setIsFormOpen] = useState(false);
-        const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-        const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
         const [isSubmitting, setIsSubmitting] = useState(false);
+        
+        // Date filter state - default to current month using getDefaultDateRange
+        const [startDate, setStartDate] = useState(() => getDefaultDateRange().startDate);
+        const [endDate, setEndDate] = useState(() => getDefaultDateRange().endDate);
+
+        // Ringkasan Pengeluaran collapse state - default collapsed
+        const [isRingkasanOpen, setIsRingkasanOpen] = useState(false);
+
+        // Popup state for CategoryDetailPopup
+        const [selectedCategory, setSelectedCategory] = useState(null);
+        const [isCategoryPopupOpen, setIsCategoryPopupOpen] = useState(false);
         
         // New state for categories and units
         const [categories, setCategories] = useState([]);
@@ -1200,15 +1445,78 @@ const Pengeluaran = ({ onDataUpdate }) => {
         
         // Export filter state
         const [showExportModal, setShowExportModal] = useState(false);
-        
-        // Pagination state
-        const [currentPage, setCurrentPage] = useState(1);
-        const [itemsPerPage] = useState(10);
-        
-        // View state
-        const [showTrendBreakdown, setShowTrendBreakdown] = useState(false);
+
+        // Memoize filters for paginated query
+        const pengeluaranFilters = useMemo(() => ({
+            ...(startDate ? { tanggal_from: { op: 'gte', value: startDate, column: 'tanggal' } } : {}),
+            ...(endDate ? { tanggal_to: { op: 'lte', value: endDate, column: 'tanggal' } } : {}),
+        }), [startDate, endDate]);
+
+        // Server-side paginated query
+        const {
+            data: expenses,
+            totalItems,
+            totalPages,
+            currentPage,
+            isLoading,
+            error: queryError,
+            setPage,
+            refresh: refreshExpenses,
+        } = usePaginatedQuery({
+            table: 'pengeluaran',
+            select: '*',
+            pageSize: 10,
+            orderBy: 'tanggal',
+            ascending: false,
+            filters: pengeluaranFilters,
+        });
+
+        // Server-side category summary for total & ringkasan (covers all pages in date range)
+        const {
+            data: categorySummary,
+            isLoading: isCategoryLoading,
+            refresh: refreshCategorySummary,
+        } = useCategorySummary({
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+        });
+
+        // Total from server-side summary (all pages in date range)
+        const totalPengeluaran = useMemo(
+            () => (categorySummary || []).reduce((sum, c) => sum + Number(c.total_amount || 0), 0),
+            [categorySummary]
+        );
+
+        // Snapshot filters for popup
+        const popupFilters = useMemo(
+            () => ({ startDate: startDate || undefined, endDate: endDate || undefined }),
+            [startDate, endDate]
+        );
+
+        const handleCategoryClick = (cat) => {
+            if (!cat) return;
+            const rawCategory = cat.category;
+            const dbValue = cat.raw_category !== undefined ? cat.raw_category : rawCategory;
+            const label = rawCategory && String(rawCategory).trim() !== '' ? rawCategory : 'Lainnya';
+            setSelectedCategory({ category: dbValue, label, totalAmount: Number(cat.total_amount || 0) });
+            setIsCategoryPopupOpen(true);
+        };
+
+        // Format date range label for total display
+        const dateRangeLabel = useMemo(() => {
+            const fmt = (d) => {
+                if (!d) return '';
+                try {
+                    const [y, m, day] = d.split('-');
+                    return `${parseInt(day)} ${new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(y, m - 1))} ${y}`;
+                } catch { return d; }
+            };
+            if (startDate && endDate && startDate !== endDate) return `${fmt(startDate)} – ${fmt(endDate)}`;
+            if (startDate) return fmt(startDate);
+            return fmt(endDate);
+        }, [startDate, endDate]);
     
-        const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
+        const formatRupiahLocal = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value || 0);
         const deformatRupiah = (value) => String(value).replace(/[^0-9]/g, '');
     
         const loadOptions = useCallback(async () => {
@@ -1222,23 +1530,9 @@ const Pengeluaran = ({ onDataUpdate }) => {
             if (kamarData) setKamarOptions(kamarData);
         }, []);
 
-        const loadData = useCallback(async () => {
-            let query = supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false });
-    
-            if (startDate) query = query.gte('tanggal', startDate);
-            if (endDate) query = query.lte('tanggal', endDate);
-    
-            const { data, error } = await query;
-            if (error) console.error("Error fetching expenses:", error);
-            else setExpenses(data);
-        }, [startDate, endDate]);
-    
         useEffect(() => {
             loadOptions();
-            loadData();
-            const channel = supabase.channel('public:pengeluaran').on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran' }, loadData).subscribe();
-            return () => supabase.removeChannel(channel);
-        }, [loadData, loadOptions]);
+        }, [loadOptions]);
     
         const handleInputChange = (field, value) => {
             if (field === 'jumlah') {
@@ -1293,6 +1587,8 @@ const Pengeluaran = ({ onDataUpdate }) => {
                     room_number: ''
                 });
                 toast({ title: "✅ Pengeluaran berhasil dicatat!" });
+                refreshExpenses();
+                refreshCategorySummary();
                 onDataUpdate();
             }
             setIsSubmitting(false);
@@ -1304,6 +1600,8 @@ const Pengeluaran = ({ onDataUpdate }) => {
                 toast({ title: "Gagal menghapus", description: error.message, variant: "destructive" });
             } else {
                 toast({ title: "Pengeluaran dihapus" });
+                refreshExpenses();
+                refreshCategorySummary();
                 onDataUpdate();
             }
         };
@@ -1415,6 +1713,73 @@ const Pengeluaran = ({ onDataUpdate }) => {
                         <DialogFooter><Button onClick={handleAddExpense} disabled={isSubmitting} className="w-full bg-red-500 hover:bg-red-600">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Ringkasan Pengeluaran - collapsible, default collapsed */}
+                <div className="glassmorphic-card overflow-hidden">
+                    <button
+                        onClick={() => setIsRingkasanOpen(prev => !prev)}
+                        className="w-full flex justify-between items-center p-4"
+                    >
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <Coins className="w-4 h-4 text-red-500" />
+                            Ringkasan Pengeluaran
+                        </h3>
+                        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isRingkasanOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence initial={false}>
+                        {isRingkasanOpen && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="px-4 pb-4 space-y-3">
+                                    <div className="bg-red-50 p-3 rounded-xl">
+                                        <p className="text-sm text-red-800">Total Pengeluaran</p>
+                                        <p className="text-xl font-bold text-red-700">{formatRupiahLocal(totalPengeluaran)}</p>
+                                        {dateRangeLabel && <p className="text-xs text-red-500 mt-0.5">{dateRangeLabel}</p>}
+                                    </div>
+                                    {isCategoryLoading && (
+                                        <div className="flex justify-center py-3">
+                                            <Spinner className="w-5 h-5 text-blue-500" />
+                                        </div>
+                                    )}
+                                    {!isCategoryLoading && categorySummary && categorySummary.length > 0 && (
+                                        <div className="space-y-2">
+                                            {categorySummary.map((cat) => {
+                                                const lbl = cat.category && String(cat.category).trim() !== '' ? cat.category : 'Lainnya';
+                                                return (
+                                                    <div
+                                                        key={lbl}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => handleCategoryClick(cat)}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCategoryClick(cat); } }}
+                                                        className="flex justify-between items-center bg-white/50 p-3 rounded-lg cursor-pointer hover:bg-white/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                                    >
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium text-gray-800">{lbl}</span>
+                                                            <span className="text-xs text-gray-500">{cat.transaction_count} transaksi</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-semibold text-gray-900">{formatRupiahLocal(cat.total_amount)}</span>
+                                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {!isCategoryLoading && (!categorySummary || categorySummary.length === 0) && (
+                                        <p className="text-center text-sm text-gray-500 py-2">Tidak ada data untuk periode ini</p>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
     
                 <div className="glassmorphic-card p-5 space-y-4">
                     <div className="flex justify-between items-center">
@@ -1433,7 +1798,44 @@ const Pengeluaran = ({ onDataUpdate }) => {
                             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900"/>
                         </div>
                     </div>
-                    {expenses.length === 0 ? (<p className="text-center text-gray-500 py-8">Belum ada pengeluaran tercatat pada rentang ini.</p>) : (
+
+                    {/* Total Pengeluaran - di bawah filter tanggal, mengikuti date range */}
+                    <div className="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
+                        <div>
+                            <p className="text-xs font-semibold text-red-700">Total Pengeluaran</p>
+                            {dateRangeLabel && <p className="text-xs text-gray-400">{dateRangeLabel}</p>}
+                            <p className="text-xl font-bold text-red-600">{formatRupiahLocal(totalPengeluaran)}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <Coins className="w-5 h-5 text-red-600" />
+                        </div>
+                    </div>
+
+                    {/* Error message */}
+                    {queryError && (
+                        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>{queryError}</span>
+                        </div>
+                    )}
+
+                    {/* Loading indicator */}
+                    {isLoading && (
+                        <div className="flex justify-center py-8">
+                            <Spinner className="w-6 h-6 text-blue-500" />
+                        </div>
+                    )}
+
+                    {/* Empty state */}
+                    {!isLoading && expenses.length === 0 && !queryError && (
+                        <div className="text-center py-8">
+                            <Coins className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-gray-500">Tidak ada data untuk filter ini</p>
+                        </div>
+                    )}
+
+                    {/* Expense list */}
+                    {!isLoading && expenses.length > 0 && (
                         expenses.map(expense => (
                             <motion.div key={expense.id} layout className="bg-white/50 p-4 rounded-2xl shadow-sm border relative">
                                 <AlertDialog>
@@ -1448,14 +1850,33 @@ const Pengeluaran = ({ onDataUpdate }) => {
                                             {expense.apartment_location && <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">{expense.apartment_location}{expense.room_number ? ` - ${expense.room_number}` : ''}</span>}
                                         </div>
                                     </div>
-                                    <p className="font-bold text-red-600 whitespace-nowrap">{formatRupiah(expense.jumlah)}</p>
+                                    <p className="font-bold text-red-600 whitespace-nowrap">{formatRupiahLocal(expense.jumlah)}</p>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">{format(new Date(expense.tanggal), 'dd MMMM yyyy')}</p>
                                 {expense.keterangan && <p className="text-sm text-gray-700 mt-2 border-t pt-2">{expense.keterangan}</p>}
                             </motion.div>
                         ))
                     )}
+
+                    {/* Pagination controls */}
+                    <PaginationControls
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        itemsPerPage={10}
+                        totalItems={totalItems}
+                    />
                 </div>
+
+                {/* Category detail popup */}
+                <CategoryDetailPopup
+                    open={isCategoryPopupOpen}
+                    onOpenChange={setIsCategoryPopupOpen}
+                    category={selectedCategory?.category ?? ''}
+                    label={selectedCategory?.label}
+                    totalAmount={selectedCategory?.totalAmount || 0}
+                    filters={popupFilters}
+                />
             </div>
         );
     };
