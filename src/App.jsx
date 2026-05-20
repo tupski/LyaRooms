@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Camera, Megaphone, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
+import { Bell, Camera, CalendarDays, Megaphone, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
 import FormTransaksi from '@/components/FormTransaksiModern';
 import KaryawanTransaksi from '@/components/KaryawanTransaksi';
 import DashboardPemasukan from '@/components/DashboardPemasukan';
@@ -22,6 +22,7 @@ import AnnouncementBanner from '@/components/AnnouncementBanner';
 import ComposeAnnouncement from '@/components/ComposeAnnouncement';
 import { supabase } from '@/lib/customSupabaseClient';
 import AccountSettings from '@/components/AccountSettings';
+import KalenderLibur from '@/components/KalenderLibur';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,7 @@ function App() {
   const [isTagihanUnlocked, setIsTagihanUnlocked] = useState(false);
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
+  const [showKalender, setShowKalender] = useState(false);
   const correctPin = '212198';
 
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -329,6 +331,14 @@ function App() {
             )}
             <button
               type="button"
+              onClick={() => setShowKalender(true)}
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-offset-2 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              aria-label="Kalender Libur"
+            >
+              <CalendarDays className="h-5 w-5 text-white" />
+            </button>
+            <button
+              type="button"
               onClick={() => setShowInbox(true)}
               className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-offset-2 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               aria-label="Notifikasi"
@@ -396,6 +406,7 @@ function App() {
       <AllNotifications open={showAllNotifications} onOpenChange={setShowAllNotifications} />
       <AccountSettings open={showAccountSettings} onOpenChange={setShowAccountSettings} />
       <ComposeAnnouncement open={showCompose} onOpenChange={setShowCompose} />
+      <KalenderLibur open={showKalender} onOpenChange={setShowKalender} />
 
       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
         <AlertDialogContent>
