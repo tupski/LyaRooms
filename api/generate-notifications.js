@@ -232,7 +232,7 @@ export default async function handler(req, res) {
 
     // a) Hari ini libur nasional
     if (todayHoliday) {
-      const title = `🔥 Hari Ini Libur: ${todayHoliday}`;
+      const title = `🔥 Hari Ini Hari Libur: ${todayHoliday}`;
       const body = `Hari ini ${fmtTanggal(nowWib)} adalah ${todayHoliday}. Tamu makin rame, siap-siap sibuk!`;
       const dedupe = `holiday_today:${todayStr}`;
       await upsertNotification(supabase, { type: 'holiday_today', title, body, data: { date: todayStr }, dedupe_key: dedupe, audience_role: 'all' });
@@ -243,7 +243,7 @@ export default async function handler(req, res) {
     // b) Besok libur nasional
     if (tomorrowHoliday) {
       const title = `⚡ Besok Libur: ${tomorrowHoliday}`;
-      const body = `Besok ${fmtTanggal(tomorrowWib)} adalah ${tomorrowHoliday}. Bersiap, tamu bakal rame besok!`;
+      const body = `Besok ${fmtTanggal(tomorrowWib)} adalah ${tomorrowHoliday}. Siap-siap, tamu bakal rame besok!`;
       const dedupe = `holiday_tomorrow:${tomorrowStr}`;
       await upsertNotification(supabase, { type: 'holiday_tomorrow', title, body, data: { date: tomorrowStr }, dedupe_key: dedupe, audience_role: 'all' });
       if (pushEnabled) await sendPushToAudience({ title, body, url: '/', audience_role: 'all' });
@@ -254,7 +254,7 @@ export default async function handler(req, res) {
     const dowWib = nowWib.getDay(); // 5 = Jumat
     if (dowWib === 5) {
       const title = `🚀 Weekend Dimulai!`;
-      const body = `Hari ini ${NAMA_HARI[dowWib]}, ${fmtTanggal(nowWib)}. Weekend = tamu rame! Semangat kerja!`;
+      const body = `Hari ini ${NAMA_HARI[dowWib]}, ${fmtTanggal(nowWib)}. Weekend = tamu rame! Semangat kerjanya guys!`;
       const dedupe = `weekend_start:${todayStr}`;
       await upsertNotification(supabase, { type: 'weekend', title, body, data: { date: todayStr }, dedupe_key: dedupe, audience_role: 'all' });
       if (pushEnabled) await sendPushToAudience({ title, body, url: '/', audience_role: 'all' });
