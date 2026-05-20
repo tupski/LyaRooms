@@ -164,7 +164,17 @@ BEGIN
     format('Bayar Tagihan Unit %s - %s', v_row.apartment_location, v_row.room_number),
     v_row.amount,
     (v_paid_at AT TIME ZONE 'Asia/Jakarta')::date,
-    format('Tagihan lunas pada %s', (v_paid_at AT TIME ZONE 'Asia/Jakarta')),
+    format('Tagihan lunas pada %s %s %s %s WIB',
+      to_char(v_paid_at AT TIME ZONE 'Asia/Jakarta', 'DD'),
+      CASE EXTRACT(MONTH FROM v_paid_at AT TIME ZONE 'Asia/Jakarta')
+        WHEN 1  THEN 'Jan' WHEN 2  THEN 'Feb' WHEN 3  THEN 'Mar'
+        WHEN 4  THEN 'Apr' WHEN 5  THEN 'Mei' WHEN 6  THEN 'Jun'
+        WHEN 7  THEN 'Jul' WHEN 8  THEN 'Agu' WHEN 9  THEN 'Sep'
+        WHEN 10 THEN 'Okt' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Des'
+      END,
+      to_char(v_paid_at AT TIME ZONE 'Asia/Jakarta', 'YYYY'),
+      to_char(v_paid_at AT TIME ZONE 'Asia/Jakarta', 'HH24:MI')
+    ),
     'Tagihan Unit',
     v_user_id
   );
@@ -213,3 +223,28 @@ AS $$
   GROUP BY COALESCE(NULLIF(TRIM(p.category), ''), 'Lainnya'), p.category
   ORDER BY total_amount DESC;
 $$;
+
+
+-- 5) Perbaiki format keterangan lama "Tagihan lunas pada 2026-05-XX ..."
+--    menjadi "Tagihan lunas pada DD Bln YYYY HH:MM WIB"
+UPDATE public.pengeluaran
+SET keterangan = (
+  SELECT format('Tagihan lunas pada %s %s %s %s WIB',
+    to_char(ts AT TIME ZONE 'Asia/Jakarta', 'DD'),
+    CASE EXTRACT(MONTH FROM ts AT TIME ZONE 'Asia/Jakarta')
+      WHEN 1  THEN 'Jan' WHEN 2  THEN 'Feb' WHEN 3  THEN 'Mar'
+      WHEN 4  THEN 'Apr' WHEN 5  THEN 'Mei' WHEN 6  THEN 'Jun'
+      WHEN 7  THEN 'Jul' WHEN 8  THEN 'Agu' WHEN 9  THEN 'Sep'
+      WHEN 10 THEN 'Okt' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Des'
+    END,
+    to_char(ts AT TIME ZONE 'Asia/Jakarta', 'YYYY'),
+    to_char(ts AT TIME ZONE 'Asia/Jakarta', 'HH24:MI')
+  )
+  FROM (
+    SELECT (regexp_match(pengeluaran.keterangan, 'Tagihan lunas pada (.+)'))[1]::timestamptz AS ts
+  ) sub
+  WHERE sub.ts IS NOT NULL
+)
+WHERE nama_pengeluaran LIKE 'Bayar Tagihan Unit%'
+  AND keterangan LIKE 'Tagihan lunas pada %'
+  AND keterangan NOT LIKE '% WIB';

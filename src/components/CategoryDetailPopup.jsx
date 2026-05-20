@@ -104,20 +104,20 @@ const CategoryDetailPopup = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="bg-white sm:max-w-lg">
+            <DialogContent className="bg-white w-[calc(100vw-2rem)] max-w-lg overflow-hidden">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center justify-between gap-3">
-                        <span className="truncate">{headerLabel}</span>
+                    <DialogTitle className="pr-6 leading-snug break-words">
+                        {headerLabel}
                     </DialogTitle>
-                    <DialogDescription className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
+                    <DialogDescription className="flex items-center justify-between text-sm gap-2">
+                        <span className="text-gray-600 min-w-0">
                             Total{' '}
                             <span className="font-semibold text-red-600">
                                 {formatRupiah(totalAmount)}
                             </span>
                         </span>
                         {totalItems > 0 && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 shrink-0">
                                 {totalItems} transaksi
                             </span>
                         )}
