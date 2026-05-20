@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { AlertCircle, Calendar, Inbox } from 'lucide-react';
 
@@ -100,6 +100,39 @@ const CategoryDetailPopup = ({
         }
     };
 
+    // Format rentang tanggal untuk header popup
+    // Jika tanggal awal = hari pertama bulan dan akhir = hari terakhir bulan yang sama → tampilkan "Mei 2026"
+    const dateRangeLabel = useMemo(() => {
+        if (!startDate && !endDate) return null;
+        const fmt = (d) => {
+            try {
+                const dt = parseISO(d);
+                return format(dt, 'dd MMMM yyyy', { locale: idLocale });
+            } catch { return d; }
+        };
+        if (startDate && endDate) {
+            try {
+                const s = parseISO(startDate);
+                const e = parseISO(endDate);
+                const firstOfMonth = new Date(s.getFullYear(), s.getMonth(), 1);
+                const lastOfMonth = new Date(s.getFullYear(), s.getMonth() + 1, 0);
+                // Cek apakah rentang = full bulan yang sama
+                if (
+                    s.getFullYear() === e.getFullYear() &&
+                    s.getMonth() === e.getMonth() &&
+                    s.getDate() === firstOfMonth.getDate() &&
+                    e.getDate() === lastOfMonth.getDate()
+                ) {
+                    return format(s, 'MMMM yyyy', { locale: idLocale });
+                }
+                if (startDate === endDate) return fmt(startDate);
+                return `${fmt(startDate)} – ${fmt(endDate)}`;
+            } catch { /* fall through */ }
+        }
+        if (startDate) return fmt(startDate);
+        return fmt(endDate);
+    }, [startDate, endDate]);
+
     const headerLabel = displayLabel;
     const showEmpty =
         !isLoading && !error && (!expenses || expenses.length === 0);
@@ -111,16 +144,24 @@ const CategoryDetailPopup = ({
                     <DialogTitle className="pr-6 leading-snug break-words">
                         {headerLabel}
                     </DialogTitle>
-                    <DialogDescription className="flex items-center justify-between text-sm gap-2">
-                        <span className="text-gray-600 min-w-0">
-                            Total{' '}
-                            <span className="font-semibold text-red-600">
-                                {formatRupiah(totalAmount)}
+                    <DialogDescription className="space-y-1">
+                        <span className="flex items-center justify-between text-sm gap-2">
+                            <span className="text-gray-600 min-w-0">
+                                Total{' '}
+                                <span className="font-semibold text-red-600">
+                                    {formatRupiah(totalAmount)}
+                                </span>
                             </span>
+                            {totalItems > 0 && (
+                                <span className="text-xs text-gray-500 shrink-0">
+                                    {totalItems} transaksi
+                                </span>
+                            )}
                         </span>
-                        {totalItems > 0 && (
-                            <span className="text-xs text-gray-500 shrink-0">
-                                {totalItems} transaksi
+                        {dateRangeLabel && (
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                                <Calendar className="w-3 h-3 shrink-0" />
+                                {dateRangeLabel}
                             </span>
                         )}
                     </DialogDescription>

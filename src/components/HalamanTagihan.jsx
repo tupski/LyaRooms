@@ -1132,7 +1132,9 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
     }, [loadOptions]);
 
     // Memoize filters for paginated query (Requirement 4.4 - filter changes reset to page 1)
+    // Hanya tampilkan pengeluaran yang memiliki apartment_location (tidak null)
     const pengeluaranFilters = useMemo(() => ({
+        apartment_location_not_null: { op: 'not_is_null', value: null, column: 'apartment_location' },
         ...(startDate ? { tanggal_from: { op: 'gte', value: startDate, column: 'tanggal' } } : {}),
         ...(endDate ? { tanggal_to: { op: 'lte', value: endDate, column: 'tanggal' } } : {}),
         ...(selectedLokasi ? { apartment_location: { op: 'eq', value: selectedLokasi } } : {}),
@@ -1160,7 +1162,7 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
         filters: pengeluaranFilters,
     });
 
-    // Server-side category summary via RPC (Requirement 5.1, 5.2, 5.6)
+    // Server-side category summary via RPC — masih dipakai untuk CategoryDetailPopup
     const {
         data: categorySummary,
         isLoading: isCategoryLoading,
@@ -1198,16 +1200,6 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
     }, [refreshExpenses, refreshCategorySummary, onDataUpdate]);
 
     const filteredKamarOptions = selectedLokasi ? kamarOptions.filter(k => k.lokasi === selectedLokasi) : [];
-
-    // Total from server-side category summary (covers all pages, not just current)
-    const totalAllPages = useMemo(
-        () => (categorySummary || []).reduce((sum, c) => sum + Number(c.total_amount || 0), 0),
-        [categorySummary]
-    );
-    const totalTransactions = useMemo(
-        () => (categorySummary || []).reduce((sum, c) => sum + Number(c.transaction_count || 0), 0),
-        [categorySummary]
-    );
 
     // Popup state for CategoryDetailPopup (Requirement 6.1, 6.6).
     // Parent state (filters, currentPage) is intentionally untouched while
@@ -1278,69 +1270,6 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
                         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900"/>
                     </div>
                 </div>
-            </div>
-
-            {/* Category Summary Card - positioned ABOVE detail list (Requirement 7.4) */}
-            <div className="glassmorphic-card p-5">
-                <h3 className="font-bold text-gray-800 mb-3">Ringkasan Pengeluaran</h3>
-                <div className="bg-red-50 p-4 rounded-xl mb-3">
-                    <p className="text-sm text-red-800">Total Pengeluaran</p>
-                    <p className="text-2xl font-bold text-red-700">{formatRupiah(totalAllPages)}</p>
-                    <p className="text-xs text-red-600">{totalTransactions} transaksi</p>
-                </div>
-
-                {/* Category error */}
-                {categoryError && (
-                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-2">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                        <span>{categoryError}</span>
-                    </div>
-                )}
-
-                {/* Category loading */}
-                {isCategoryLoading && (!categorySummary || categorySummary.length === 0) && (
-                    <div className="flex justify-center py-4">
-                        <Spinner className="w-5 h-5 text-blue-500" />
-                    </div>
-                )}
-
-                {/* Category empty state */}
-                {!isCategoryLoading && !categoryError && (!categorySummary || categorySummary.length === 0) && (
-                    <p className="text-center text-sm text-gray-500 py-4">Tidak ada data untuk filter ini</p>
-                )}
-
-                {/* Category rows - keyboard focusable, chevron icon, hover state (Requirement 7.4, 7.6) */}
-                {categorySummary && categorySummary.length > 0 && (
-                    <div className="space-y-2">
-                        {categorySummary.map((cat) => {
-                            const label = cat.category && String(cat.category).trim() !== '' ? cat.category : 'Lainnya';
-                            return (
-                                <div
-                                    key={label}
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => handleCategoryClick(cat)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            handleCategoryClick(cat);
-                                        }
-                                    }}
-                                    className="flex justify-between items-center bg-white/50 p-3 rounded-lg cursor-pointer hover:bg-white/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                                >
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-gray-800">{label}</span>
-                                        <span className="text-xs text-gray-500">{cat.transaction_count} transaksi</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold text-gray-900">{formatRupiah(cat.total_amount)}</span>
-                                        <ChevronRight className="w-4 h-4 text-gray-400" />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
 
             {/* Detail Pengeluaran with server-side pagination */}
@@ -1723,73 +1652,7 @@ const Pengeluaran = ({ onDataUpdate }) => {
                     </DialogContent>
                 </Dialog>
 
-                {/* Ringkasan Pengeluaran - collapsible, default collapsed */}
-                <div className="glassmorphic-card overflow-hidden">
-                    <button
-                        onClick={() => setIsRingkasanOpen(prev => !prev)}
-                        className="w-full flex justify-between items-center p-4"
-                    >
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <Coins className="w-4 h-4 text-red-500" />
-                            Ringkasan Pengeluaran
-                        </h3>
-                        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isRingkasanOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    <AnimatePresence initial={false}>
-                        {isRingkasanOpen && (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                            >
-                                <div className="px-4 pb-4 space-y-3">
-                                    <div className="bg-red-50 p-3 rounded-xl">
-                                        <p className="text-sm text-red-800">Total Pengeluaran</p>
-                                        <p className="text-xl font-bold text-red-700">{formatRupiahLocal(totalPengeluaran)}</p>
-                                        {dateRangeLabel && <p className="text-xs text-red-500 mt-0.5">{dateRangeLabel}</p>}
-                                    </div>
-                                    {isCategoryLoading && (
-                                        <div className="flex justify-center py-3">
-                                            <Spinner className="w-5 h-5 text-blue-500" />
-                                        </div>
-                                    )}
-                                    {!isCategoryLoading && categorySummary && categorySummary.length > 0 && (
-                                        <div className="space-y-2">
-                                            {categorySummary.map((cat) => {
-                                                const lbl = cat.category && String(cat.category).trim() !== '' ? cat.category : 'Lainnya';
-                                                return (
-                                                    <div
-                                                        key={lbl}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={() => handleCategoryClick(cat)}
-                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCategoryClick(cat); } }}
-                                                        className="flex justify-between items-center bg-white/50 p-3 rounded-lg cursor-pointer hover:bg-white/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                                                    >
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-medium text-gray-800">{lbl}</span>
-                                                            <span className="text-xs text-gray-500">{cat.transaction_count} transaksi</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-sm font-semibold text-gray-900">{formatRupiahLocal(cat.total_amount)}</span>
-                                                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    {!isCategoryLoading && (!categorySummary || categorySummary.length === 0) && (
-                                        <p className="text-center text-sm text-gray-500 py-2">Tidak ada data untuk periode ini</p>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-    
+                {/* Ringkasan Pengeluaran - collapsible, default collapsed, di dalam card Riwayat */}
                 <div className="glassmorphic-card p-5 space-y-4">
                     <div className="flex justify-between items-center">
                         <h2 className="font-bold text-lg text-gray-800">Riwayat Pengeluaran</h2>
@@ -1808,16 +1671,71 @@ const Pengeluaran = ({ onDataUpdate }) => {
                         </div>
                     </div>
 
-                    {/* Total Pengeluaran - di bawah filter tanggal, mengikuti date range */}
-                    <div className="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
-                        <div>
-                            <p className="text-xs font-semibold text-red-700">Total Pengeluaran</p>
-                            {dateRangeLabel && <p className="text-xs text-gray-400">{dateRangeLabel}</p>}
-                            <p className="text-xl font-bold text-red-600">{formatRupiahLocal(totalPengeluaran)}</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                            <Coins className="w-5 h-5 text-red-600" />
-                        </div>
+                    {/* Ringkasan Pengeluaran - collapsible */}
+                    <div className="border rounded-xl overflow-hidden">
+                        <button
+                            onClick={() => setIsRingkasanOpen(prev => !prev)}
+                            className="w-full flex justify-between items-center px-4 py-3 bg-white/60 hover:bg-white/80 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Coins className="w-4 h-4 text-red-500" />
+                                <span className="font-semibold text-gray-800 text-sm">Ringkasan Pengeluaran</span>
+                                {dateRangeLabel && <span className="text-xs text-gray-400 hidden sm:inline">— {dateRangeLabel}</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-red-600">{formatRupiahLocal(totalPengeluaran)}</span>
+                                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isRingkasanOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                        </button>
+                        <AnimatePresence initial={false}>
+                            {isRingkasanOpen && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="px-4 pb-3 pt-1 space-y-2 border-t bg-white/30">
+                                        {dateRangeLabel && <p className="text-xs text-gray-400">{dateRangeLabel}</p>}
+                                        {isCategoryLoading && (
+                                            <div className="flex justify-center py-3">
+                                                <Spinner className="w-5 h-5 text-blue-500" />
+                                            </div>
+                                        )}
+                                        {!isCategoryLoading && categorySummary && categorySummary.length > 0 && (
+                                            <div className="space-y-1.5">
+                                                {categorySummary.map((cat) => {
+                                                    const lbl = cat.category && String(cat.category).trim() !== '' ? cat.category : 'Lainnya';
+                                                    return (
+                                                        <div
+                                                            key={lbl}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            onClick={() => handleCategoryClick(cat)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCategoryClick(cat); } }}
+                                                            className="flex justify-between items-center bg-white/50 px-3 py-2 rounded-lg cursor-pointer hover:bg-white/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-medium text-gray-800">{lbl}</span>
+                                                                <span className="text-xs text-gray-500">{cat.transaction_count} transaksi</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-semibold text-gray-900">{formatRupiahLocal(cat.total_amount)}</span>
+                                                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {!isCategoryLoading && (!categorySummary || categorySummary.length === 0) && (
+                                            <p className="text-center text-sm text-gray-500 py-2">Tidak ada data untuk periode ini</p>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {/* Error message */}

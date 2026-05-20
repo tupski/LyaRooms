@@ -91,6 +91,9 @@ export function usePaginatedQuery({
               case 'is':
                 query = query.is(column, value);
                 break;
+              case 'not_is_null':
+                query = query.not(column, 'is', null);
+                break;
               default:
                 break;
             }
