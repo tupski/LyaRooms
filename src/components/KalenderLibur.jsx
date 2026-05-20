@@ -1,78 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
-
-// ============================================================
-// Data Libur Nasional Indonesia 2025, 2026, 2027
-// ============================================================
-const LIBUR_NASIONAL = {
-  // 2025
-  '2025-01-01': 'Tahun Baru Masehi',
-  '2025-01-27': 'Isra Miraj Nabi Muhammad SAW',
-  '2025-01-28': 'Cuti Bersama Isra Miraj',
-  '2025-01-29': 'Tahun Baru Imlek 2576',
-  '2025-03-29': 'Hari Suci Nyepi (Tahun Baru Saka 1947)',
-  '2025-03-30': 'Hari Raya Idul Fitri 1446 H',
-  '2025-03-31': 'Hari Raya Idul Fitri 1446 H (Hari Kedua)',
-  '2025-04-01': 'Cuti Bersama Idul Fitri',
-  '2025-04-02': 'Cuti Bersama Idul Fitri',
-  '2025-04-03': 'Cuti Bersama Idul Fitri',
-  '2025-04-04': 'Cuti Bersama Idul Fitri',
-  '2025-04-18': 'Wafat Yesus Kristus',
-  '2025-04-20': 'Kebangkitan Yesus Kristus (Paskah)',
-  '2025-05-01': 'Hari Buruh Internasional',
-  '2025-05-12': 'Hari Raya Waisak 2569',
-  '2025-05-13': 'Cuti Bersama Waisak',
-  '2025-05-29': 'Kenaikan Yesus Kristus',
-  '2025-06-01': 'Hari Lahir Pancasila',
-  '2025-06-06': 'Hari Raya Idul Adha 1446 H',
-  '2025-06-27': 'Tahun Baru Islam 1447 H',
-  '2025-08-17': 'Hari Kemerdekaan Republik Indonesia',
-  '2025-09-05': 'Maulid Nabi Muhammad SAW',
-  '2025-12-25': 'Hari Raya Natal',
-  '2025-12-26': 'Cuti Bersama Natal',
-  // 2026
-  '2026-01-01': 'Tahun Baru Masehi',
-  '2026-01-16': 'Isra Miraj Nabi Muhammad SAW',
-  '2026-01-28': 'Tahun Baru Imlek 2577',
-  '2026-02-17': 'Hari Suci Nyepi (Tahun Baru Saka 1948)',
-  '2026-03-20': 'Hari Raya Idul Fitri 1447 H',
-  '2026-03-21': 'Hari Raya Idul Fitri 1447 H (Hari Kedua)',
-  '2026-03-22': 'Cuti Bersama Idul Fitri',
-  '2026-03-23': 'Cuti Bersama Idul Fitri',
-  '2026-03-24': 'Cuti Bersama Idul Fitri',
-  '2026-04-03': 'Wafat Yesus Kristus',
-  '2026-05-01': 'Hari Buruh Internasional',
-  '2026-05-14': 'Kenaikan Yesus Kristus',
-  '2026-05-26': 'Hari Raya Waisak 2570',
-  '2026-05-27': 'Hari Raya Idul Adha 1447 H',
-  '2026-06-01': 'Hari Lahir Pancasila',
-  '2026-06-17': 'Tahun Baru Islam 1448 H',
-  '2026-08-17': 'Hari Kemerdekaan Republik Indonesia',
-  '2026-08-25': 'Maulid Nabi Muhammad SAW',
-  '2026-12-25': 'Hari Raya Natal',
-  // 2027
-  '2027-01-01': 'Tahun Baru Masehi',
-  '2027-01-06': 'Isra Miraj Nabi Muhammad SAW',
-  '2027-01-17': 'Tahun Baru Imlek 2578',
-  '2027-03-09': 'Hari Raya Idul Fitri 1448 H',
-  '2027-03-10': 'Hari Raya Idul Fitri 1448 H (Hari Kedua)',
-  '2027-03-11': 'Cuti Bersama Idul Fitri',
-  '2027-03-12': 'Cuti Bersama Idul Fitri',
-  '2027-03-26': 'Hari Suci Nyepi (Tahun Baru Saka 1949)',
-  '2027-03-26': 'Wafat Yesus Kristus',
-  '2027-05-01': 'Hari Buruh Internasional',
-  '2027-05-04': 'Kenaikan Yesus Kristus',
-  '2027-05-16': 'Hari Raya Waisak 2571',
-  '2027-05-17': 'Hari Raya Idul Adha 1448 H',
-  '2027-06-01': 'Hari Lahir Pancasila',
-  '2027-06-07': 'Tahun Baru Islam 1449 H',
-  '2027-08-17': 'Hari Kemerdekaan Republik Indonesia',
-  '2027-08-14': 'Maulid Nabi Muhammad SAW',
-  '2027-12-25': 'Hari Raya Natal',
-  '2027-12-26': 'Cuti Bersama Natal',
-};
 
 const NAMA_BULAN = [
   'Januari','Februari','Maret','April','Mei','Juni',
@@ -80,7 +9,6 @@ const NAMA_BULAN = [
 ];
 // Mulai Senin
 const NAMA_HARI = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
-
 const TAHUN_OPTIONS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 3 + i);
 
 function toKey(year, month, day) {
@@ -96,10 +24,42 @@ const KalenderLibur = ({ open, onOpenChange }) => {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
-  // 'calendar' | 'month' | 'year'
   const [pickerMode, setPickerMode] = useState('calendar');
   const [tagihanList, setTagihanList] = useState([]);
 
+  // Cache libur per tahun: { 2026: { "2026-01-01": "Nama Libur", ... }, ... }
+  const liburCache = useRef({});
+  const [liburMap, setLiburMap] = useState({});
+  const [liburLoading, setLiburLoading] = useState(false);
+
+  // Fetch data libur dari API saat viewYear berubah atau dialog dibuka
+  useEffect(() => {
+    if (!open) return;
+    if (liburCache.current[viewYear]) {
+      setLiburMap(liburCache.current[viewYear]);
+      return;
+    }
+    setLiburLoading(true);
+    fetch(`https://libur.deno.dev/api?year=${viewYear}`)
+      .then(r => r.json())
+      .then(data => {
+        // data: Array<{ date: "YYYY-MM-DD", name: string, is_national_holiday: boolean }>
+        const map = {};
+        (data || []).forEach(item => {
+          if (item.date && item.name) map[item.date] = item.name;
+        });
+        liburCache.current[viewYear] = map;
+        setLiburMap(map);
+      })
+      .catch(() => {
+        // Fallback: cache kosong supaya tidak retry terus
+        liburCache.current[viewYear] = {};
+        setLiburMap({});
+      })
+      .finally(() => setLiburLoading(false));
+  }, [open, viewYear]);
+
+  // Fetch tagihan unpaid saat dialog dibuka
   useEffect(() => {
     if (!open) return;
     supabase
@@ -109,6 +69,7 @@ const KalenderLibur = ({ open, onOpenChange }) => {
       .then(({ data }) => setTagihanList(data || []));
   }, [open]);
 
+  // Reset picker mode saat dialog ditutup
   useEffect(() => {
     if (!open) setPickerMode('calendar');
   }, [open]);
@@ -122,6 +83,7 @@ const KalenderLibur = ({ open, onOpenChange }) => {
     else setViewMonth(m => m + 1);
   };
 
+  // Map due_date → label tagihan untuk bulan yang ditampilkan
   const tagihanMap = useMemo(() => {
     const map = {};
     tagihanList.forEach(t => {
@@ -146,7 +108,7 @@ const KalenderLibur = ({ open, onOpenChange }) => {
     const liburList = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const key = toKey(viewYear, viewMonth, d);
-      if (LIBUR_NASIONAL[key]) liburList.push({ tanggal: d, nama: LIBUR_NASIONAL[key] });
+      if (liburMap[key]) liburList.push({ tanggal: d, nama: liburMap[key] });
     }
 
     const tagihanList2 = [];
@@ -157,12 +119,12 @@ const KalenderLibur = ({ open, onOpenChange }) => {
     tagihanList2.sort((a, b) => a.tanggal - b.tanggal);
 
     return { days: cells, liburBulanIni: liburList, tagihanBulanIni: tagihanList2 };
-  }, [viewYear, viewMonth, tagihanMap]);
+  }, [viewYear, viewMonth, liburMap, tagihanMap]);
 
   const getDayColor = (day) => {
     if (!day) return '';
     const key = toKey(viewYear, viewMonth, day);
-    if (LIBUR_NASIONAL[key]) return 'text-red-600 font-bold';
+    if (liburMap[key]) return 'text-red-600 font-bold';
     const dow = getDowMon(viewYear, viewMonth, day);
     if (dow >= 5) return 'text-green-600 font-semibold';
     return 'text-gray-800';
@@ -172,24 +134,21 @@ const KalenderLibur = ({ open, onOpenChange }) => {
     day && today.getDate() === day &&
     today.getMonth() === viewMonth && today.getFullYear() === viewYear;
 
-  const isLibur = (day) => day && !!LIBUR_NASIONAL[toKey(viewYear, viewMonth, day)];
+  const isLibur = (day) => day && !!liburMap[toKey(viewYear, viewMonth, day)];
   const hasTagihan = (day) => day && !!tagihanMap[toKey(viewYear, viewMonth, day)];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* hideClose: sembunyikan tombol close bawaan Radix, kita buat sendiri */}
       <DialogContent hideClose className="bg-white w-[calc(100vw-2rem)] max-w-sm p-0 overflow-hidden rounded-2xl">
-        {/* Judul tersembunyi untuk aksesibilitas */}
         <DialogTitle className="sr-only">Kalender Libur Nasional</DialogTitle>
         <DialogDescription className="sr-only">
           Kalender libur nasional Indonesia dan tagihan jatuh tempo
         </DialogDescription>
 
-        {/* Header — layout 3 kolom: [prev] [judul] [next+close] */}
+        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-3 py-3 flex items-center gap-2">
-          {/* Kiri: prev atau spacer */}
           {pickerMode === 'calendar' ? (
-            <button onClick={prevMonth}
+            <button type="button" onClick={prevMonth}
               className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition text-white"
               aria-label="Bulan sebelumnya">
               <ChevronLeft className="w-4 h-4" />
@@ -198,39 +157,30 @@ const KalenderLibur = ({ open, onOpenChange }) => {
             <div className="w-8 shrink-0" />
           )}
 
-          {/* Tengah: judul bulan + tahun (masing-masing tombol terpisah) */}
           <div className="flex-1 flex items-center justify-center gap-1.5">
-            <button
-              type="button"
+            <button type="button"
               onClick={() => setPickerMode(m => m === 'month' ? 'calendar' : 'month')}
-              className="text-white font-bold text-base hover:underline"
-            >
+              className="text-white font-bold text-base hover:underline">
               {NAMA_BULAN[viewMonth]}
             </button>
-            <button
-              type="button"
+            <button type="button"
               onClick={() => setPickerMode(m => m === 'year' ? 'calendar' : 'year')}
-              className="text-white font-bold text-base hover:underline"
-            >
+              className="text-white font-bold text-base hover:underline">
               {viewYear}
             </button>
           </div>
 
-          {/* Kanan: next (hanya di mode calendar) + close */}
           <div className="flex items-center gap-1 shrink-0">
             {pickerMode === 'calendar' && (
-              <button onClick={nextMonth}
+              <button type="button" onClick={nextMonth}
                 className="h-8 w-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition text-white"
                 aria-label="Bulan berikutnya">
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
+            <button type="button" onClick={() => onOpenChange(false)}
               className="h-8 w-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition text-white"
-              aria-label="Tutup kalender"
-            >
+              aria-label="Tutup kalender">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -269,6 +219,11 @@ const KalenderLibur = ({ open, onOpenChange }) => {
         {/* Kalender */}
         {pickerMode === 'calendar' && (
           <div className="px-3 pb-4 pt-2 max-h-[70vh] overflow-y-auto">
+            {/* Loading indicator */}
+            {liburLoading && (
+              <div className="text-center py-2 text-xs text-blue-500">Memuat data libur...</div>
+            )}
+
             {/* Nama hari */}
             <div className="grid grid-cols-7 mb-1">
               {NAMA_HARI.map((h, i) => (
@@ -340,7 +295,7 @@ const KalenderLibur = ({ open, onOpenChange }) => {
               </div>
             )}
 
-            {liburBulanIni.length === 0 && tagihanBulanIni.length === 0 && (
+            {!liburLoading && liburBulanIni.length === 0 && tagihanBulanIni.length === 0 && (
               <p className="mt-3 text-xs text-center text-gray-400 border-t pt-3">
                 Tidak ada libur atau tagihan bulan ini
               </p>
