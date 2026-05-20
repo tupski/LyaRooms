@@ -30,13 +30,9 @@ export const AuthProvider = ({ children }) => {
       } else if (data) {
         setUserRole(data.role);
       } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.role === 'super_admin') {
-          await supabase.from('user_roles').insert({ user_id: userId, role: 'super_admin' });
-          setUserRole('super_admin');
-        } else {
-          setUserRole('karyawan');
-        }
+        // Tidak ada role di tabel — default karyawan
+        // (tidak perlu getUser() lagi, userId sudah valid dari session)
+        setUserRole('karyawan');
       }
     } catch (error) {
       console.error('Error in checkUserRole:', error);
@@ -71,23 +67,27 @@ export const AuthProvider = ({ children }) => {
 
     const init = async () => {
       setLoading(true);
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
 
-      if (initialSession?.user) {
-        setIsSyncingRole(true);
-        await checkUserRole(initialSession.user.id);
-        if (mounted) setIsSyncingRole(false);
-      } else {
-        setUserRole(null);
-      }
-
-      if (mounted) {
-        setLoading(false);
-        initialLoadDone.current = true;
+        if (initialSession?.user) {
+          setIsSyncingRole(true);
+          await checkUserRole(initialSession.user.id);
+          if (mounted) setIsSyncingRole(false);
+        } else {
+          setUserRole(null);
+        }
+      } catch (err) {
+        console.error('[Auth] Init error:', err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          initialLoadDone.current = true;
+        }
       }
     };
 
@@ -107,11 +107,14 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // SIGNED_OUT: reset state
+        // SIGNED_OUT: reset state — bisa dipicu oleh session expired (403)
+        // Jangan reload, cukup reset state agar app redirect ke login screen
         if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
           setUserRole(null);
+          initialLoadDone.current = false;
+          setLoading(false);
           return;
         }
 
