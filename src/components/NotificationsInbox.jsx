@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, CheckCheck, Bell, Filter, ExternalLink } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Check, CheckCheck, Bell, Filter, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatWibDateTime } from '@/lib/formatWib';
+import PaginationControls from '@/components/PaginationControls';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 function buildAudienceFilter(userId, userRole) {
   if (!userId) return null;
@@ -21,19 +20,25 @@ function buildAudienceFilter(userId, userRole) {
 function typeToCategory(type) {
   switch (type) {
     case 'announcement':
-      return { label: 'Pengumuman', variant: 'secondary', className: 'bg-amber-100 text-amber-800 border-amber-200' };
+      return { label: 'Pengumuman', className: 'bg-amber-100 text-amber-800 border-amber-200' };
     case 'checkout_due':
-      return { label: 'Checkout', variant: 'destructive', className: 'bg-red-100 text-red-800 border-red-200' };
+      return { label: 'Checkout', className: 'bg-red-100 text-red-800 border-red-200' };
     case 'checkout_soon':
-      return { label: 'Pengingat', variant: 'default', className: 'bg-blue-100 text-blue-800 border-blue-200' };
+      return { label: 'Pengingat', className: 'bg-blue-100 text-blue-800 border-blue-200' };
     case 'rooms_low':
-      return { label: 'Kamar Hampir Habis', variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+      return { label: 'Kamar Hampir Habis', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     case 'rooms_sold_out':
-      return { label: 'Kamar Habis', variant: 'destructive', className: 'bg-red-100 text-red-800 border-red-200' };
+      return { label: 'Kamar Habis', className: 'bg-red-100 text-red-800 border-red-200' };
     case 'new_transaction':
-      return { label: 'Transaksi', variant: 'default', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      return { label: 'Transaksi', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+    case 'weekend':
+      return { label: 'Weekend', className: 'bg-green-100 text-green-800 border-green-200' };
+    case 'holiday_today':
+      return { label: 'Libur Hari Ini', className: 'bg-red-100 text-red-800 border-red-200' };
+    case 'holiday_tomorrow':
+      return { label: 'Libur Besok', className: 'bg-amber-100 text-amber-800 border-amber-200' };
     default:
-      return { label: 'Lainnya', variant: 'outline', className: 'border-slate-200 text-slate-700' };
+      return { label: 'Info', className: 'bg-slate-100 text-slate-700 border-slate-200' };
   }
 }
 
@@ -41,40 +46,39 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
   const { user, userRole } = useAuth();
   const userId = user?.id;
   const [items, setItems] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [unreadSet, setUnreadSet] = useState(new Set());
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedIds, setExpandedIds] = useState(new Set());
 
   const audienceFilter = useMemo(() => buildAudienceFilter(userId, userRole), [userId, userRole]);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const load = async () => {
     if (!userId || !audienceFilter) return;
     setLoading(true);
     try {
-      const from = (page - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
 
-      const { data: notif, error: notifErr } = await supabase
+      const { data: notif, error: notifErr, count } = await supabase
         .from('notifications')
-        .select('id,type,title,body,data,created_at,audience_role,audience_user_id')
+        .select('id,type,title,body,data,created_at,audience_role,audience_user_id', { count: 'exact' })
         .or(audienceFilter)
         .order('created_at', { ascending: false })
         .range(from, to);
       if (notifErr) throw notifErr;
 
+      setTotalItems(count || 0);
+
       const ids = (notif || []).map((n) => n.id);
       const [{ data: reads, error: readsErr }, { data: hidden, error: hiddenErr }] = await Promise.all([
-        supabase
-          .from('notification_reads')
-          .select('notification_id')
-          .eq('user_id', userId)
+        supabase.from('notification_reads').select('notification_id').eq('user_id', userId)
           .in('notification_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
-        supabase
-          .from('notification_hidden')
-          .select('notification_id')
-          .eq('user_id', userId)
+        supabase.from('notification_hidden').select('notification_id').eq('user_id', userId)
           .in('notification_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
       ]);
       if (readsErr) throw readsErr;
@@ -88,37 +92,26 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
       setItems(filtered);
       setUnreadSet(unread);
     } catch (error) {
-      toast({
-        title: 'Gagal memuat notifikasi',
-        description: error.message || 'Coba buka lagi beberapa saat.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Gagal memuat notifikasi', description: error.message || 'Coba buka lagi.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (open) {
-      setPage(1);
-      setOnlyUnread(false);
-    }
+    if (open) { setPage(1); setOnlyUnread(false); }
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     load();
-    // realtime refresh
-    const channel = supabase
-      .channel(`notif_inbox_${userId || 'anon'}`)
+    const channel = supabase.channel(`notif_inbox_${userId || 'anon'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_reads' }, load)
       .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, page, userId, audienceFilter, onlyUnread]);
+  }, [open, page, pageSize, userId, audienceFilter, onlyUnread]);
 
   const displayed = useMemo(() => {
     if (!onlyUnread) return items;
@@ -127,22 +120,13 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
 
   const markRead = async (id) => {
     if (!userId || !id) return;
-    const { error } = await supabase
-      .from('notification_reads')
+    const { error } = await supabase.from('notification_reads')
       .upsert({ notification_id: id, user_id: userId, read_at: new Date().toISOString() }, { onConflict: 'notification_id,user_id' });
     if (!error) {
-      setUnreadSet((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setUnreadSet((prev) => { const next = new Set(prev); next.delete(id); return next; });
       return;
     }
-    toast({
-      title: 'Gagal menandai notifikasi',
-      description: error.message || 'Silakan coba lagi.',
-      variant: 'destructive',
-    });
+    toast({ title: 'Gagal menandai notifikasi', description: error.message, variant: 'destructive' });
   };
 
   const markAllRead = async () => {
@@ -151,124 +135,148 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
     if (ids.length === 0) return;
     const payload = ids.map((id) => ({ notification_id: id, user_id: userId, read_at: new Date().toISOString() }));
     const { error } = await supabase.from('notification_reads').upsert(payload, { onConflict: 'notification_id,user_id' });
-    if (error) {
-      toast({
-        title: 'Gagal menandai semua notifikasi',
-        description: error.message || 'Silakan coba lagi.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (error) { toast({ title: 'Gagal menandai semua', description: error.message, variant: 'destructive' }); return; }
     setUnreadSet(new Set());
+  };
+
+  const toggleExpand = (id, e) => {
+    e.stopPropagation();
+    setExpandedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" /> Inbox
-          </DialogTitle>
-          <DialogDescription>Notifikasi terbaru untuk Anda.</DialogDescription>
-        </DialogHeader>
+      <DialogContent hideClose className="p-0 overflow-hidden w-[calc(100vw-2rem)] max-w-lg rounded-2xl">
+        <DialogTitle className="sr-only">Inbox Notifikasi</DialogTitle>
+        <DialogDescription className="sr-only">Daftar notifikasi terbaru</DialogDescription>
 
-        <div className="flex items-center justify-between gap-2">
-          <Button variant="outline" size="sm" onClick={() => setOnlyUnread((v) => !v)}>
-            <Filter className="mr-2 h-4 w-4" />
-            {onlyUnread ? 'Belum dibaca' : 'Semua'}
-          </Button>
+        {/* Header gradient */}
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-white">
+            <Bell className="h-5 w-5" />
+            <span className="font-bold text-lg">Inbox</span>
+            {unreadSet.size > 0 && (
+              <span className="inline-flex items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white min-w-[1.25rem]">
+                {unreadSet.size}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={markAllRead} disabled={unreadSet.size === 0}>
-              <CheckCheck className="mr-2 h-4 w-4" />
-              Tandai semua dibaca
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                onOpenChange(false);
-                onOpenAll?.();
-              }}
+            <button
+              type="button"
+              onClick={() => { onOpenChange(false); onOpenAll?.(); }}
+              className="flex items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1.5 text-xs font-semibold text-white transition"
             >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Lihat Semua
-            </Button>
+              <ExternalLink className="h-3.5 w-3.5" /> Semua
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition text-white text-sm font-bold"
+              aria-label="Tutup"
+            >
+              ✕
+            </button>
           </div>
         </div>
 
-        <ScrollArea className="mt-3 h-[55vh] rounded-lg border">
-          <div className="divide-y">
-            {loading && <div className="p-4 text-sm text-slate-500">Memuat...</div>}
-            {!loading && displayed.length === 0 && <div className="p-4 text-sm text-slate-500">Belum ada notifikasi.</div>}
-            {displayed.map((n) => {
-              const unread = unreadSet.has(n.id);
-              const cat = typeToCategory(n.type);
-              return (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => markRead(n.id)}
-                  className={`w-full p-4 text-left transition ${unread ? 'bg-blue-50 hover:bg-blue-100' : 'bg-white hover:bg-slate-50'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="mb-1">
-                        <Badge variant={cat.variant} className={cat.className}>
-                          {cat.label}
-                        </Badge>
-                      </div>
-                      <p className={`truncate text-sm font-semibold ${unread ? 'text-slate-900' : 'text-slate-700'}`}>{n.title}</p>
-                      {expandedIds.has(n.id) ? (
-                        <p className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">{n.body}</p>
-                      ) : (
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">{n.body}</p>
-                      )}
-                      {(n.body?.length || 0) > 120 && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(n.id)) {
-                                next.delete(n.id);
-                              } else {
-                                next.add(n.id);
-                              }
-                              return next;
-                            });
-                          }}
-                          className="mt-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline"
-                        >
-                          {expandedIds.has(n.id) ? 'Sembunyikan' : 'Selengkapnya'}
-                        </button>
-                      )}
-                      <p className="mt-2 text-[11px] text-slate-500">{formatWibDateTime(n.created_at)}</p>
-                    </div>
-                    <div className="shrink-0">
-                      {unread ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white">
-                          <Check className="h-3 w-3" /> Baca
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-semibold text-slate-400">Dibaca</span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b bg-white/80">
+          <button
+            type="button"
+            onClick={() => setOnlyUnread((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              onlyUnread ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            {onlyUnread ? 'Belum dibaca' : 'Semua'}
+          </button>
+          <button
+            type="button"
+            onClick={markAllRead}
+            disabled={unreadSet.size === 0}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-40 transition"
+          >
+            <CheckCheck className="h-3.5 w-3.5" /> Tandai semua dibaca
+          </button>
+        </div>
 
-        <div className="mt-3 flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
-            Sebelumnya
-          </Button>
-          <p className="text-xs text-slate-500">Halaman {page}</p>
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={items.length < PAGE_SIZE}>
-            Berikutnya
-          </Button>
+        {/* List */}
+        <div className="overflow-y-auto max-h-[50vh] divide-y bg-white">
+          {loading && <div className="p-5 text-sm text-slate-500 text-center">Memuat...</div>}
+          {!loading && displayed.length === 0 && (
+            <div className="p-8 text-center">
+              <Bell className="h-10 w-10 text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Belum ada notifikasi.</p>
+            </div>
+          )}
+          {displayed.map((n) => {
+            const unread = unreadSet.has(n.id);
+            const cat = typeToCategory(n.type);
+            const isExpanded = expandedIds.has(n.id);
+            const isLong = (n.body?.length || 0) > 120;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => markRead(n.id)}
+                className={`w-full px-4 py-3.5 text-left transition ${
+                  unread ? 'bg-blue-50 hover:bg-blue-100' : 'bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cat.className}`}>
+                        {cat.label}
+                      </span>
+                      {unread && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                    </div>
+                    <p className={`text-sm font-semibold leading-snug ${unread ? 'text-slate-900' : 'text-slate-700'}`}>
+                      {n.title}
+                    </p>
+                    <p className={`mt-1 text-xs text-slate-600 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
+                      {n.body}
+                    </p>
+                    {isLong && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleExpand(n.id, e)}
+                        className="mt-0.5 flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 hover:text-blue-800"
+                      >
+                        {isExpanded ? <><ChevronUp className="w-3 h-3" /> Sembunyikan</> : <><ChevronDown className="w-3 h-3" /> Selengkapnya</>}
+                      </button>
+                    )}
+                    <p className="mt-2 text-[11px] text-slate-400">{formatWibDateTime(n.created_at)}</p>
+                  </div>
+                  <div className="shrink-0 pt-0.5">
+                    {unread ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-2 py-1 text-[10px] font-semibold text-white">
+                        <Check className="h-3 w-3" /> Baca
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-slate-300">✓ Dibaca</span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Pagination */}
+        <div className="px-4 py-3 border-t bg-white/80">
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            itemsPerPage={pageSize}
+            totalItems={totalItems}
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+          />
         </div>
       </DialogContent>
     </Dialog>

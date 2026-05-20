@@ -10,6 +10,7 @@ import { formatPaymentLines, formatRupiahNumber } from '@/lib/formatPaymentText'
 import ImageViewerModal from '@/components/ImageViewerModal';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import FormTransaksiModern from '@/components/FormTransaksiModern';
+import DayInfoBanner from '@/components/DayInfoBanner';
 
 /**
  * KaryawanTransaksi – halaman container untuk karyawan.
@@ -173,7 +174,7 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
         <header className="mb-6 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Input & Riwayat Transaksi</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-white">Input Data Check-in</h1>
               <p className="text-sm text-blue-100">Catat transaksi dan pantau riwayat input Anda.</p>
             </div>
             <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
@@ -182,6 +183,8 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
             </div>
           </div>
         </header>
+
+        <DayInfoBanner />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
           {/* Kolom Form */}

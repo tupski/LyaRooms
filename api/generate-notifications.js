@@ -207,10 +207,63 @@ export default async function handler(req, res) {
       }
     }
 
+    // 3) Notifikasi Weekend & Libur Nasional — audience_role: 'all'
+    const nowWib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const todayStr = `${nowWib.getFullYear()}-${String(nowWib.getMonth() + 1).padStart(2,'0')}-${String(nowWib.getDate()).padStart(2,'0')}`;
+    const tomorrowWib = new Date(nowWib);
+    tomorrowWib.setDate(nowWib.getDate() + 1);
+    const tomorrowStr = `${tomorrowWib.getFullYear()}-${String(tomorrowWib.getMonth() + 1).padStart(2,'0')}-${String(tomorrowWib.getDate()).padStart(2,'0')}`;
+
+    const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const fmtTanggal = (d) => `${d.getDate()} ${NAMA_BULAN[d.getMonth()]} ${d.getFullYear()}`;
+
+    // Fetch libur hari ini dan besok dari API
+    let todayHoliday = null;
+    let tomorrowHoliday = null;
+    try {
+      const [todayRes, tomorrowRes] = await Promise.all([
+        fetch(`https://libur.deno.dev/api?year=${nowWib.getFullYear()}&month=${nowWib.getMonth()+1}&day=${nowWib.getDate()}`).then(r => r.json()),
+        fetch(`https://libur.deno.dev/api?year=${tomorrowWib.getFullYear()}&month=${tomorrowWib.getMonth()+1}&day=${tomorrowWib.getDate()}`).then(r => r.json()),
+      ]);
+      if (todayRes?.is_holiday) todayHoliday = (todayRes.holiday_list || [])[0] || 'Libur Nasional';
+      if (tomorrowRes?.is_holiday) tomorrowHoliday = (tomorrowRes.holiday_list || [])[0] || 'Libur Nasional';
+    } catch (_e) { /* API gagal, skip */ }
+
+    // a) Hari ini libur nasional
+    if (todayHoliday) {
+      const title = `🎊 Hari Ini Libur: ${todayHoliday}`;
+      const body = `Hari ini ${fmtTanggal(nowWib)} adalah ${todayHoliday}. Selamat menikmati hari libur!`;
+      const dedupe = `holiday_today:${todayStr}`;
+      await upsertNotification(supabase, { type: 'holiday_today', title, body, data: { date: todayStr }, dedupe_key: dedupe, audience_role: 'all' });
+      if (pushEnabled) await sendPushToAudience({ title, body, url: '/', audience_role: 'all' });
+      result.created += 1;
+    }
+
+    // b) Besok libur nasional
+    if (tomorrowHoliday) {
+      const title = `🗓️ Besok Libur: ${tomorrowHoliday}`;
+      const body = `Besok ${fmtTanggal(tomorrowWib)} adalah ${tomorrowHoliday}. Selamat beristirahat!`;
+      const dedupe = `holiday_tomorrow:${tomorrowStr}`;
+      await upsertNotification(supabase, { type: 'holiday_tomorrow', title, body, data: { date: tomorrowStr }, dedupe_key: dedupe, audience_role: 'all' });
+      if (pushEnabled) await sendPushToAudience({ title, body, url: '/', audience_role: 'all' });
+      result.created += 1;
+    }
+
+    // c) Memasuki hari Jumat (weekend dimulai) — hanya trigger di hari Jumat
+    const dowWib = nowWib.getDay(); // 5 = Jumat
+    if (dowWib === 5) {
+      const title = `🎉 Selamat Weekend!`;
+      const body = `Hari ini ${NAMA_HARI[dowWib]}, ${fmtTanggal(nowWib)}. Semangat kerja, weekend sudah di depan mata!`;
+      const dedupe = `weekend_start:${todayStr}`;
+      await upsertNotification(supabase, { type: 'weekend', title, body, data: { date: todayStr }, dedupe_key: dedupe, audience_role: 'all' });
+      if (pushEnabled) await sendPushToAudience({ title, body, url: '/', audience_role: 'all' });
+      result.created += 1;
+    }
+
     // Endpoint ini hanya generator; push akan dikirim dari endpoint terpisah.
     return res.status(200).json(result);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e?.message || 'Gagal generate notifikasi', ...result });
   }
 }
-

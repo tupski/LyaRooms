@@ -11,6 +11,7 @@ import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
 import { compressImageFile } from '@/lib/compressImage';
 import ImageViewerModal from '@/components/ImageViewerModal';
 import { calcEndAt, getActiveTransaction, getRentalConfig, capitalizeWords } from '@/lib/roomUtils';
+import DayInfoBanner from '@/components/DayInfoBanner';
 
 const RENTAL_TYPE_OPTIONS = [
   { value: 'TRANSIT', label: 'Transit' },
@@ -566,15 +567,12 @@ const FormTransaksiModern = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-white">Form Input Transaksi</h1>
-                {/* <p className="text-sm text-blue-100">Catat transaksi apartemen dengan alur cepat dan rapi.</p> */}
               </div>
-              {/* <div className="rounded-xl bg-white/20 px-4 py-2 text-sm text-white">
-                <div className="font-medium">{user?.user_metadata?.full_name || user?.email}</div>
-                <div className="text-xs uppercase tracking-wide text-blue-100">{userRole || 'karyawan'}</div>
-              </div> */}
             </div>
           </header>
         )}
+
+        <DayInfoBanner />
 
         <form
           onSubmit={(e) => {
