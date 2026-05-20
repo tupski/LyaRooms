@@ -31,12 +31,24 @@ function typeToCategory(type) {
       return { label: 'Kamar Habis', className: 'bg-red-100 text-red-800 border-red-200' };
     case 'new_transaction':
       return { label: 'Transaksi', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+    case 'new_checkin':
+      return { label: 'Check-in Baru', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+    case 'new_request':
+      return { label: 'Request Baru', className: 'bg-cyan-100 text-cyan-800 border-cyan-200' };
+    case 'request_response':
+      return { label: 'Respon Request', className: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+    case 'tagihan_overdue':
+      return { label: 'Tagihan Terlambat', className: 'bg-red-100 text-red-800 border-red-200' };
     case 'weekend':
       return { label: 'Weekend', className: 'bg-green-100 text-green-800 border-green-200' };
+    case 'weekend_tomorrow':
+      return { label: 'Besok Weekend', className: 'bg-teal-100 text-teal-800 border-teal-200' };
     case 'holiday_today':
       return { label: 'Libur Hari Ini', className: 'bg-red-100 text-red-800 border-red-200' };
     case 'holiday_tomorrow':
       return { label: 'Libur Besok', className: 'bg-amber-100 text-amber-800 border-amber-200' };
+    case 'long_holiday':
+      return { label: 'Libur Panjang', className: 'bg-purple-100 text-purple-800 border-purple-200' };
     default:
       return { label: 'Info', className: 'bg-slate-100 text-slate-700 border-slate-200' };
   }
