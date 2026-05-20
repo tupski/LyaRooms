@@ -17,7 +17,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 export function usePaginatedQuery({
   table,
   select = '*',
-  pageSize = 10,
+  pageSize: initialPageSize = 10,
   orderBy,
   ascending = false,
   filters: externalFilters,
@@ -26,6 +26,7 @@ export function usePaginatedQuery({
   const [data, setData] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState(initialPageSize);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [internalFilters, setInternalFilters] = useState(externalFilters || {});
@@ -139,6 +140,12 @@ export function usePaginatedQuery({
     };
   }, []);
 
+  // Public API: change page size and reset to page 1
+  const setPageSize = useCallback((size) => {
+    setPageSizeState(size);
+    setCurrentPage(1);
+  }, []);
+
   // Public API: set page with clamping
   const setPage = useCallback(
     (page) => {
@@ -163,9 +170,11 @@ export function usePaginatedQuery({
     totalItems,
     totalPages,
     currentPage,
+    pageSize,
     isLoading,
     error,
     setPage,
+    setPageSize,
     refresh,
     setFilters,
   };

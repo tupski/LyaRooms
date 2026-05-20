@@ -280,7 +280,7 @@ const UserManagement = () => {
                     {user.last_sign_in_at ? (
                       <div className="flex items-center text-sm text-gray-600">
                         <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(user.last_sign_in_at).toLocaleDateString()}
+                        {new Date(user.last_sign_in_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
                       </div>
                     ) : (
                       <span className="text-gray-400 text-sm">Belum ada data</span>

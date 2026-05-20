@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
     import { resolveStorageUrl } from '@/lib/storageUrl';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import { addDays, addMonths, format, endOfMonth, startOfDay, startOfMonth, subDays } from 'date-fns';
+    import { id as idLocale } from 'date-fns/locale';
     import PaginationControls from '@/components/PaginationControls';
     import TrendBreakdownChart from '@/components/TrendBreakdownChart';
     import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
@@ -170,8 +171,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
       const [isSubmitting, setIsSubmitting] = useState(false);
 
       // Stable filter objects — must be memoized to avoid infinite re-fetch loop
-      // (inline object literals create a new reference every render, which causes
-      //  usePaginatedQuery's useCallback to rebuild fetchPage on every render)
       const unpaidFilters = useMemo(() => ({ status: { op: 'eq', value: 'unpaid' } }), []);
       const paidFilters = useMemo(() => ({ status: { op: 'eq', value: 'paid' } }), []);
 
@@ -395,8 +394,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
               currentPage={unpaidQuery.currentPage}
               totalPages={unpaidQuery.totalPages}
               onPageChange={unpaidQuery.setPage}
-              itemsPerPage={10}
+              itemsPerPage={unpaidQuery.pageSize}
               totalItems={unpaidQuery.totalItems}
+              onPageSizeChange={unpaidQuery.setPageSize}
             />
           </div>
     
@@ -442,8 +442,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                 currentPage={paidQuery.currentPage}
                 totalPages={paidQuery.totalPages}
                 onPageChange={paidQuery.setPage}
-                itemsPerPage={10}
+                itemsPerPage={paidQuery.pageSize}
                 totalItems={paidQuery.totalItems}
+                onPageSizeChange={paidQuery.setPageSize}
               />
           </div>
         </div>
@@ -499,9 +500,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
             totalItems: paidFeesTotalItems,
             totalPages: paidFeesTotalPages,
             currentPage: paidFeesCurrentPage,
+            pageSize: paidFeesPageSize,
             isLoading: paidFeesLoading,
             error: paidFeesError,
             setPage: setPaidFeesPage,
+            setPageSize: setPaidFeesPageSize,
             refresh: refreshPaidFees,
         } = usePaginatedQuery({
             table: 'tagihan_fee_lunas',
@@ -975,8 +978,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
                                         currentPage={paidFeesCurrentPage}
                                         totalPages={paidFeesTotalPages}
                                         onPageChange={setPaidFeesPage}
-                                        itemsPerPage={10}
+                                        itemsPerPage={paidFeesPageSize}
                                         totalItems={paidFeesTotalItems}
+                                        onPageSizeChange={setPaidFeesPageSize}
                                     />
                                 </>
                             ) : (
@@ -1141,9 +1145,11 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
         totalItems,
         totalPages,
         currentPage,
+        pageSize,
         isLoading,
         error: queryError,
         setPage,
+        setPageSize,
         refresh: refreshExpenses,
     } = usePaginatedQuery({
         table: 'pengeluaran',
@@ -1379,7 +1385,7 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
                                 <p className="font-bold text-red-600 whitespace-nowrap">{formatRupiah(expense.jumlah)}</p>
                             </div>
                             <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                                <p><Calendar className="w-3 h-3 inline mr-1"/>{format(new Date(expense.tanggal), 'dd MMMM yyyy')}</p>
+                                <p><Calendar className="w-3 h-3 inline mr-1"/>{format(new Date(expense.tanggal), 'dd MMMM yyyy', { locale: idLocale })}</p>
                                 {expense.apartment_location && <p><Building2 className="w-3 h-3 inline mr-1"/>{expense.apartment_location}{expense.room_number ? ` - ${expense.room_number}` : ''}</p>}
                             </div>
                             {expense.keterangan && <p className="text-sm text-gray-700 mt-2 border-t pt-2">{expense.keterangan}</p>}
@@ -1392,8 +1398,9 @@ const PengeluaranUnit = ({ onDataUpdate }) => {
                     currentPage={currentPage}
                     totalPages={totalPages}
                     onPageChange={setPage}
-                    itemsPerPage={10}
+                    itemsPerPage={pageSize}
                     totalItems={totalItems}
+                    onPageSizeChange={setPageSize}
                 />
             </div>
 
@@ -1458,9 +1465,11 @@ const Pengeluaran = ({ onDataUpdate }) => {
             totalItems,
             totalPages,
             currentPage,
+            pageSize,
             isLoading,
             error: queryError,
             setPage,
+            setPageSize,
             refresh: refreshExpenses,
         } = usePaginatedQuery({
             table: 'pengeluaran',
@@ -1852,7 +1861,7 @@ const Pengeluaran = ({ onDataUpdate }) => {
                                     </div>
                                     <p className="font-bold text-red-600 whitespace-nowrap">{formatRupiahLocal(expense.jumlah)}</p>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">{format(new Date(expense.tanggal), 'dd MMMM yyyy')}</p>
+                                <p className="text-xs text-gray-500 mt-1">{format(new Date(expense.tanggal), 'dd MMMM yyyy', { locale: idLocale })}</p>
                                 {expense.keterangan && <p className="text-sm text-gray-700 mt-2 border-t pt-2">{expense.keterangan}</p>}
                             </motion.div>
                         ))
@@ -1863,8 +1872,9 @@ const Pengeluaran = ({ onDataUpdate }) => {
                         currentPage={currentPage}
                         totalPages={totalPages}
                         onPageChange={setPage}
-                        itemsPerPage={10}
+                        itemsPerPage={pageSize}
                         totalItems={totalItems}
+                        onPageSizeChange={setPageSize}
                     />
                 </div>
 

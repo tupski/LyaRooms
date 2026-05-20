@@ -75,9 +75,11 @@ const CategoryDetailPopup = ({
         totalItems,
         totalPages,
         currentPage,
+        pageSize,
         isLoading,
         error,
         setPage,
+        setPageSize,
     } = usePaginatedQuery({
         table: 'pengeluaran',
         select: '*',
@@ -180,14 +182,15 @@ const CategoryDetailPopup = ({
                         </ul>
                     )}
 
-                    {/* Pagination (Requirement 6.4) - hidden when totalPages <= 1 */}
-                    {totalItems > PAGE_SIZE && (
+                    {/* Pagination (Requirement 6.4) */}
+                    {totalItems > pageSize && (
                         <PaginationControls
                             currentPage={currentPage}
                             totalPages={totalPages}
                             onPageChange={setPage}
-                            itemsPerPage={PAGE_SIZE}
+                            itemsPerPage={pageSize}
                             totalItems={totalItems}
+                            onPageSizeChange={setPageSize}
                         />
                     )}
                 </div>
