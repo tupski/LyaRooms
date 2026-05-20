@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 
 import { supabase } from '@/lib/customSupabaseClient';
 import { toast } from '@/components/ui/use-toast';
@@ -6,13 +6,15 @@ import { toast } from '@/components/ui/use-toast';
 const AuthContext = createContext(undefined);
 
 export const AuthProvider = ({ children }) => {
-  // Gunakan fungsi toast langsung (bukan hook) untuk menghindari masalah urutan render/context
-
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [isSyncingRole, setIsSyncingRole] = useState(false);
+
+  // Ref untuk track apakah initial load sudah selesai — mencegah loading flash
+  // saat TOKEN_REFRESHED atau SIGNED_IN ulang
+  const initialLoadDone = useRef(false);
 
   const checkUserRole = useCallback(async (userId) => {
     try {
@@ -22,20 +24,15 @@ export const AuthProvider = ({ children }) => {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = tidak ada baris
+      if (error && error.code !== 'PGRST116') {
         console.error('Error checking user role:', error);
-        setUserRole('karyawan'); // Peran default
+        setUserRole('karyawan');
       } else if (data) {
         setUserRole(data.role);
       } else {
-        // Jika belum ada peran, cek metadata admin
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.user_metadata?.role === 'super_admin') {
-          // Buat entri peran jika belum ada
-          await supabase.from('user_roles').insert({
-            user_id: userId,
-            role: 'super_admin'
-          });
+          await supabase.from('user_roles').insert({ user_id: userId, role: 'super_admin' });
           setUserRole('super_admin');
         } else {
           setUserRole('karyawan');
@@ -47,8 +44,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const handleSession = useCallback(async (currentSession) => {
-    setLoading(true);
+  // handleSession: showLoading hanya untuk initial load, bukan token refresh
+  const handleSession = useCallback(async (currentSession, showLoading = false) => {
+    if (showLoading) setLoading(true);
+
     setSession(currentSession);
     setUser(currentSession?.user ?? null);
 
@@ -60,82 +59,103 @@ export const AuthProvider = ({ children }) => {
       setUserRole(null);
     }
 
-    setLoading(false);
+    if (showLoading) setLoading(false);
   }, [checkUserRole]);
 
   const isSuperAdmin = useMemo(() => userRole === 'super_admin', [userRole]);
   const isAdmin = useMemo(() => userRole === 'admin' || userRole === 'super_admin', [userRole]);
 
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      handleSession(session);
+    let mounted = true;
+
+    const init = async () => {
+      setLoading(true);
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+
+      if (initialSession?.user) {
+        setIsSyncingRole(true);
+        await checkUserRole(initialSession.user.id);
+        if (mounted) setIsSyncingRole(false);
+      } else {
+        setUserRole(null);
+      }
+
+      if (mounted) {
+        setLoading(false);
+        initialLoadDone.current = true;
+      }
     };
 
-    getSession();
+    init();
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // hanya sekali saat mount
 
+  // ── Auth state changes (setelah initial load) ─────────────────────────────
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        handleSession(session);
+      async (event, currentSession) => {
+        // TOKEN_REFRESHED: update session tanpa loading flash
+        if (event === 'TOKEN_REFRESHED') {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          return;
+        }
+
+        // SIGNED_OUT: reset state
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setUserRole(null);
+          return;
+        }
+
+        // SIGNED_IN / USER_UPDATED: update tanpa loading jika sudah init
+        if (initialLoadDone.current) {
+          await handleSession(currentSession, false);
+        }
       }
     );
 
-    // Realtime role listener
-    let roleChannel = null;
-    const userId = session?.user?.id;
-    
-    if (userId) {
-      roleChannel = supabase
-        .channel(`role_sync_${userId}`)
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'user_roles', 
-          filter: `user_id=eq.${userId}` 
-        }, () => checkUserRole(userId))
-        .subscribe();
-    }
+    return () => subscription.unsubscribe();
+  }, [handleSession]);
 
-    return () => {
-      subscription.unsubscribe();
-      if (roleChannel) {
-        supabase.removeChannel(roleChannel);
-      }
-    };
-  }, [handleSession, session?.user?.id, checkUserRole]);
+  // ── Realtime role sync (terpisah, tidak trigger re-subscribe saat session berubah) ──
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    const roleChannel = supabase
+      .channel(`role_sync_${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_roles',
+        filter: `user_id=eq.${userId}`,
+      }, () => checkUserRole(userId))
+      .subscribe();
+
+    return () => supabase.removeChannel(roleChannel);
+  }, [user?.id, checkUserRole]);
 
   const signUp = useCallback(async (email, password, options) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options,
-    });
-
+    const { error } = await supabase.auth.signUp({ email, password, options });
     if (error) {
-      toast({
-        variant: "destructive",
-        title: "Sign up Failed",
-        description: error.message || "Something went wrong",
-      });
+      toast({ variant: 'destructive', title: 'Sign up Failed', description: error.message || 'Something went wrong' });
     }
-
     return { error };
   }, []);
 
   const signIn = useCallback(async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast({
-        variant: "destructive",
-        title: "Sign in Failed",
-        description: error.message || "Something went wrong",
-      });
+      toast({ variant: 'destructive', title: 'Sign in Failed', description: error.message || 'Something went wrong' });
     }
-
     return { error };
   }, []);
 
@@ -144,31 +164,26 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       await supabase.auth.signOut();
     } catch (e) {
-      console.error("Signout error:", e);
+      console.error('Signout error:', e);
     } finally {
-      // Clear persistent states safely
       const itemsToKeep = ['app_version'];
-      const keys = Object.keys(localStorage);
-      keys.forEach(key => {
-        if (!itemsToKeep.includes(key)) {
-          localStorage.removeItem(key);
-        }
+      Object.keys(localStorage).forEach(key => {
+        if (!itemsToKeep.includes(key)) localStorage.removeItem(key);
       });
       sessionStorage.clear();
-      
       if ('caches' in window) {
         try {
           const cacheNames = await caches.keys();
           await Promise.all(cacheNames.map(name => caches.delete(name)));
         } catch (e) {}
       }
-      window.location.reload(); 
+      window.location.reload();
     }
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    await handleSession(session);
+    const { data: { session: s } } = await supabase.auth.getSession();
+    await handleSession(s, false);
   }, [handleSession]);
 
   const value = useMemo(() => ({
