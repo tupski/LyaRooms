@@ -406,7 +406,7 @@ function App() {
       <AllNotifications open={showAllNotifications} onOpenChange={setShowAllNotifications} />
       <AccountSettings open={showAccountSettings} onOpenChange={setShowAccountSettings} />
       <ComposeAnnouncement open={showCompose} onOpenChange={setShowCompose} />
-      <KalenderLibur open={showKalender} onOpenChange={setShowKalender} />
+      <KalenderLibur open={showKalender} onOpenChange={setShowKalender} showTagihan={userRole === 'admin' || userRole === 'super_admin'} />
 
       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
         <AlertDialogContent>

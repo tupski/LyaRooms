@@ -20,7 +20,7 @@ function getDowMon(year, month, day) {
   return dow === 0 ? 6 : dow - 1;
 }
 
-const KalenderLibur = ({ open, onOpenChange }) => {
+const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -59,15 +59,18 @@ const KalenderLibur = ({ open, onOpenChange }) => {
       .finally(() => setLiburLoading(false));
   }, [open, viewYear]);
 
-  // Fetch tagihan unpaid saat dialog dibuka
+  // Fetch tagihan unpaid saat dialog dibuka — hanya untuk admin/super_admin
   useEffect(() => {
-    if (!open) return;
+    if (!open || !showTagihan) {
+      setTagihanList([]);
+      return;
+    }
     supabase
       .from('tagihan_bulanan')
       .select('apartment_location, room_number, due_date')
       .eq('status', 'unpaid')
       .then(({ data }) => setTagihanList(data || []));
-  }, [open]);
+  }, [open, showTagihan]);
 
   // Reset picker mode saat dialog ditutup
   useEffect(() => {
