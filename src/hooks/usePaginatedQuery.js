@@ -76,7 +76,7 @@ export function usePaginatedQuery({
           if (condition && typeof condition === 'object' && 'op' in condition) {
             const { op, value, column: col } = condition;
             const column = col || key;
-            if (value === undefined || (value === null && op !== 'is')) return;
+            if (value === undefined || (value === null && op !== 'is' && op !== 'not_is_null')) return;
 
             switch (op) {
               case 'eq':
