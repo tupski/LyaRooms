@@ -95,17 +95,17 @@
     "vite": "^4.4.5",
     "vitest": "^4.1.7"
   },
-  "description": "Aplikasi web modern untuk mengelola transaksi penyewaan apartemen, tagihan bulanan, pengeluaran, dan request karyawan dengan integrasi Supabase dan deployment ke Vercel.",
+  "description": "Aplikasi web modern untuk mengelola transaksi penyewaan apartemen Lya Rooms dengan integrasi Supabase dan deployment ke Vercel.",
   "main": "postcss.config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tupski/KR.git"
+    "url": "git+https://github.com/tupski/LR.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/tupski/KR/issues"
+    "url": "https://github.com/tupski/LR/issues"
   },
-  "homepage": "https://github.com/tupski/KR#readme"
+  "homepage": "https://github.com/tupski/LR#readme"
 }

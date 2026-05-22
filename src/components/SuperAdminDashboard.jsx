@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/customSupabaseClient';
 import {
-  Shield, Users, Settings, Activity, Building2, 
+  Shield, Users, Settings, Activity, Building2,
   History, BarChart3, DoorOpen, LayoutGrid, Server
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -53,7 +53,7 @@ const SuperAdminDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
       </div>
     );
   }
@@ -61,14 +61,14 @@ const SuperAdminDashboard = () => {
   return (
     <div className="space-y-6 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Header Premium */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden mt-4">
+      <div className="bg-gradient-to-r from-pink-600 to-pink-500 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden mt-4">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Settings className="h-32 w-32" />
         </div>
         <div className="relative z-10 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight">Pengaturan Aplikasi</h1>
-            <p className="text-blue-100 text-sm mt-1">Kelola karyawan, unit apartemen, dan pantau operasional sistem.</p>
+            <p className="text-pink-100 text-sm mt-1">Kelola karyawan, unit apartemen, dan pantau operasional sistem.</p>
           </div>
         </div>
       </div>
@@ -97,9 +97,9 @@ const SuperAdminDashboard = () => {
         {/* --- Overview Tab --- */}
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-blue-200 transition-colors">
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-pink-200 transition-colors">
               <CardContent className="p-6">
-                <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <div className="h-10 w-10 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-pink-600 group-hover:text-white transition-colors">
                   <Users className="h-5 w-5" />
                 </div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total User</p>
@@ -107,7 +107,7 @@ const SuperAdminDashboard = () => {
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-blue-200 transition-colors">
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-pink-200 transition-colors">
               <CardContent className="p-6">
                 <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                   <Building2 className="h-5 w-5" />
@@ -117,7 +117,7 @@ const SuperAdminDashboard = () => {
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-blue-200 transition-colors col-span-2 md:col-span-1">
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white group hover:border-pink-200 transition-colors col-span-2 md:col-span-1">
               <CardContent className="p-6">
                 <div className="h-10 w-10 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
                   <DoorOpen className="h-5 w-5" />
@@ -131,7 +131,7 @@ const SuperAdminDashboard = () => {
           <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden bg-white">
             <CardHeader className="border-b border-slate-50 bg-slate-50/50">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Activity className="h-4 w-4 text-blue-600" /> Aktivitas Terakhir
+                <Activity className="h-4 w-4 text-pink-600" /> Aktivitas Terakhir
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -158,7 +158,7 @@ const SuperAdminDashboard = () => {
                 </div>
               )}
               <div className="p-3 bg-slate-50 text-center border-t border-slate-100">
-                <button onClick={() => setActiveTab('logs')} className="text-xs font-bold text-blue-600 hover:underline">
+                <button onClick={() => setActiveTab('logs')} className="text-xs font-bold text-pink-600 hover:underline">
                   Lihat Semua Log
                 </button>
               </div>

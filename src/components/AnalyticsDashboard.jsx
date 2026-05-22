@@ -174,7 +174,7 @@ function GlobalFilterBar({
       {/* Apply button */}
       <button
         onClick={onApply}
-        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold text-sm shadow hover:opacity-90 transition-opacity"
+        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 text-white font-bold text-sm shadow hover:opacity-90 transition-opacity"
       >
         Terapkan Filter
       </button>
@@ -244,7 +244,7 @@ const AnalyticsDashboard = () => {
       >
         {/* Page header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-full shadow-lg">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white px-6 py-3 rounded-full shadow-lg">
             <BarChart2 className="w-6 h-6" />
             <h1 className="text-xl font-bold">Analytics Dashboard</h1>
           </div>

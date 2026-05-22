@@ -19,7 +19,7 @@ function getSupabaseAdmin() {
 function configWebPush() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@kakaramaroom.com';
+  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@lyarooms.com';
   if (!publicKey || !privateKey) return null;
   webpush.setVapidDetails(subject, publicKey, privateKey);
   return { publicKey, subject };
@@ -38,7 +38,7 @@ async function fetchSubscriptions(supabase, userIds) {
   return data || [];
 }
 
-export async function sendPushToAudience({ title, body, url = '/', icon = '/kr-icon-192.svg', audience_role, audience_user_id }) {
+export async function sendPushToAudience({ title, body, url = '/', icon = '/lr-icon-192.svg', audience_role, audience_user_id }) {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error('Supabase admin env belum lengkap.');
   if (!configWebPush()) throw new Error('VAPID env belum lengkap.');
@@ -54,7 +54,7 @@ export async function sendPushToAudience({ title, body, url = '/', icon = '/kr-i
   }
 
   const subs = await fetchSubscriptions(supabase, userIds);
-  const payload = JSON.stringify({ title, body, url, icon, badge: '/kr-icon-192.svg' });
+  const payload = JSON.stringify({ title, body, url, icon, badge: '/lr-icon-192.svg' });
 
   const results = { attempted: subs.length, sent: 0, failed: 0, failures: [] };
   for (const s of subs) {

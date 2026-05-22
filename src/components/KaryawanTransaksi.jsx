@@ -180,11 +180,11 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 px-3 py-6 pb-28 sm:px-6">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-50 to-pink-100 px-3 py-6 pb-28 sm:px-6">
       <div className="mx-auto max-w-6xl space-y-4">
 
         {/* Header */}
-        <header className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white shadow-sm">
+        <header className="rounded-2xl border border-pink-200 bg-gradient-to-r from-pink-600 to-pink-500 p-5 text-white shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Input Data Check-in</h1>
@@ -348,11 +348,10 @@ const KaryawanTransaksi = ({ onRequestNavigate }) => {
                           )}
                         </label>
                         <input
-                          className={`w-full rounded-xl border-2 px-3 py-2 text-sm text-gray-900 focus:outline-none transition-colors ${
-                            isChanged
-                              ? 'border-amber-400 bg-amber-50 focus:border-amber-500'
-                              : 'border-gray-200 bg-white focus:border-blue-400'
-                          }`}
+                          className={`w-full rounded-xl border-2 px-3 py-2 text-sm text-gray-900 focus:outline-none transition-colors ${isChanged
+                            ? 'border-amber-400 bg-amber-50 focus:border-amber-500'
+                            : 'border-gray-200 bg-white focus:border-pink-400'
+                            }`}
                           value={reportDraft[field] || ''}
                           onChange={(e) => setReportDraft((p) => ({ ...p, [field]: e.target.value }))}
                           placeholder={reportDraft._original[field] || '-'}

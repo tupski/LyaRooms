@@ -99,7 +99,7 @@ const RoomDetailModal = ({ room, onClose, onCheckOut, canCheckout }) => {
                   <div className="text-xs">
                     <span className="text-slate-500">Komisi: </span>
                     <span className={`font-semibold ${room.feePaid ? 'text-green-600' : 'text-amber-600'}`}>
-                      {room.tx.marketing_fee > 0 
+                      {room.tx.marketing_fee > 0
                         ? `${formatRupiah(room.tx.marketing_fee)} (${room.feePaid ? 'Sudah dibayar' : 'Belum dibayar'})`
                         : 'Rp 0 (Tanpa komisi)'}
                     </span>
@@ -136,8 +136,8 @@ const RoomDetailModal = ({ room, onClose, onCheckOut, canCheckout }) => {
               )}
               {(room.tx?.transfer_amount || 0) > 0 && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Landmark className="h-4 w-4 text-blue-500" />
-                  <span className="text-slate-700">Transfer: <span className="font-semibold text-blue-700">{formatRupiah(room.tx.transfer_amount)}</span>{room.tx.transfer_to ? ` → ${room.tx.transfer_to}` : ''}</span>
+                  <Landmark className="h-4 w-4 text-pink-500" />
+                  <span className="text-slate-700">Transfer: <span className="font-semibold text-pink-700">{formatRupiah(room.tx.transfer_amount)}</span>{room.tx.transfer_to ? ` → ${room.tx.transfer_to}` : ''}</span>
                 </div>
               )}
               <p className="text-sm font-bold text-slate-800 pt-1 border-t">
@@ -250,7 +250,7 @@ const KetersediaanKamar = () => {
 
   const fetchRoomStatus = useCallback(async () => {
     setLoading(true);
-    
+
     // Optimasi: Ambil transaksi dari 3 hari terakhir saja untuk performa,
     // ATAU yang checkout_at nya masih null (masih aktif).
     const threeDaysAgo = new Date();
@@ -274,7 +274,7 @@ const KetersediaanKamar = () => {
     }
 
     const now = new Date();
-    
+
     // Filter rooms based on assignments for karyawan
     let filteredRooms = allRooms || [];
     if (userRole === 'karyawan' && assignments && assignments.length > 0) {
@@ -287,7 +287,7 @@ const KetersediaanKamar = () => {
 
     const roomStatus = filteredRooms.map((room) => {
       const activeTx = getActiveTransaction(room.lokasi, room.name, transactions, now);
-      
+
       if (activeTx) {
         const endAt = calcEndAt(activeTx);
         return {
@@ -299,8 +299,8 @@ const KetersediaanKamar = () => {
           readyAt: endAt,
           customerName: activeTx.customer_name,
           checkInTime: new Date(activeTx.checkin_at || activeTx.created_at),
-          feePaid: (paidFees || []).some(pf => 
-            pf.marketing_name === activeTx.marketing_name && 
+          feePaid: (paidFees || []).some(pf =>
+            pf.marketing_name === activeTx.marketing_name &&
             new Date(pf.paid_at).toDateString() === new Date(activeTx.checkin_at || activeTx.created_at).toDateString()
           ),
         };
@@ -462,7 +462,7 @@ const KetersediaanKamar = () => {
     <div className="min-h-screen p-3 pb-28 pt-5">
       <div className="mx-auto max-w-md space-y-4">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
+        <div className="bg-gradient-to-r from-pink-600 to-pink-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
           <div className="relative z-10">
             <h1 className="text-xl font-black tracking-tight uppercase">Ketersediaan Kamar</h1>
             <p className="text-blue-100 text-xs mt-1">Pantau status unit dan kelola checkout tamu.</p>
@@ -473,9 +473,8 @@ const KetersediaanKamar = () => {
           <button
             type="button"
             onClick={() => setActiveView('ketersediaan')}
-            className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
-              activeView === 'ketersediaan' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
-            }`}
+            className={`rounded-xl px-3 py-2 text-sm font-bold transition ${activeView === 'ketersediaan' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
           >
             Ketersediaan
           </button>
@@ -483,9 +482,8 @@ const KetersediaanKamar = () => {
             <button
               type="button"
               onClick={() => setActiveView('laporan')}
-              className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
-                activeView === 'laporan' ? 'bg-cyan-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-              }`}
+              className={`rounded-xl px-3 py-2 text-sm font-bold transition ${activeView === 'laporan' ? 'bg-pink-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                }`}
             >
               Laporan Kamar
             </button>
@@ -633,157 +631,152 @@ const KetersediaanKamar = () => {
 
         {activeView === 'ketersediaan' && (
           <>
-        {/* Stats bar */}
-        {!loading && userRole === 'karyawan' && Object.keys(groupedRooms).length === 0 && (
-          <div className="bg-white rounded-[2rem] p-10 border-2 border-orange-100 shadow-xl text-center space-y-6 mt-8">
-            <div className="h-24 w-24 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
-              <AlertTriangle className="h-12 w-12" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-slate-900">Penempatan Belum Diatur</h2>
-              <p className="text-slate-600 mt-3 leading-relaxed">
-                Akun Anda belum ditempatkan di lokasi apartemen manapun. 
-                <br /><br />
-                Silakan hubungi <span className="font-bold text-blue-600">Admin/Superadmin</span> untuk mengatur penempatan kerja akun Anda agar bisa memantau status kamar.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!loading && (Object.keys(groupedRooms).length > 0 || userRole !== 'karyawan') && (
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => setFilterStatus('ALL')}
-              className={`rounded-2xl p-3 text-center transition shadow-sm border ${
-                filterStatus === 'ALL' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-800 hover:bg-slate-50'
-              }`}
-            >
-              <p className="text-xl font-bold">{stats.total}</p>
-              <p className={`text-[10px] mt-0.5 ${filterStatus === 'ALL' ? 'text-slate-300' : 'text-slate-500'}`}>Total</p>
-            </button>
-            <button
-              onClick={() => setFilterStatus('OCCUPIED')}
-              className={`rounded-2xl p-3 text-center transition shadow-sm border ${
-                filterStatus === 'OCCUPIED' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
-              }`}
-            >
-              <p className="text-xl font-bold">{stats.occupied}</p>
-              <p className={`text-[10px] mt-0.5 ${filterStatus === 'OCCUPIED' ? 'text-red-200' : 'text-red-500'}`}>Terisi</p>
-            </button>
-            <button
-              onClick={() => setFilterStatus('AVAILABLE')}
-              className={`rounded-2xl p-3 text-center transition shadow-sm border ${
-                filterStatus === 'AVAILABLE' ? 'bg-green-600 text-white border-green-600' : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'
-              }`}
-            >
-              <p className="text-xl font-bold">{stats.available}</p>
-              <p className={`text-[10px] mt-0.5 ${filterStatus === 'AVAILABLE' ? 'text-green-200' : 'text-green-500'}`}>Tersedia</p>
-            </button>
-          </div>
-        )}
-
-        {loading ? (
-          <p className="py-12 text-center text-slate-500">Memuat data kamar...</p>
-        ) : Object.keys(groupedRooms).length === 0 ? (
-          <p className="py-12 text-center text-slate-500">Belum ada kamar terdaftar.</p>
-        ) : (
-          Object.keys(groupedRooms).sort().map((location) => {
-            const allRooms = groupedRooms[location];
-            const allFilteredRooms = allRooms.filter(room => {
-              if (filterStatus === 'OCCUPIED') return room.status === 'terisi';
-              if (filterStatus === 'AVAILABLE') return room.status === 'tersedia';
-              return true;
-            });
-            if (allFilteredRooms.length === 0) return null;
-
-            const expanded = !!expandedLocations[location];
-            const visibleRooms = expanded ? allFilteredRooms : allFilteredRooms.slice(0, INITIAL_VISIBLE_ROOMS);
-            const hasMore = allFilteredRooms.length > INITIAL_VISIBLE_ROOMS;
-            const occupiedCount = allRooms.filter((r) => r.status === 'terisi').length;
-
-            return (
-              <motion.div key={location} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <MapPin className="h-4 w-4 text-cyan-600" />
-                    {location}
-                  </h2>
-                  <span className="text-xs text-slate-400">{occupiedCount}/{allRooms.length} terisi total</span>
+            {/* Stats bar */}
+            {!loading && userRole === 'karyawan' && Object.keys(groupedRooms).length === 0 && (
+              <div className="bg-white rounded-[2rem] p-10 border-2 border-orange-100 shadow-xl text-center space-y-6 mt-8">
+                <div className="h-24 w-24 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
+                  <AlertTriangle className="h-12 w-12" />
                 </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">Penempatan Belum Diatur</h2>
+                  <p className="text-slate-600 mt-3 leading-relaxed">
+                    Akun Anda belum ditempatkan di lokasi apartemen manapun.
+                    <br /><br />
+                    Silakan hubungi <span className="font-bold text-pink-600">Admin/Superadmin</span> untuk mengatur penempatan kerja akun Anda agar bisa memantau status kamar.
+                  </p>
+                </div>
+              </div>
+            )}
 
-                <div className="grid grid-cols-2 gap-2">
-                  {visibleRooms.map((room) => {
-                    const isOccupied = room.status === 'terisi';
-                    const s_depCash = room.tx?.deposit_cash || 0;
-                    const s_depTrans = room.tx?.deposit_transfer || 0;
-                    const hasDeposit = s_depCash > 0 || s_depTrans > 0;
-                    const depLabel = s_depCash > 0 && s_depTrans > 0 ? 'Mix' : (s_depCash > 0 ? 'CASH' : 'TF');
+            {!loading && (Object.keys(groupedRooms).length > 0 || userRole !== 'karyawan') && (
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setFilterStatus('ALL')}
+                  className={`rounded-2xl p-3 text-center transition shadow-sm border ${filterStatus === 'ALL' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-800 hover:bg-slate-50'
+                    }`}
+                >
+                  <p className="text-xl font-bold">{stats.total}</p>
+                  <p className={`text-[10px] mt-0.5 ${filterStatus === 'ALL' ? 'text-slate-300' : 'text-slate-500'}`}>Total</p>
+                </button>
+                <button
+                  onClick={() => setFilterStatus('OCCUPIED')}
+                  className={`rounded-2xl p-3 text-center transition shadow-sm border ${filterStatus === 'OCCUPIED' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                    }`}
+                >
+                  <p className="text-xl font-bold">{stats.occupied}</p>
+                  <p className={`text-[10px] mt-0.5 ${filterStatus === 'OCCUPIED' ? 'text-red-200' : 'text-red-500'}`}>Terisi</p>
+                </button>
+                <button
+                  onClick={() => setFilterStatus('AVAILABLE')}
+                  className={`rounded-2xl p-3 text-center transition shadow-sm border ${filterStatus === 'AVAILABLE' ? 'bg-green-600 text-white border-green-600' : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'
+                    }`}
+                >
+                  <p className="text-xl font-bold">{stats.available}</p>
+                  <p className={`text-[10px] mt-0.5 ${filterStatus === 'AVAILABLE' ? 'text-green-200' : 'text-green-500'}`}>Tersedia</p>
+                </button>
+              </div>
+            )}
 
-                    return (
+            {loading ? (
+              <p className="py-12 text-center text-slate-500">Memuat data kamar...</p>
+            ) : Object.keys(groupedRooms).length === 0 ? (
+              <p className="py-12 text-center text-slate-500">Belum ada kamar terdaftar.</p>
+            ) : (
+              Object.keys(groupedRooms).sort().map((location) => {
+                const allRooms = groupedRooms[location];
+                const allFilteredRooms = allRooms.filter(room => {
+                  if (filterStatus === 'OCCUPIED') return room.status === 'terisi';
+                  if (filterStatus === 'AVAILABLE') return room.status === 'tersedia';
+                  return true;
+                });
+                if (allFilteredRooms.length === 0) return null;
+
+                const expanded = !!expandedLocations[location];
+                const visibleRooms = expanded ? allFilteredRooms : allFilteredRooms.slice(0, INITIAL_VISIBLE_ROOMS);
+                const hasMore = allFilteredRooms.length > INITIAL_VISIBLE_ROOMS;
+                const occupiedCount = allRooms.filter((r) => r.status === 'terisi').length;
+
+                return (
+                  <motion.div key={location} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                        <MapPin className="h-4 w-4 text-cyan-600" />
+                        {location}
+                      </h2>
+                      <span className="text-xs text-slate-400">{occupiedCount}/{allRooms.length} terisi total</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {visibleRooms.map((room) => {
+                        const isOccupied = room.status === 'terisi';
+                        const s_depCash = room.tx?.deposit_cash || 0;
+                        const s_depTrans = room.tx?.deposit_transfer || 0;
+                        const hasDeposit = s_depCash > 0 || s_depTrans > 0;
+                        const depLabel = s_depCash > 0 && s_depTrans > 0 ? 'Mix' : (s_depCash > 0 ? 'CASH' : 'TF');
+
+                        return (
+                          <button
+                            key={room.id}
+                            type="button"
+                            onClick={() => setSelectedRoom(room)}
+                            className={`relative rounded-xl border-2 p-2.5 text-left transition active:scale-95 ${isOccupied
+                              ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                              : 'border-green-200 bg-green-50 hover:bg-green-100'
+                              }`}
+                          >
+                            {/* Deposit badge */}
+                            {hasDeposit && (
+                              <span className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold shadow-sm border ${room.tx?.deposit_returned_at
+                                ? 'bg-green-500 text-white border-green-600'
+                                : depLabel === 'CASH'
+                                  ? 'bg-green-500 text-white border-green-600'
+                                  : depLabel === 'TF'
+                                    ? 'bg-pink-500 text-white border-pink-600'
+                                    : depLabel === 'Mix'
+                                      ? 'bg-purple-500 text-white border-purple-600'
+                                      : 'bg-yellow-400 text-red-700 border-yellow-500'
+                                }`}>
+                                Dep: {depLabel}
+                              </span>
+                            )}
+
+                            <p className="text-sm font-bold text-slate-800 truncate pr-8">{room.name}</p>
+
+                            {isOccupied ? (
+                              <div className="mt-1 space-y-0.5">
+                                <p className="truncate text-[11px] font-semibold text-red-700 flex items-center gap-1">
+                                  <User className="inline h-2.5 w-2.5 flex-shrink-0" />
+                                  {room.customerName}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  In: {formatTime(room.checkInTime)}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  Out: {formatTime(room.readyAt)} ({formatDate(room.readyAt)})
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-[11px] font-semibold text-green-600">Tersedia</p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {hasMore && (
                       <button
-                        key={room.id}
                         type="button"
-                        onClick={() => setSelectedRoom(room)}
-                        className={`relative rounded-xl border-2 p-2.5 text-left transition active:scale-95 ${
-                          isOccupied
-                            ? 'border-red-200 bg-red-50 hover:bg-red-100'
-                            : 'border-green-200 bg-green-50 hover:bg-green-100'
-                        }`}
+                        onClick={() => setExpandedLocations((prev) => ({ ...prev, [location]: !prev[location] }))}
+                        className="mt-3 inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                       >
-                         {/* Deposit badge */}
-                         {hasDeposit && (
-                           <span className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold shadow-sm border ${
-                             room.tx?.deposit_returned_at 
-                               ? 'bg-green-500 text-white border-green-600'
-                               : depLabel === 'CASH'
-                                 ? 'bg-green-500 text-white border-green-600'
-                                 : depLabel === 'TF'
-                                   ? 'bg-blue-500 text-white border-blue-600'
-                                   : depLabel === 'Mix'
-                                     ? 'bg-purple-500 text-white border-purple-600'
-                                     : 'bg-yellow-400 text-red-700 border-yellow-500'
-                           }`}>
-                             Dep: {depLabel}
-                           </span>
-                         )}
-
-                        <p className="text-sm font-bold text-slate-800 truncate pr-8">{room.name}</p>
-
-                        {isOccupied ? (
-                          <div className="mt-1 space-y-0.5">
-                            <p className="truncate text-[11px] font-semibold text-red-700 flex items-center gap-1">
-                              <User className="inline h-2.5 w-2.5 flex-shrink-0" />
-                              {room.customerName}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              In: {formatTime(room.checkInTime)}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              Out: {formatTime(room.readyAt)} ({formatDate(room.readyAt)})
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="mt-1 text-[11px] font-semibold text-green-600">Tersedia</p>
-                        )}
+                        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        {expanded ? 'Lebih sedikit' : `+${allRooms.length - INITIAL_VISIBLE_ROOMS} kamar lainnya`}
                       </button>
-                    );
-                  })}
-                </div>
-
-                {hasMore && (
-                  <button
-                    type="button"
-                    onClick={() => setExpandedLocations((prev) => ({ ...prev, [location]: !prev[location] }))}
-                    className="mt-3 inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    {expanded ? 'Lebih sedikit' : `+${allRooms.length - INITIAL_VISIBLE_ROOMS} kamar lainnya`}
-                  </button>
-                )}
-              </motion.div>
-            );
-          })
-        )}
+                    )}
+                  </motion.div>
+                );
+              })
+            )}
           </>
         )}
       </div>

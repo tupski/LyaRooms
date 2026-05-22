@@ -62,7 +62,7 @@ const ManajemenDeposit = () => {
     // Selalu hitung tanggal saat tombol diklik, bukan dari state
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     switch (filter) {
       case 'hariini': {
         const todayStr = formatDate(today);
@@ -219,17 +219,17 @@ const ManajemenDeposit = () => {
         const comparisonDate = new Date(t.created_at);
         const fromDate = dateFrom ? new Date(dateFrom + 'T00:00:00') : null;
         const toDate = dateTo ? new Date(dateTo + 'T23:59:59') : null;
-        
+
         if (fromDate && comparisonDate < fromDate) return false;
         if (toDate && comparisonDate > toDate) return false;
       } else if (tabDeposit === 'sudah') {
         // Pastikan deposit_returned_at tidak null
         if (!t.deposit_returned_at) return false;
-        
+
         const comparisonDate = new Date(t.deposit_returned_at);
         const fromDate = dateFrom ? new Date(dateFrom + 'T00:00:00') : null;
         const toDate = dateTo ? new Date(dateTo + 'T23:59:59') : null;
-        
+
         if (fromDate && comparisonDate < fromDate) return false;
         if (toDate && comparisonDate > toDate) return false;
       }
@@ -356,17 +356,15 @@ const ManajemenDeposit = () => {
       <div className="flex gap-2">
         <button
           onClick={() => setTabDeposit('belum')}
-          className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
-            tabDeposit === 'belum' ? 'bg-amber-500 text-white shadow-md' : 'bg-white text-amber-700 hover:bg-amber-50'
-          }`}
+          className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${tabDeposit === 'belum' ? 'bg-amber-500 text-white shadow-md' : 'bg-white text-amber-700 hover:bg-amber-50'
+            }`}
         >
           <Clock className="mb-1 inline h-4 w-4" /> Belum Dikembalikan
         </button>
         <button
           onClick={() => setTabDeposit('sudah')}
-          className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
-            tabDeposit === 'sudah' ? 'bg-green-600 text-white shadow-md' : 'bg-white text-green-700 hover:bg-green-50'
-          }`}
+          className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${tabDeposit === 'sudah' ? 'bg-green-600 text-white shadow-md' : 'bg-white text-green-700 hover:bg-green-50'
+            }`}
         >
           <CheckCircle className="mb-1 inline h-4 w-4" /> Dikembalikan
         </button>
@@ -435,11 +433,10 @@ const ManajemenDeposit = () => {
                   <button
                     key={btn.key}
                     onClick={() => handleQuickDateFilter(btn.key)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                      quickDateFilter === btn.key
-                        ? 'bg-indigo-500 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${quickDateFilter === btn.key
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
                   >
                     {btn.label}
                   </button>
@@ -518,15 +515,14 @@ const ManajemenDeposit = () => {
       </div>
 
       {/* Summary Card */}
-      <div className={`rounded-2xl border overflow-hidden ${
-        tabDeposit === 'belum' ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'
-      }`}>
+      <div className={`rounded-2xl border overflow-hidden ${tabDeposit === 'belum' ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'
+        }`}>
         <div className="p-4">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">
             {tabDeposit === 'belum' ? `Ringkasan Total Deposit (${summary.count} cs)` : `Total Deposit Dikembalikan (${summary.count} cs)`}
           </h3>
           <p className="text-[10px] text-slate-500 mb-3">{summaryTitle}</p>
-          
+
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-white p-2 text-center border border-slate-200 overflow-hidden">
               <Wallet className="h-4 w-4 mx-auto mb-1 text-slate-500" />
@@ -542,10 +538,10 @@ const ManajemenDeposit = () => {
                 {formatRupiah(summary.totalCash)}
               </p>
             </div>
-            <div className="rounded-xl bg-blue-50 p-2 text-center border border-blue-100 overflow-hidden">
-              <Landmark className="h-4 w-4 mx-auto mb-1 text-blue-500" />
-              <p className="text-[10px] text-blue-600 truncate">Transfer</p>
-              <p className="text-xs font-extrabold text-blue-700 leading-tight truncate">
+            <div className="rounded-xl bg-pink-50 p-2 text-center border border-pink-100 overflow-hidden">
+              <Landmark className="h-4 w-4 mx-auto mb-1 text-pink-500" />
+              <p className="text-[10px] text-pink-600 truncate">Transfer</p>
+              <p className="text-xs font-extrabold text-pink-700 leading-tight truncate">
                 {formatRupiah(summary.totalTransfer)}
               </p>
             </div>
@@ -578,9 +574,9 @@ const ManajemenDeposit = () => {
               cardBg = 'bg-green-50';
               typeBadge = <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700 border border-green-200">💵 Tunai</span>;
             } else if (hasTransfer) {
-              cardBorder = 'border-blue-200';
-              cardBg = 'bg-blue-50';
-              typeBadge = <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">🏦 Transfer</span>;
+              cardBorder = 'border-pink-200';
+              cardBg = 'bg-pink-50';
+              typeBadge = <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-700 border border-pink-200">🏦 Transfer</span>;
             }
 
             return (
@@ -678,11 +674,10 @@ const ManajemenDeposit = () => {
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all ${
-                  currentPage === 1
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
-                }`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all ${currentPage === 1
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
+                  }`}
               >
                 ← Prev
               </button>
@@ -705,11 +700,10 @@ const ManajemenDeposit = () => {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-all ${
-                        currentPage === pageNum
-                          ? 'bg-indigo-500 text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-all ${currentPage === pageNum
+                        ? 'bg-indigo-500 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                     >
                       {pageNum}
                     </button>
@@ -720,11 +714,10 @@ const ManajemenDeposit = () => {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all ${
-                  currentPage === totalPages
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
-                }`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all ${currentPage === totalPages
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
+                  }`}
               >
                 Next →
               </button>
@@ -757,7 +750,7 @@ const ManajemenDeposit = () => {
                   <span className="text-green-700 font-medium">💵 Tunai: {formatRupiah(selectedTx.deposit_cash)}</span>
                 )}
                 {(selectedTx?.deposit_transfer || 0) > 0 && (
-                  <span className="text-blue-700 font-medium">🏦 Transfer: {formatRupiah(selectedTx.deposit_transfer)}</span>
+                  <span className="text-pink-700 font-medium">🏦 Transfer: {formatRupiah(selectedTx.deposit_transfer)}</span>
                 )}
               </div>
             </div>

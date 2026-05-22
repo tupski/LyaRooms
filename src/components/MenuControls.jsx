@@ -226,7 +226,7 @@ const MenuControls = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
       </div>
     );
   }
@@ -340,12 +340,12 @@ const MenuControls = () => {
                               {hasAccessByDefault ? (
                                 <Badge variant="default" className="text-xs bg-green-100 text-green-800">
                                   <CheckCircle className="h-3 w-3 mr-1" />
-                                    Akses Default
+                                  Akses Default
                                 </Badge>
                               ) : (
                                 <Badge variant="destructive" className="text-xs">
                                   <XCircle className="h-3 w-3 mr-1" />
-                                    Tanpa Akses Default
+                                  Tanpa Akses Default
                                 </Badge>
                               )}
                             </div>
@@ -428,7 +428,7 @@ const MenuControls = () => {
                       <div className="flex items-center space-x-2">
                         <div className="w-16 bg-gray-200 rounded-full h-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full"
+                            className="bg-pink-600 h-2 rounded-full"
                             style={{ width: `${visibilityPercent}%` }}
                           ></div>
                         </div>

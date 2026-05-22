@@ -4,23 +4,23 @@ import { format, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
 
 const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
-    const formatRupiah = (value) => new Intl.NumberFormat('id-ID', { 
-        style: 'currency', 
-        currency: 'IDR', 
-        minimumFractionDigits: 0 
+    const formatRupiah = (value) => new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
     }).format(value || 0);
 
     // Calculate trend data per month
     const trendData = useMemo(() => {
         const monthlyData = {};
-        
+
         expenses.forEach(expense => {
             const monthKey = format(parseISO(expense.tanggal), 'yyyy-MM');
             if (!monthlyData[monthKey]) {
                 monthlyData[monthKey] = { total: 0, byCategory: {} };
             }
             monthlyData[monthKey].total += Number(expense.jumlah || 0);
-            
+
             const category = expense.category || 'Lainnya';
             if (!monthlyData[monthKey].byCategory[category]) {
                 monthlyData[monthKey].byCategory[category] = 0;
@@ -42,7 +42,7 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
     const breakdownData = useMemo(() => {
         const categoryData = {};
         const totalAmount = expenses.reduce((sum, e) => sum + Number(e.jumlah || 0), 0);
-        
+
         expenses.forEach(expense => {
             const category = expense.category || 'Lainnya';
             if (!categoryData[category]) {
@@ -69,10 +69,10 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
             {/* Trend Chart */}
             <div className="glassmorphic-card p-5">
                 <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-blue-500" />
+                    <TrendingUp className="w-5 h-5 text-pink-500" />
                     <h3 className="font-bold text-gray-800">Trend Pengeluaran per Bulan</h3>
                 </div>
-                
+
                 {trendData.length === 0 ? (
                     <p className="text-center text-gray-500 py-8">Tidak ada data untuk ditampilkan</p>
                 ) : (
@@ -86,7 +86,7 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
                                         <span className="font-bold text-red-600">{formatRupiah(item.total)}</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                        <div 
+                                        <div
                                             className="bg-gradient-to-r from-red-400 to-red-600 h-full rounded-full transition-all duration-500"
                                             style={{ width: `${barWidth}%` }}
                                         />
@@ -97,7 +97,7 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
                                             .sort((a, b) => b[1] - a[1])
                                             .slice(0, 3)
                                             .map(([cat, amount]) => (
-                                                <span key={cat} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                                <span key={cat} className="text-xs bg-pink-50 text-pink-700 px-2 py-0.5 rounded-full">
                                                     {cat}: {formatRupiah(amount)}
                                                 </span>
                                             ))
@@ -116,14 +116,14 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
                     <PieChartIcon className="w-5 h-5 text-green-500" />
                     <h3 className="font-bold text-gray-800">Breakdown per Kategori</h3>
                 </div>
-                
+
                 {breakdownData.length === 0 ? (
                     <p className="text-center text-gray-500 py-8">Tidak ada data untuk ditampilkan</p>
                 ) : (
                     <div className="space-y-3">
                         {breakdownData.map((item, index) => {
                             const colors = [
-                                'from-blue-400 to-blue-600',
+                                'from-pink-400 to-pink-600',
                                 'from-green-400 to-green-600',
                                 'from-yellow-400 to-yellow-600',
                                 'from-purple-400 to-purple-600',
@@ -135,7 +135,7 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
                                 'from-cyan-400 to-cyan-600'
                             ];
                             const colorClass = colors[index % colors.length];
-                            
+
                             return (
                                 <div key={index} className="space-y-1">
                                     <div className="flex justify-between items-center text-sm">
@@ -149,7 +149,7 @@ const TrendBreakdownChart = ({ expenses, startDate, endDate }) => {
                                         </div>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                                        <div 
+                                        <div
                                             className={`bg-gradient-to-r ${colorClass} h-full rounded-full transition-all duration-500`}
                                             style={{ width: `${item.percentage}%` }}
                                         />

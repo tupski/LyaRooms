@@ -52,8 +52,8 @@ const HalamanRequest = () => {
         fetchOptions();
         loadRequests();
         const channel = supabase.channel('public:requests')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, loadRequests)
-          .subscribe();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, loadRequests)
+            .subscribe();
         return () => supabase.removeChannel(channel);
     }, [loadRequests]);
 
@@ -110,7 +110,7 @@ const HalamanRequest = () => {
             .update({ status })
             .eq('id', id)
             .select('id, status');
-        
+
         if (error) {
             toast({ title: "Gagal update status", description: error.message, variant: "destructive" });
         } else if (!data || data.length === 0) {
@@ -155,7 +155,7 @@ const HalamanRequest = () => {
     return (
         <div className="min-h-screen p-4 pt-6 pb-28">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto space-y-5">
-                <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
+                <div className="bg-gradient-to-r from-pink-600 to-pink-500 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
                     <div className="relative z-10">
                         <h1 className="text-xl font-black tracking-tight uppercase">Request & Permintaan</h1>
                         <p className="text-blue-100 text-xs mt-1">Kirim permintaan kebutuhan unit atau kasbon di sini.</p>
@@ -164,7 +164,7 @@ const HalamanRequest = () => {
 
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                     <DialogTrigger asChild>
-                        <Button className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-6 text-base rounded-2xl shadow-lg">
+                        <Button className="w-full bg-gradient-to-r from-pink-400 to-pink-600 text-white font-bold py-6 text-base rounded-2xl shadow-lg">
                             <PlusCircle className="mr-2 h-5 w-5" /> Buat Request Baru
                         </Button>
                     </DialogTrigger>
@@ -186,7 +186,7 @@ const HalamanRequest = () => {
                                     {karyawanOptions.map((k, i) => <option key={i} value={k}>{k}</option>)}
                                 </select>
                             )}
-                             <select value={newRequest.apartment_location} onChange={(e) => handleInputChange('apartment_location', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
+                            <select value={newRequest.apartment_location} onChange={(e) => handleInputChange('apartment_location', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 text-gray-900">
                                 <option value="">Pilih Lokasi</option>
                                 {lokasiOptions.map((lok, i) => <option key={i} value={lok}>{lok}</option>)}
                             </select>
@@ -204,7 +204,7 @@ const HalamanRequest = () => {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleSubmitRequest} className="w-full bg-cyan-500 hover:bg-cyan-600">Kirim Request</Button>
+                            <Button onClick={handleSubmitRequest} className="w-full bg-pink-500 hover:bg-pink-600">Kirim Request</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -219,13 +219,13 @@ const HalamanRequest = () => {
                                     <div className={`text-xs font-bold px-2 py-1 rounded-full ${getStatusColor(req.status)} inline-block`}>{req.status}</div>
                                 </div>
                                 <p className="text-sm text-gray-600 font-semibold">{req.employee_name} - {req.apartment_location}</p>
-                                {req.request_type === 'Request Kasbon' && <p className="text-lg font-bold text-blue-600">{formatRupiah(req.amount)}</p>}
+                                {req.request_type === 'Request Kasbon' && <p className="text-lg font-bold text-pink-600">{formatRupiah(req.amount)}</p>}
                                 <p className="text-sm text-gray-700 mt-2 border-t border-gray-200 pt-2">{req.description || "Tidak ada deskripsi."}</p>
                                 <p className="text-xs text-gray-500 mt-1">Tanggal: {formatDate(req.desired_date)}</p>
                                 {isAdminUser ? (
                                     <div className="flex gap-2 mt-3">
-                                        <Button size="sm" className="flex-1 bg-green-500 hover:bg-green-600" onClick={() => handleUpdateRequestStatus(req.id, 'Approved')}><Check className="w-4 h-4 mr-1"/> ACC</Button>
-                                        <Button size="sm" className="flex-1 bg-red-500 hover:bg-red-600" onClick={() => handleUpdateRequestStatus(req.id, 'Rejected')}><X className="w-4 h-4 mr-1"/> Reject</Button>
+                                        <Button size="sm" className="flex-1 bg-green-500 hover:bg-green-600" onClick={() => handleUpdateRequestStatus(req.id, 'Approved')}><Check className="w-4 h-4 mr-1" /> ACC</Button>
+                                        <Button size="sm" className="flex-1 bg-red-500 hover:bg-red-600" onClick={() => handleUpdateRequestStatus(req.id, 'Rejected')}><X className="w-4 h-4 mr-1" /> Reject</Button>
                                     </div>
                                 ) : (
                                     <div className="mt-3 space-y-2">
@@ -247,7 +247,7 @@ const HalamanRequest = () => {
 
                 <div className="glassmorphic-card p-5 space-y-4">
                     <button onClick={() => setShowHistory(!showHistory)} className="w-full flex justify-between items-center p-1">
-                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><History className="w-5 h-5"/>Riwayat Request</h2>
+                        <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><History className="w-5 h-5" />Riwayat Request</h2>
                         <ChevronDown className={`w-5 h-5 transition-transform text-gray-800 ${showHistory ? 'rotate-180' : ''}`} />
                     </button>
                     <AnimatePresence>

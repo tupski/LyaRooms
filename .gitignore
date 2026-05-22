@@ -1,6 +1,7 @@
 node_modules
 .env
 .env*.local
+.env.local
 .cursor
 .agents
 Rencana Modernisasi UI.md
@@ -29,4 +30,6 @@ supabase/.temp/
 
 AGENTS.md
 planbaru.md
-.kiro/*
+.kiro/
+.clinerules/
+.continue/

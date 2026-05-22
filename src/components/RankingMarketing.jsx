@@ -168,7 +168,7 @@ const RankingMarketing = () => {
           <div className="space-y-2">
             {paginatedRankings.map((marketing, index) => {
               const absoluteIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
-              const accent = absoluteIndex % 2 === 0 ? 'border-l-blue-600' : 'border-l-emerald-600';
+              const accent = absoluteIndex % 2 === 0 ? 'border-l-pink-600' : 'border-l-emerald-600';
               const bg = absoluteIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50';
               return (
                 <motion.div

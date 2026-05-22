@@ -24,7 +24,7 @@ function typeToCategory(type) {
     case 'checkout_due':
       return { label: 'Checkout', className: 'bg-red-100 text-red-800 border-red-200' };
     case 'checkout_soon':
-      return { label: 'Pengingat', className: 'bg-blue-100 text-blue-800 border-blue-200' };
+      return { label: 'Pengingat', className: 'bg-pink-100 text-pink-800 border-pink-200' };
     case 'rooms_low':
       return { label: 'Kamar Hampir Habis', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     case 'rooms_sold_out':
@@ -163,7 +163,7 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
         <DialogDescription className="sr-only">Daftar notifikasi terbaru</DialogDescription>
 
         {/* Header gradient */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-4 flex items-center justify-between gap-3">
+        <div className="bg-gradient-to-r from-pink-600 to-pink-500 px-5 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-white">
             <Bell className="h-5 w-5" />
             <span className="font-bold text-lg">Inbox</span>
@@ -197,9 +197,8 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
           <button
             type="button"
             onClick={() => setOnlyUnread((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              onlyUnread ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${onlyUnread ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <Filter className="h-3.5 w-3.5" />
             {onlyUnread ? 'Belum dibaca' : 'Semua'}
@@ -233,9 +232,8 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
                 key={n.id}
                 type="button"
                 onClick={() => markRead(n.id)}
-                className={`w-full px-4 py-3.5 text-left transition ${
-                  unread ? 'bg-blue-50 hover:bg-blue-100' : 'bg-white hover:bg-slate-50'
-                }`}
+                className={`w-full px-4 py-3.5 text-left transition ${unread ? 'bg-pink-50 hover:bg-pink-100' : 'bg-white hover:bg-slate-50'
+                  }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -244,7 +242,7 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
                         {cat.label}
                       </span>
                       {unread && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-pink-500 shrink-0" />
                       )}
                     </div>
                     <p className={`text-sm font-semibold leading-snug ${unread ? 'text-slate-900' : 'text-slate-700'}`}>
@@ -257,7 +255,7 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
                       <button
                         type="button"
                         onClick={(e) => toggleExpand(n.id, e)}
-                        className="mt-0.5 flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 hover:text-blue-800"
+                        className="mt-0.5 flex items-center gap-0.5 text-[11px] font-semibold text-pink-600 hover:text-pink-800"
                       >
                         {isExpanded ? <><ChevronUp className="w-3 h-3" /> Sembunyikan</> : <><ChevronDown className="w-3 h-3" /> Selengkapnya</>}
                       </button>
@@ -266,7 +264,7 @@ export default function NotificationsInbox({ open, onOpenChange, onOpenAll }) {
                   </div>
                   <div className="shrink-0 pt-0.5">
                     {unread ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-2 py-1 text-[10px] font-semibold text-white">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-pink-500 px-2 py-1 text-[10px] font-semibold text-white">
                         <Check className="h-3 w-3" /> Baca
                       </span>
                     ) : (

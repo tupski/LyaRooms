@@ -4,15 +4,15 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { supabase } from '@/lib/customSupabaseClient';
 
 const NAMA_BULAN = [
-  'Januari','Februari','Maret','April','Mei','Juni',
-  'Juli','Agustus','September','Oktober','November','Desember',
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 // Mulai Senin
-const NAMA_HARI = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+const NAMA_HARI = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const TAHUN_OPTIONS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 3 + i);
 
 function toKey(year, month, day) {
-  return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 // Hari dalam seminggu mulai Senin (0=Sen … 6=Min)
 function getDowMon(year, month, day) {
@@ -149,7 +149,7 @@ const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
         </DialogDescription>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-3 py-3 flex items-center gap-2">
+        <div className="bg-gradient-to-r from-pink-600 to-pink-500 px-3 py-3 flex items-center gap-2">
           {pickerMode === 'calendar' ? (
             <button type="button" onClick={prevMonth}
               className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition text-white"
@@ -195,9 +195,8 @@ const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
             {NAMA_BULAN.map((bln, i) => (
               <button key={bln} type="button"
                 onClick={() => { setViewMonth(i); setPickerMode('calendar'); }}
-                className={`py-2 rounded-xl text-sm font-semibold transition ${
-                  i === viewMonth ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}>
+                className={`py-2 rounded-xl text-sm font-semibold transition ${i === viewMonth ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}>
                 {bln}
               </button>
             ))}
@@ -210,9 +209,8 @@ const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
             {TAHUN_OPTIONS.map(y => (
               <button key={y} type="button"
                 onClick={() => { setViewYear(y); setPickerMode('calendar'); }}
-                className={`py-2 rounded-xl text-sm font-semibold transition ${
-                  y === viewYear ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}>
+                className={`py-2 rounded-xl text-sm font-semibold transition ${y === viewYear ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}>
                 {y}
               </button>
             ))}
@@ -224,15 +222,14 @@ const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
           <div className="px-3 pb-4 pt-2 max-h-[70vh] overflow-y-auto">
             {/* Loading indicator */}
             {liburLoading && (
-              <div className="text-center py-2 text-xs text-blue-500">Memuat data libur...</div>
+              <div className="text-center py-2 text-xs text-pink-500">Memuat data libur...</div>
             )}
 
             {/* Nama hari */}
             <div className="grid grid-cols-7 mb-1">
               {NAMA_HARI.map((h, i) => (
-                <div key={h} className={`text-center text-xs font-semibold py-1 ${
-                  i >= 5 ? 'text-green-600' : 'text-gray-500'
-                }`}>{h}</div>
+                <div key={h} className={`text-center text-xs font-semibold py-1 ${i >= 5 ? 'text-green-600' : 'text-gray-500'
+                  }`}>{h}</div>
               ))}
             </div>
 
@@ -242,7 +239,7 @@ const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
                 <div key={idx} className={[
                   'relative flex items-center justify-center h-9 w-full rounded-xl text-sm',
                   day ? 'hover:bg-gray-100 transition-colors' : '',
-                  isToday(day) ? 'bg-blue-500 hover:bg-blue-600' : '',
+                  isToday(day) ? 'bg-pink-500 hover:bg-pink-600' : '',
                   isLibur(day) && !isToday(day) ? 'bg-red-50' : '',
                 ].join(' ')}>
                   {day && (
@@ -262,7 +259,7 @@ const KalenderLibur = ({ open, onOpenChange, showTagihan = false }) => {
 
             {/* Legenda */}
             <div className="flex flex-wrap items-center gap-3 mt-3 px-1 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Hari ini</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-pink-500 inline-block" /> Hari ini</span>
               <span className="flex items-center gap-1"><span className="text-green-600 font-semibold text-base leading-none">●</span> Weekend</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Libur</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" /> Tagihan</span>

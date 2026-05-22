@@ -12,7 +12,7 @@ SELECT * FROM (
         ('Belanja'),
         ('Reward Marketing'),
         ('Perbaikan Unit Apart'),
-        ('Jajan KR'),
+        ('Jajan LR'),
         ('Keluarga')
 ) AS new_categories(name)
 WHERE NOT EXISTS (

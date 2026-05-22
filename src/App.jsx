@@ -59,10 +59,10 @@ function App() {
   const [showMoreMenus, setShowMoreMenus] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showKalender, setShowKalender] = useState(false);
-  const correctPin = '212198';
+  const correctPin = '171717';
 
   const [isMaintenance, setIsMaintenance] = useState(false);
-  const [appName, setAppName] = useState('Kakarama Room');
+  const [appName, setAppName] = useState('Lya Rooms');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -270,15 +270,15 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-cyan-200 to-blue-300">
-        <div className="flex flex-col items-center gap-4 text-blue-900">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-200 to-pink-300">
+        <div className="flex flex-col items-center gap-4 text-pink-900">
           <motion.div
             initial={{ scale: 0.9, opacity: 0.75 }}
             animate={{ scale: [0.9, 1.05, 0.9], opacity: [0.75, 1, 0.75] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
             className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg ring-1 ring-blue-200"
           >
-            <img src="/logo-kr-transparent-square.png" alt="KR" className="h-14 w-14 object-contain" />
+            <img src="/logo-lr-transparent-square.png" alt="KR" className="h-14 w-14 object-contain" />
           </motion.div>
           <motion.div
             initial={{ opacity: 0.5 }}
@@ -316,11 +316,11 @@ function App() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-4 text-white shadow-lg">
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-pink-600 to-pink-500 px-4 py-4 text-white shadow-lg">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-white/40">
-              <img src="/logo-kr-transparent-square.png" alt="KR" className="h-full w-full object-contain" />
+              <img src="/logo-lr-transparent-square.png" alt="KR" className="h-full w-full object-contain" />
             </span>
             <span className="text-sm font-bold tracking-wide text-white sm:text-base">{appName}</span>
           </div>
@@ -466,7 +466,7 @@ function App() {
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl border ${isActive ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 text-slate-700'}`}
+                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl border ${isActive ? 'border-pink-600 bg-pink-600 text-white' : 'border-slate-300 text-slate-700'}`}
                   >
                     <Icon className="h-4 w-4" />
                     <span className="mt-1 text-[10px]">{tab.label}</span>
@@ -476,7 +476,7 @@ function App() {
 
               <button
                 onClick={() => handleTabClick('form')}
-                className={`-mt-7 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border-4 border-white text-white shadow-lg ${activeTab === 'form' ? 'bg-blue-600' : 'bg-cyan-500'
+                className={`-mt-7 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border-4 border-white text-white shadow-lg ${activeTab === 'form' ? 'bg-pink-700' : 'bg-pink-500'
                   }`}
               >
                 <Camera className="h-6 w-6" />
@@ -490,7 +490,7 @@ function App() {
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl border ${isActive ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 text-slate-700'}`}
+                    className={`flex h-12 w-14 flex-col items-center justify-center rounded-xl border ${isActive ? 'border-pink-600 bg-pink-600 text-white' : 'border-slate-300 text-slate-700'}`}
                   >
                     <Icon className="h-4 w-4" />
                     <span className="mt-1 text-[10px]">{tab.label}</span>
@@ -518,7 +518,7 @@ function App() {
                       <button
                         key={tab.id}
                         onClick={() => handleTabClick(tab.id)}
-                        className={`flex h-12 flex-col items-center justify-center rounded-lg text-[10px] font-semibold ${isActive ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700'
+                        className={`flex h-12 flex-col items-center justify-center rounded-lg text-[10px] font-semibold ${isActive ? 'bg-pink-600 text-white' : 'bg-slate-100 text-slate-700'
                           }`}
                       >
                         <Icon className="mb-1 h-3.5 w-3.5" />
@@ -531,7 +531,7 @@ function App() {
             )}
           </div>
           <div className="mx-auto mt-2 w-full max-w-md px-2 text-center text-[11px] text-slate-600">
-            © {currentYear} - Kakarama Room. All rights reserved.
+            © {currentYear} - Lya Rooms. All rights reserved.
           </div>
         </div>
       </div>

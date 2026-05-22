@@ -35,7 +35,7 @@ const OmsetChart = () => {
       console.error("Error fetching transactions:", transactionsError);
       return;
     }
-    
+
     const lokasiStats = transactions.reduce((acc, t) => {
       const omset = (t.cash_amount || 0) + (t.transfer_amount || 0);
       if (t.apartment_location) {
@@ -53,7 +53,7 @@ const OmsetChart = () => {
     setTarget(savedTarget);
     setNewTarget(savedTarget.toString());
   };
-  
+
   useEffect(() => {
     fetchData();
     const channel = supabase.channel('realtime-omset-chart')
@@ -71,8 +71,8 @@ const OmsetChart = () => {
   const handleTargetSave = async () => {
     const numericTarget = Number(newTarget);
     if (isNaN(numericTarget)) {
-        toast({ title: "Target tidak valid", variant: "destructive" });
-        return;
+      toast({ title: "Target tidak valid", variant: "destructive" });
+      return;
     }
     localStorage.setItem('omset_target', String(numericTarget));
 
@@ -84,10 +84,10 @@ const OmsetChart = () => {
   const progress = target > 0 ? (totalOmset / target) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-green-100 p-4 pt-6 pb-28">
+    <div className="min-h-screen bg-gradient-to-br from-pink-100 to-pink-100 p-4 pt-6 pb-28">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto space-y-6">
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-teal-500 text-white px-6 py-3 rounded-full shadow-lg">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white px-6 py-3 rounded-full shadow-lg">
             <PieChart className="w-5 h-5" />
             <h1 className="text-xl font-bold">Analisis Omset</h1>
           </div>
@@ -104,7 +104,7 @@ const OmsetChart = () => {
               className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800"
             />
           </div>
-          <p className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600 my-2">{formatRupiah(totalOmset)}</p>
+          <p className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-pink-600 my-2">{formatRupiah(totalOmset)}</p>
         </motion.div>
 
         <motion.div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl p-5">

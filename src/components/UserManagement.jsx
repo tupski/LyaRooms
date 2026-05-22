@@ -133,7 +133,7 @@ const UserManagement = () => {
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.full_name.toLowerCase().includes(searchTerm.toLowerCase());
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -143,7 +143,7 @@ const UserManagement = () => {
       case 'super_admin':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'admin':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-pink-100 text-pink-800 border-pink-200';
       case 'karyawan':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
@@ -165,7 +165,7 @@ const UserManagement = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
       </div>
     );
   }
@@ -294,11 +294,11 @@ const UserManagement = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Karyawan
-                          </DropdownMenuItem>
+                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Karyawan
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -334,7 +334,7 @@ const UserManagement = () => {
               <Input
                 id="edit-full_name"
                 value={formData.full_name}
-                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 className="col-span-3"
               />
             </div>
@@ -343,13 +343,13 @@ const UserManagement = () => {
               <Input
                 id="edit-phone"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="col-span-3"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-role" className="text-right">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value})}>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>

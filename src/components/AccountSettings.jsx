@@ -9,7 +9,7 @@ import { uploadToVercelBlob } from '@/lib/vercelBlobUpload';
 import { compressImageFile } from '@/lib/compressImage';
 import { isPushSupported, registerPushSubscription, saveSubscriptionToSupabase } from '@/lib/pushClient';
 
-const DEFAULT_AVATAR = '/logo-kr-transparent-square.png';
+const DEFAULT_AVATAR = '/logo-lr-transparent-square.png';
 
 export default function AccountSettings({ open, onOpenChange }) {
   const { user, userRole, refreshSession } = useAuth();
@@ -375,7 +375,7 @@ export default function AccountSettings({ open, onOpenChange }) {
         </section>
 
         <p className="text-center text-[11px] text-slate-500">
-          © {new Date().getFullYear()} - Kakarama Room. All rights reserved.
+          © {new Date().getFullYear()} - Lya Rooms. All rights reserved.
         </p>
       </DialogContent>
     </Dialog>

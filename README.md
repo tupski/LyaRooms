@@ -68,8 +68,8 @@ Sebelum memulai, pastikan Anda memiliki:
 3. Script akan otomatis membuat akun dengan role super_admin
 
 **Akun Super Admin Default:**
-- Email: `kakaramaroom@gmail.com`
-- Password: `KR@98Apartemen`
+- Email: `lyarooms@gmail.com`
+- Password: `LR@98Apartemen`
 - Role: super_admin (akses penuh ke semua fitur)
 
 ### 2. Setup Environment Variables
@@ -271,4 +271,4 @@ Jika ada pertanyaan atau masalah:
 
 ---
 
-© 2026 - Kakarama Room. All rights reserved.
+© 2026 - Lya Rooms. All rights reserved.

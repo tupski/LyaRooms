@@ -23,9 +23,11 @@ BEGIN
 END $$;
 
 -- Seed awal data jika kosong
+-- Note: Updated to "Lya Rooms" as part of rebrand (Requirement 14.1)
+-- The COALESCE ensures existing values are not overwritten
 INSERT INTO public.system_settings (key, value, description)
 VALUES 
-    ('app_name', '"Kakarama Room"'::jsonb, 'Nama Aplikasi'),
+    ('app_name', '"Lya Rooms"'::jsonb, 'Nama Aplikasi'),
     ('maintenance_mode', 'false'::jsonb, 'Status Maintenance Mode'),
     ('wa_admin', '"6289613413636"'::jsonb, 'Nomor WhatsApp Admin untuk laporan'),
     ('global_announcement', '""'::jsonb, 'Pengumuman yang muncul di seluruh halaman')

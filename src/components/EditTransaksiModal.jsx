@@ -12,7 +12,7 @@ const RENTAL_TYPE_OPTIONS = [
 const TRANSIT_DURATION_OPTIONS = ['3 JAM', '6 JAM', '9 JAM', '12 JAM', '24 JAM', 'Custom'];
 const OVERNIGHT_DURATION_OPTIONS = ['Promo Malam', 'Fullday', 'Custom'];
 const SHIFT_OPTIONS = ['Pagi', 'Malam', 'Long Shift'];
-const TRANSFER_TARGET_OPTIONS = ['Kakarama', 'Marketing'];
+const TRANSFER_TARGET_OPTIONS = ['Lya Rooms', 'Marketing'];
 
 const formatRupiah = (value) =>
   value ? new Intl.NumberFormat('id-ID').format(String(value).replace(/[^0-9]/g, '')) : '';

@@ -13,9 +13,9 @@ const PinInput = ({ onComplete }) => {
     if (element.value !== "" && index < 5) {
       inputsRef.current[index + 1].focus();
     }
-    
+
     if (newPin.every(digit => digit !== "")) {
-        onComplete(newPin.join(""));
+      onComplete(newPin.join(""));
     }
   };
 
@@ -31,7 +31,7 @@ const PinInput = ({ onComplete }) => {
         <input
           key={index}
           ref={el => inputsRef.current[index] = el}
-          className="w-12 h-14 text-center text-2xl font-bold text-gray-900 bg-gray-100 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+          className="w-12 h-14 text-center text-2xl font-bold text-gray-900 bg-gray-100 border-2 border-gray-300 rounded-lg focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none"
           type="text"
           name="pin"
           maxLength="1"

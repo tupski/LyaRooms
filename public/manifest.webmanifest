@@ -1,20 +1,20 @@
 {
-  "name": "Kakarama Room",
-  "short_name": "KR",
-  "description": "Aplikasi manajemen transaksi dan kamar Kakarama Room.",
+  "name": "Lya Rooms",
+  "short_name": "LR",
+  "description": "Aplikasi manajemen transaksi dan kamar Lya Rooms.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eff6ff",
-  "theme_color": "#1d4ed8",
+  "background_color": "#fce4ec",
+  "theme_color": "#c2185b",
   "icons": [
     {
-      "src": "/logo-kr-transparent-square.png",
+      "src": "/logo-lr-transparent-square.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo-kr-transparent-square.png",
+      "src": "/logo-lr-transparent-square.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

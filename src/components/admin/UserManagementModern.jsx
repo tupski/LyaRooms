@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { 
-  Users, UserPlus, Search, Edit2, Trash2, Shield, User, 
+import {
+  Users, UserPlus, Search, Edit2, Trash2, Shield, User,
   Phone, Mail, Check, X, MoreVertical, ChevronDown, Filter,
   MapPin, CheckSquare, Square
 } from 'lucide-react';
@@ -40,7 +40,7 @@ const UserManagementModern = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
@@ -81,7 +81,7 @@ const UserManagementModern = () => {
 
       const { data: locs } = await supabase.from('lokasi_apartemen').select('*').order('name');
       setLocations(locs || []);
-      
+
       const { data: assigns } = await supabase.from('user_location_assignments').select('*');
       setUserAssignments(assigns || []);
     } catch (error) {
@@ -227,8 +227,8 @@ const UserManagementModern = () => {
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
       return matchesSearch && matchesRole;
     });
@@ -248,8 +248,8 @@ const UserManagementModern = () => {
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Cari nama atau email..." 
+          <Input
+            placeholder="Cari nama atau email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 rounded-xl border-slate-200"
@@ -279,7 +279,7 @@ const UserManagementModern = () => {
           </div>
         ) : (
           filteredUsers.map((user) => (
-            <motion.div 
+            <motion.div
               key={user.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -287,17 +287,15 @@ const UserManagementModern = () => {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold ${
-                    user.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
-                  }`}>
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold ${user.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
                     {user.full_name?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 truncate max-w-[150px]">{user.full_name}</h3>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                        user.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'
-                      }`}>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'
+                        }`}>
                         {user.role}
                       </span>
                       <span className="text-[10px] text-slate-400">• {user.gender}</span>
@@ -370,9 +368,9 @@ const UserManagementModern = () => {
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Nama Lengkap</label>
-              <Input 
-                value={formData.full_name} 
-                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+              <Input
+                value={formData.full_name}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 placeholder="Contoh: Budi Santoso"
                 className="rounded-xl"
               />
@@ -380,7 +378,7 @@ const UserManagementModern = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Jenis Kelamin</label>
-                <Select value={formData.gender} onValueChange={(v) => setFormData({...formData, gender: v})}>
+                <Select value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v })}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Pria">Pria</SelectItem>
@@ -390,7 +388,7 @@ const UserManagementModern = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Role</label>
-                <Select value={formData.role} onValueChange={(v) => setFormData({...formData, role: v})}>
+                <Select value={formData.role} onValueChange={(v) => setFormData({ ...formData, role: v })}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="karyawan">Karyawan</SelectItem>
@@ -401,12 +399,12 @@ const UserManagementModern = () => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Email</label>
-              <Input 
-                type="email" 
-                value={formData.email} 
+              <Input
+                type="email"
+                value={formData.email}
                 disabled={!!selectedUser}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="email@kakarama.com"
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="email@lyarooms.com"
                 className="rounded-xl"
               />
             </div>
@@ -414,19 +412,19 @@ const UserManagementModern = () => {
               <label className="text-sm font-semibold text-slate-700">
                 {selectedUser ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password'}
               </label>
-              <Input 
-                type="password" 
-                value={formData.password} 
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+              <Input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="••••••••"
                 className="rounded-xl"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Nomor Telepon</label>
-              <Input 
-                value={formData.phone} 
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="08123456789"
                 className="rounded-xl"
               />
@@ -465,16 +463,16 @@ const UserManagementModern = () => {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Assign Lokasi</DialogTitle>
             <DialogDescription>
-              Tugaskan <strong>{selectedUser?.full_name}</strong> ke lokasi tertentu. 
+              Tugaskan <strong>{selectedUser?.full_name}</strong> ke lokasi tertentu.
               <br />
               <span className="text-emerald-600 font-bold">💡 Tips: Jika tidak ada yang dipilih, akun karyawan tidak bisa input transaksi/lihat kamar.</span>
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-between items-center mb-2 px-1">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Apartemen</p>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-7 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
               disabled={assignmentBusy}
               onClick={async () => {
@@ -522,11 +520,10 @@ const UserManagementModern = () => {
                   type="button"
                   disabled={assignmentBusy}
                   onClick={() => handleToggleAssignment(loc.name)}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 transition-all disabled:opacity-50 disabled:pointer-events-none ${
-                    isAssigned 
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900' 
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 transition-all disabled:opacity-50 disabled:pointer-events-none ${isAssigned
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
                       : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
-                  }`}
+                    }`}
                 >
                   <span className="font-bold">{loc.name}</span>
                   {isAssigned ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}

@@ -329,10 +329,10 @@ export const getMenuItemWithStyles = (id, userRole) => {
 export const getCategoryColorScheme = (category) => {
   const schemes = {
     [MENU_CATEGORIES.OPERATIONS]: {
-      bg: 'bg-blue-50',
-      text: 'text-blue-700',
-      border: 'border-blue-200',
-      icon: 'text-blue-600'
+      bg: 'bg-pink-50',
+      text: 'text-pink-700',
+      border: 'border-pink-200',
+      icon: 'text-pink-600'
     },
     [MENU_CATEGORIES.ANALYTICS]: {
       bg: 'bg-green-50',

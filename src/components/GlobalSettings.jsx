@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/customSupabaseClient';
-import { 
-  Settings, Save, RefreshCw, Smartphone, 
-  AlertTriangle, CheckCircle, Megaphone, 
+import {
+  Settings, Save, RefreshCw, Smartphone,
+  AlertTriangle, CheckCircle, Megaphone,
   Info, ShieldCheck, Globe
 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -16,7 +16,7 @@ import { toast } from '@/components/ui/use-toast';
 
 const GlobalSettings = () => {
   const [settings, setSettings] = useState({
-    app_name: 'Kakarama Room',
+    app_name: 'Lya Rooms',
     wa_admin: '',
     maintenance_mode: false,
     global_announcement: ''
@@ -55,7 +55,7 @@ const GlobalSettings = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
       const updates = Object.keys(settings).map(key => ({
         key,
         value: settings[key],
@@ -87,7 +87,7 @@ const GlobalSettings = () => {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto space-y-8 px-4 py-8 sm:px-0"
@@ -99,8 +99,8 @@ const GlobalSettings = () => {
           </h2>
           <p className="text-sm text-slate-500 mt-1">Atur parameter sistem yang berlaku untuk semua pengguna.</p>
         </div>
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={saving}
           className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-6 shadow-lg shadow-blue-100"
         >
@@ -121,11 +121,11 @@ const GlobalSettings = () => {
           <CardContent className="p-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="app_name">Nama Aplikasi</Label>
-              <Input 
-                id="app_name" 
-                value={settings.app_name} 
-                onChange={(e) => setSettings({...settings, app_name: e.target.value})}
-                placeholder="Kakarama Room"
+              <Input
+                id="app_name"
+                value={settings.app_name}
+                onChange={(e) => setSettings({ ...settings, app_name: e.target.value })}
+                placeholder="Lya Rooms"
                 className="rounded-xl border-slate-200"
               />
             </div>
@@ -133,10 +133,10 @@ const GlobalSettings = () => {
               <Label htmlFor="wa_admin">Nomor WA Admin (Laporan)</Label>
               <div className="relative">
                 <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  id="wa_admin" 
-                  value={settings.wa_admin} 
-                  onChange={(e) => setSettings({...settings, wa_admin: e.target.value})}
+                <Input
+                  id="wa_admin"
+                  value={settings.wa_admin}
+                  onChange={(e) => setSettings({ ...settings, wa_admin: e.target.value })}
                   placeholder="628..."
                   className="pl-10 rounded-xl border-slate-200"
                 />
@@ -160,10 +160,10 @@ const GlobalSettings = () => {
                 <Label htmlFor="maintenance" className="text-slate-900 font-bold">Mode Pemeliharaan</Label>
                 <p className="text-xs text-slate-500">Batasi akses hanya untuk Super Admin.</p>
               </div>
-              <Switch 
-                id="maintenance" 
-                checked={settings.maintenance_mode} 
-                onCheckedChange={(v) => setSettings({...settings, maintenance_mode: v})}
+              <Switch
+                id="maintenance"
+                checked={settings.maintenance_mode}
+                onCheckedChange={(v) => setSettings({ ...settings, maintenance_mode: v })}
               />
             </div>
             {settings.maintenance_mode && (
@@ -184,9 +184,9 @@ const GlobalSettings = () => {
             <CardDescription>Pesan ini akan muncul di dasbor seluruh karyawan.</CardDescription>
           </CardHeader>
           <CardContent className="p-6">
-            <Textarea 
-              value={settings.global_announcement} 
-              onChange={(e) => setSettings({...settings, global_announcement: e.target.value})}
+            <Textarea
+              value={settings.global_announcement}
+              onChange={(e) => setSettings({ ...settings, global_announcement: e.target.value })}
               placeholder="Ketik pengumuman di sini..."
               className="min-h-[120px] rounded-2xl border-slate-200 resize-none focus:ring-purple-500"
             />

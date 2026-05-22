@@ -22,7 +22,7 @@ const HeaderLayout = ({ user, userRole }) => {
       case 'super_admin':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'admin':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-pink-100 text-pink-800 border-pink-200';
       case 'karyawan':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
@@ -44,20 +44,20 @@ const HeaderLayout = ({ user, userRole }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-gradient-to-r from-pink-600 to-pink-500 backdrop-blur">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo/Merek */}
         <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold">
-            KR
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-pink-600 font-bold">
+            LR
           </div>
-          <span className="font-semibold text-lg">Kost Rental</span>
+          <span className="font-semibold text-lg text-white">Lya Rooms</span>
         </div>
 
         {/* Sisi kanan - menu karyawan dan notifikasi */}
         <div className="flex items-center space-x-4">
           {/* Notifikasi */}
-          <Button variant="ghost" size="icon" className="relative">
+          <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/20">
             <Bell className="h-5 w-5" />
             {notifications > 0 && (
               <Badge

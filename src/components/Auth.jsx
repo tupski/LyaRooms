@@ -82,15 +82,15 @@ const Auth = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-900 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-700 to-pink-900 p-4">
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-sm mx-auto bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8"
             >
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white">KakaRama Room</h1>
-                    <small className="text-gray-300">Masuk menggunakan akun karyawan/admin KakaRama Room</small>
+                    <h1 className="text-3xl font-bold text-white">Lya Rooms</h1>
+                    <small className="text-gray-300">Masuk menggunakan akun karyawan/admin Lya Rooms</small>
                 </div>
 
                 {/* Admin Info */}
@@ -108,7 +108,7 @@ const Auth = () => {
                     <div>
                         <label className="block text-sm font-semibold text-gray-300 mb-2">Email</label>
                         <input
-                            className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 text-white placeholder-gray-400 focus:ring-4 focus:ring-blue-300 focus:border-blue-400 transition-all outline-none"
+                            className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 text-white placeholder-gray-400 focus:ring-4 focus:ring-pink-300 focus:border-pink-400 transition-all outline-none"
                             type="email"
                             placeholder="admin@apartemen.com"
                             value={email}
@@ -119,7 +119,7 @@ const Auth = () => {
                     <div>
                         <label className="block text-sm font-semibold text-gray-300 mb-2">Password</label>
                         <input
-                            className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 text-white placeholder-gray-400 focus:ring-4 focus:ring-blue-300 focus:border-blue-400 transition-all outline-none"
+                            className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 text-white placeholder-gray-400 focus:ring-4 focus:ring-pink-300 focus:border-pink-400 transition-all outline-none"
                             type="password"
                             placeholder="••••••••"
                             value={password}
@@ -128,7 +128,7 @@ const Auth = () => {
                         />
                     </div>
                     <div>
-                        <Button type="submit" className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-3 text-base rounded-xl shadow-lg" disabled={loading}>
+                        <Button type="submit" className="w-full bg-gradient-to-r from-pink-400 to-pink-600 text-white font-bold py-3 text-base rounded-xl shadow-lg" disabled={loading}>
                             {loading ? 'Memuat...' : <><LogIn className="mr-2 h-5 w-5" /> Masuk</>}
                         </Button>
                     </div>
@@ -145,7 +145,7 @@ const Auth = () => {
                         <Button
                             type="button"
                             onClick={handleInstallClick}
-                            className="mt-3 w-full bg-white text-blue-800 hover:bg-white/90"
+                            className="mt-3 w-full bg-white text-pink-800 hover:bg-white/90"
                         >
                             <Download className="mr-2 h-5 w-5" />
                             Install Aplikasi
@@ -157,10 +157,10 @@ const Auth = () => {
                     <p className="text-gray-400 text-xs">
                         Belum punya akun?
                         <br />
-                        Hubungi <b>KR</b> untuk membuat akun.
+                        Hubungi <b>Admin Lya Rooms</b> untuk membuat akun.
                     </p>
                     <p className="mt-4 text-[11px] text-white/60">
-                        © {currentYear} - Kakarama Room. All rights reserved.
+                        © {currentYear} - Lya Rooms. All rights reserved.
                     </p>
                 </div>
             </motion.div>

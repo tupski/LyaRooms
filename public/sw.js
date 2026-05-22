@@ -1,10 +1,10 @@
-const CACHE_NAME = 'kr-pwa-v2.2.1';
+const CACHE_NAME = 'lr-pwa-v2.2.1';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/favicon.svg',
-  '/logo-kr-transparent-square.png',
+  '/logo-lr-transparent-square.png',
   '/pwa-icon-192.svg',
   '/pwa-icon-512.svg',
   '/pwa-splash.svg',
@@ -62,11 +62,11 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   try {
     const payload = event.data ? event.data.json() : {};
-    const title = payload.title || 'Kakarama Room';
+    const title = payload.title || 'Lya Rooms';
     const body = payload.body || '';
     const url = payload.url || '/';
-    const icon = payload.icon || '/pwa-icon-192.svg';
-    const badge = payload.badge || '/pwa-icon-192.svg';
+    const icon = payload.icon || '/lr-icon-192.svg';
+    const badge = payload.badge || '/lr-icon-192.svg';
 
     event.waitUntil(
       self.registration.showNotification(title, {
