@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Camera, CalendarDays, Megaphone, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut } from 'lucide-react';
+import { Bell, Camera, CalendarDays, Megaphone, TrendingUp, Trophy, PieChart, DoorOpen, FileText, Send, MoreHorizontal, Settings, LogOut, BarChart2 } from 'lucide-react';
 import FormTransaksi from '@/components/FormTransaksiModern';
 import KaryawanTransaksi from '@/components/KaryawanTransaksi';
 import DashboardPemasukan from '@/components/DashboardPemasukan';
@@ -10,6 +10,7 @@ import KetersediaanKamar from '@/components/KetersediaanKamar';
 import HalamanTagihan from '@/components/HalamanTagihan';
 import HalamanRequest from '@/components/HalamanRequest';
 import SuperAdminDashboard from '@/components/SuperAdminDashboard';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Auth from '@/components/Auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -77,13 +78,13 @@ function App() {
       }
     };
     fetchSettings();
-    
+
     // Realtime settings
     const channel = supabase
       .channel('system_settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, fetchSettings)
       .subscribe();
-      
+
     return () => supabase.removeChannel(channel);
   }, []);
 
@@ -99,12 +100,12 @@ function App() {
     const userId = session?.user?.id;
     if (!userId || !audienceFilter) return;
     try {
+      // Ambil semua notifikasi yang relevan (tanpa limit untuk akurasi badge)
       const { data: notif, error: nErr } = await supabase
         .from('notifications')
         .select('id')
         .or(audienceFilter)
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
       if (nErr) throw nErr;
 
       const ids = (notif || []).map((n) => n.id);
@@ -144,9 +145,10 @@ function App() {
       .channel(`notif_badge_${session.user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, refreshUnread)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_reads' }, refreshUnread)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_hidden' }, refreshUnread)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [session?.user?.id]);
+  }, [session?.user?.id, audienceFilter]);
 
   const handleDataUpdate = () => setRefreshKey((prevKey) => prevKey + 1);
 
@@ -179,6 +181,7 @@ function App() {
     { id: 'finance', label: 'Keuangan', icon: FileText },
     { id: 'ranking', label: 'Ranking', icon: Trophy },
     { id: 'chart', label: 'Grafik', icon: PieChart },
+    { id: 'analytics', label: 'Analitik', icon: BarChart2 },
     { id: 'pengaturan', label: 'Pengaturan', icon: Settings },
   ];
 
@@ -254,6 +257,10 @@ function App() {
         return <RankingMarketing key={key} />;
       case 'chart':
         return <OmsetChart key={key} />;
+      case 'analytics':
+        return (userRole === 'admin' || userRole === 'super_admin')
+          ? <AnalyticsDashboard key={key} />
+          : null;
       case 'pengaturan':
         return isSuperAdmin ? <SuperAdminDashboard key={key} /> : <FormTransaksi key={key} onDataUpdate={handleDataUpdate} />;
       default:
@@ -360,34 +367,34 @@ function App() {
                   </Avatar>
                 </button>
               </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuLabel className="space-y-1">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {session?.user?.user_metadata?.full_name || session?.user?.email}
-                </p>
-                <p className="pt-0.5 text-xs text-slate-500">{displayRole}</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  setShowAccountSettings(true);
-                }}
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                Pengaturan
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  setShowLogoutConfirm(true);
-                }}
-                className="text-red-600 focus:text-red-600"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Keluar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="space-y-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {session?.user?.user_metadata?.full_name || session?.user?.email}
+                  </p>
+                  <p className="pt-0.5 text-xs text-slate-500">{displayRole}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setShowAccountSettings(true);
+                  }}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Pengaturan
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setShowLogoutConfirm(true);
+                  }}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Keluar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
@@ -469,9 +476,8 @@ function App() {
 
               <button
                 onClick={() => handleTabClick('form')}
-                className={`-mt-7 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border-4 border-white text-white shadow-lg ${
-                  activeTab === 'form' ? 'bg-blue-600' : 'bg-cyan-500'
-                }`}
+                className={`-mt-7 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border-4 border-white text-white shadow-lg ${activeTab === 'form' ? 'bg-blue-600' : 'bg-cyan-500'
+                  }`}
               >
                 <Camera className="h-6 w-6" />
                 <span className="mt-0.5 text-[9px] font-semibold">Input</span>
@@ -512,9 +518,8 @@ function App() {
                       <button
                         key={tab.id}
                         onClick={() => handleTabClick(tab.id)}
-                        className={`flex h-12 flex-col items-center justify-center rounded-lg text-[10px] font-semibold ${
-                          isActive ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700'
-                        }`}
+                        className={`flex h-12 flex-col items-center justify-center rounded-lg text-[10px] font-semibold ${isActive ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700'
+                          }`}
                       >
                         <Icon className="mb-1 h-3.5 w-3.5" />
                         {tab.label}
