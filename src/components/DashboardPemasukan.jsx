@@ -222,7 +222,7 @@ const DashboardPemasukan = () => {
   };
 
   const handlePinComplete = (pin) => {
-    if (pin === '212198') {
+    if (pin === '171717') {
       setShowPinModal(false);
       setEditingTransaksi(pendingEdit);
       setPendingEdit(null);
